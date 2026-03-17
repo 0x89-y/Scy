@@ -1,0 +1,4 @@
+{
+    "group": "Privacy & Telemetry",
+    "description": "Disables Windows diagnostic data collection (requires admin)"
+}

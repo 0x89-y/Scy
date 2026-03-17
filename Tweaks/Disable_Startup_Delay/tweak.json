@@ -1,0 +1,4 @@
+{
+    "group": "Performance & Startup",
+    "description": "Remove the artificial delay before startup apps launch"
+}
