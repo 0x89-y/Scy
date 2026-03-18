@@ -4,6 +4,10 @@ $qrInputBox         = Find "QRInputBox"
 $qrInputPlaceholder = Find "QRInputPlaceholder"
 $qrOutputPanel      = Find "QROutputPanel"
 $btnQRGenerate      = Find "BtnQRGenerate"
+$btnQRSave          = Find "BtnQRSave"
+
+$script:lastQRBitmap = $null
+$script:lastQRText   = $null
 
 $qrInputBox.Add_GotFocus({  $qrInputPlaceholder.Visibility = "Collapsed" })
 $qrInputBox.Add_LostFocus({
@@ -57,6 +61,11 @@ function Invoke-QRGenerate {
         $qrBorder.Child = $img
         $qrOutputPanel.Children.Add($qrBorder) | Out-Null
 
+        $script:lastQRBitmap = $qrImage
+        $script:lastQRText   = $text
+        $btnQRSave.IsEnabled = $true
+        $btnQRSave.Opacity   = 1
+
         # Byte count info
         $byteLen = [System.Text.Encoding]::UTF8.GetByteCount($text)
         $hint          = New-Object System.Windows.Controls.TextBlock
@@ -77,3 +86,26 @@ function Invoke-QRGenerate {
 }
 
 $btnQRGenerate.Add_Click({ Invoke-QRGenerate })
+
+$btnQRSave.Add_Click({
+    if (-not $script:lastQRText) { return }
+
+    $dlg = New-Object Microsoft.Win32.SaveFileDialog
+    $dlg.Filter   = "PNG Image (*.png)|*.png"
+    $dlg.FileName = "qrcode.png"
+    if ($dlg.ShowDialog($window)) {
+        # Re-generate at high resolution for a crisp export
+        $hiRes = New-QRCodeImage -Text $script:lastQRText -ModuleSize 20 `
+            -Dark ([System.Windows.Media.Colors]::Black) `
+            -Light ([System.Windows.Media.Colors]::White)
+
+        $encoder = [System.Windows.Media.Imaging.PngBitmapEncoder]::new()
+        $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($hiRes))
+        $stream = [System.IO.File]::Create($dlg.FileName)
+        try {
+            $encoder.Save($stream)
+        } finally {
+            $stream.Close()
+        }
+    }
+})

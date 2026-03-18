@@ -2061,7 +2061,10 @@
                                         </DockPanel>
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                             <Button x:Name="BtnQRGenerate" Content="Generate"
-                                                    Style="{StaticResource ActionButton}"/>
+                                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                            <Button x:Name="BtnQRSave" Content="Save PNG"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    IsEnabled="False" Opacity="0.4"/>
                                         </StackPanel>
                                     </Grid>
                                     <TextBlock Text="Enter any text or URL below to generate a QR code."
