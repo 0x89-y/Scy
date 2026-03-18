@@ -34,9 +34,9 @@ $script:qrVersions[4]  = @{ Size=33;  Total=100;  ECPer=18; Blocks=2; Capacity=6
 $script:qrVersions[5]  = @{ Size=37;  Total=134;  ECPer=24; Blocks=2; Capacity=84  }
 $script:qrVersions[6]  = @{ Size=41;  Total=172;  ECPer=16; Blocks=4; Capacity=106 }
 $script:qrVersions[7]  = @{ Size=45;  Total=196;  ECPer=18; Blocks=4; Capacity=122 }
-$script:qrVersions[8]  = @{ Size=49;  Total=242;  ECPer=24; Blocks=4; Capacity=152 }
-$script:qrVersions[9]  = @{ Size=53;  Total=292;  ECPer=22; Blocks=4; Capacity=180 }
-$script:qrVersions[10] = @{ Size=57;  Total=346;  ECPer=28; Blocks=4; Capacity=213 }
+$script:qrVersions[8]  = @{ Size=49;  Total=242;  ECPer=22; Blocks=4; Capacity=152 }
+$script:qrVersions[9]  = @{ Size=53;  Total=292;  ECPer=22; Blocks=5; Capacity=180 }
+$script:qrVersions[10] = @{ Size=57;  Total=346;  ECPer=26; Blocks=5; Capacity=213 }
 
 # Block structure per version: list of (numBlocks, dataCodewordsPerBlock) pairs
 $script:qrBlockStructure = @{}
@@ -48,7 +48,7 @@ $script:qrBlockStructure[5]  = [System.Collections.Generic.List[int[]]]::new(); 
 $script:qrBlockStructure[6]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[6].Add([int[]]@(4, 27))
 $script:qrBlockStructure[7]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[7].Add([int[]]@(4, 31))
 $script:qrBlockStructure[8]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[8].Add([int[]]@(2, 38)); $script:qrBlockStructure[8].Add([int[]]@(2, 39))
-$script:qrBlockStructure[9]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[9].Add([int[]]@(3, 36)); $script:qrBlockStructure[9].Add([int[]]@(1, 37))
+$script:qrBlockStructure[9]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[9].Add([int[]]@(3, 36)); $script:qrBlockStructure[9].Add([int[]]@(2, 37))
 $script:qrBlockStructure[10] = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[10].Add([int[]]@(4, 43)); $script:qrBlockStructure[10].Add([int[]]@(1, 44))
 
 # Alignment pattern center positions per version
@@ -327,6 +327,31 @@ function _QR-BuildMatrix([string]$text) {
         $reserved[($size - 8 + $i), 8] = $true
     }
 
+    # Version info (versions 7+)
+    if ($version -ge 7) {
+        # Compute version info: 6-bit version + 12-bit BCH(18,6)
+        [int]$vBits = $version -shl 12
+        [int]$rem = $vBits
+        for ([int]$i = 17; $i -ge 12; $i--) {
+            if (($rem -shr $i) -band 1) { $rem = $rem -bxor (0x1F25 -shl ($i - 12)) }
+        }
+        [int]$vInfo18 = $vBits -bor $rem
+
+        # Place in two 6x3 blocks (not masked)
+        for ([int]$i = 0; $i -lt 18; $i++) {
+            [bool]$bit = [bool](($vInfo18 -shr $i) -band 1)
+            [int]$row = [int]([Math]::Floor($i / 3))
+            [int]$col = $i % 3
+
+            # Bottom-left block: rows (size-11)+(0..2), cols 0..5
+            $matrix[($size - 11 + $col), $row] = $bit
+            $reserved[($size - 11 + $col), $row] = $true
+            # Top-right block: rows 0..5, cols (size-11)+(0..2)
+            $matrix[$row, ($size - 11 + $col)] = $bit
+            $reserved[$row, ($size - 11 + $col)] = $true
+        }
+    }
+
     # Encode data
     _QR-EncodeData $text $version
     [byte[]]$dataCW = $script:_qrTmpData
@@ -440,7 +465,7 @@ function _QR-WriteFormatInfo([bool[,]]$mat, [int]$size, [int]$mask) {
     [int[]]$p2c = @($s1, $s2, $s3, $s4, $s5, $s6, $s7, $s8, 8, 8, 8, 8, 8, 8, 8)
 
     for ([int]$i = 0; $i -lt 15; $i++) {
-        [bool]$bit = [bool](($fmtBits -shr (14 - $i)) -band 1)
+        [bool]$bit = [bool](($fmtBits -shr $i) -band 1)
         $mat[$p1r[$i], $p1c[$i]] = $bit
         $mat[$p2r[$i], $p2c[$i]] = $bit
     }
