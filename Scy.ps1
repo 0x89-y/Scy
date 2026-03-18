@@ -297,7 +297,7 @@ $window.Add_Closing({
     if ($isAdmin) {
         Show-ThemedDialog "Already running as Administrator!" "Info" "OK" "Information"
     } else {
-        Start-Process powershell "-File `"$PSCommandPath`"" -Verb RunAs
+        Start-Process powershell "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
         $window.Close()
     }
 })
