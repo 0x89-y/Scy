@@ -252,6 +252,8 @@ function Show-ThemedDialog {
 . (Join-Path $PSScriptRoot "Tabs\Tab-Tweaks.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Settings.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-SSH.ps1")
+. (Join-Path $PSScriptRoot "Tabs\QRCode.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-QRCode.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Network.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Hosts.ps1")
 

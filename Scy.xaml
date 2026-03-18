@@ -2035,6 +2035,66 @@
                 </Border>
             </TabItem>
 
+            <!-- ─── QR Code ─── -->
+            <TabItem Header="QR Code">
+                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <!-- QR Code Generator card -->
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Padding="16,14">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <DockPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                    Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                            <TextBlock Text="QR Code Generator"
+                                                       FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button x:Name="BtnQRGenerate" Content="Generate"
+                                                    Style="{StaticResource ActionButton}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Text="Enter any text or URL below to generate a QR code."
+                                               FontSize="11" Foreground="{DynamicResource MutedText}"
+                                               Margin="0,0,0,10" TextWrapping="Wrap"/>
+
+                                    <!-- Input area -->
+                                    <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="8,0" Margin="0,0,0,12">
+                                        <Grid>
+                                            <TextBlock x:Name="QRInputPlaceholder" Text="Enter text, URL, or any data..."
+                                                       Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                       VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                            <TextBox x:Name="QRInputBox" Background="Transparent" BorderThickness="0"
+                                                     Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                     CaretBrush="{DynamicResource FgBrush}" Padding="0,8"
+                                                     SelectionBrush="{DynamicResource AccentBrush}"
+                                                     TextWrapping="Wrap" AcceptsReturn="True"
+                                                     MinHeight="60" MaxHeight="120"
+                                                     VerticalScrollBarVisibility="Auto"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- QR code output -->
+                                    <StackPanel x:Name="QROutputPanel" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+
             <!-- ─── Settings ─── -->
             <TabItem Header="Settings">
                 <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"

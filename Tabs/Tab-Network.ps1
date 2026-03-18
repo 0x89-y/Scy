@@ -346,6 +346,141 @@ $btnNetSpeed.Add_Click({
     $ps.BeginInvoke() | Out-Null
 })
 
+# -- Wi-Fi QR code dialog ----------------------------------------------------
+function Show-WifiQRDialog([string]$ssid, [string]$password, [string]$authType) {
+    # Escape special chars for WiFi QR format
+    $escSsid = $ssid -replace '([\\;,:""])', '\$1'
+    $escPwd  = $password -replace '([\\;,:""])', '\$1'
+
+    $wifiString = if ($authType -eq "nopass") {
+        "WIFI:T:nopass;S:$escSsid;;"
+    } else {
+        "WIFI:T:$authType;S:$escSsid;P:$escPwd;;"
+    }
+
+    # Generate QR code -- always use black-on-white for best scanner compatibility
+    $qrImage = New-QRCodeImage -Text $wifiString -ModuleSize 6 `
+        -Dark ([System.Windows.Media.Colors]::Black) `
+        -Light ([System.Windows.Media.Colors]::White)
+
+    # Build themed dialog (matches Show-ThemedDialog style)
+    $dlg = New-Object System.Windows.Window
+    $dlg.Title               = "Wi-Fi QR Code"
+    $dlg.WindowStyle         = "None"
+    $dlg.ResizeMode          = "NoResize"
+    $dlg.SizeToContent       = "WidthAndHeight"
+    $dlg.WindowStartupLocation = "CenterOwner"
+    $dlg.Owner               = $window
+    $dlg.Background          = $window.Resources["WindowBgBrush"]
+    $dlg.Foreground          = $window.Resources["FgBrush"]
+    $dlg.Add_MouseLeftButtonDown({ $this.DragMove() })
+
+    $outerBorder = New-Object System.Windows.Controls.Border
+    $outerBorder.BorderBrush     = $window.Resources["BorderBrush"]
+    $outerBorder.BorderThickness = [System.Windows.Thickness]::new(1)
+    $outerBorder.CornerRadius    = [System.Windows.CornerRadius]::new(8)
+    $outerBorder.Background      = $window.Resources["WindowBgBrush"]
+
+    $root = New-Object System.Windows.Controls.StackPanel
+
+    # ── Title bar ──
+    $titleBar = New-Object System.Windows.Controls.Border
+    $titleBar.Background = $window.Resources["SurfaceBrush"]
+    $titleBar.Padding    = [System.Windows.Thickness]::new(16, 10, 16, 10)
+
+    $titleGrid = New-Object System.Windows.Controls.Grid
+    $tc0 = New-Object System.Windows.Controls.ColumnDefinition
+    $tc0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+    $tc1 = New-Object System.Windows.Controls.ColumnDefinition
+    $tc1.Width = [System.Windows.GridLength]::Auto
+    $titleGrid.ColumnDefinitions.Add($tc0)
+    $titleGrid.ColumnDefinitions.Add($tc1)
+
+    $titleText            = New-Object System.Windows.Controls.TextBlock
+    $titleText.Text       = "Wi-Fi QR Code"
+    $titleText.FontSize   = 13
+    $titleText.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $titleText.Foreground = $window.Resources["FgBrush"]
+    $titleText.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    [System.Windows.Controls.Grid]::SetColumn($titleText, 0)
+
+    $closeBtn = New-Object System.Windows.Controls.Button
+    $closeBtn.Content     = [char]0x2715
+    $closeBtn.FontSize    = 12
+    $closeBtn.FontWeight  = [System.Windows.FontWeights]::Bold
+    $closeBtn.Padding     = [System.Windows.Thickness]::new(6, 2, 6, 2)
+    $closeBtn.Cursor      = [System.Windows.Input.Cursors]::Hand
+    $closeBtn.Style       = $window.Resources["DangerButton"]
+    $closeBtn.Foreground  = $window.Resources["DangerBrush"]
+    $closeBtn.BorderThickness = [System.Windows.Thickness]::new(0)
+    [System.Windows.Controls.Grid]::SetColumn($closeBtn, 1)
+    $closeBtn.Add_Click({ $dlg.Close() })
+
+    $titleGrid.Children.Add($titleText) | Out-Null
+    $titleGrid.Children.Add($closeBtn)  | Out-Null
+    $titleBar.Child = $titleGrid
+
+    # ── Body ──
+    $body = New-Object System.Windows.Controls.StackPanel
+    $body.HorizontalAlignment = "Center"
+    $body.Margin = [System.Windows.Thickness]::new(24, 16, 24, 8)
+
+    # Network name
+    $ssidBlock            = New-Object System.Windows.Controls.TextBlock
+    $ssidBlock.Text       = $ssid
+    $ssidBlock.FontSize   = 15
+    $ssidBlock.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $ssidBlock.Foreground = $window.Resources["FgBrush"]
+    $ssidBlock.HorizontalAlignment = "Center"
+    $ssidBlock.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 12)
+    $body.Children.Add($ssidBlock) | Out-Null
+
+    # QR code image (white background border for contrast in dark theme)
+    $qrBorder = New-Object System.Windows.Controls.Border
+    $qrBorder.Background   = [System.Windows.Media.Brushes]::White
+    $qrBorder.CornerRadius = [System.Windows.CornerRadius]::new(6)
+    $qrBorder.Padding      = [System.Windows.Thickness]::new(8)
+    $qrBorder.HorizontalAlignment = "Center"
+
+    $img = New-Object System.Windows.Controls.Image
+    $img.Source = $qrImage
+    $img.Width  = $qrImage.PixelWidth
+    $img.Height = $qrImage.PixelHeight
+    $img.SetValue([System.Windows.Media.RenderOptions]::BitmapScalingModeProperty,
+        [System.Windows.Media.BitmapScalingMode]::NearestNeighbor)
+    $qrBorder.Child = $img
+    $body.Children.Add($qrBorder) | Out-Null
+
+    # Hint text
+    $hint            = New-Object System.Windows.Controls.TextBlock
+    $hint.Text       = "Scan with your phone camera to connect"
+    $hint.FontSize   = 11
+    $hint.Foreground = $window.Resources["MutedText"]
+    $hint.HorizontalAlignment = "Center"
+    $hint.Margin     = [System.Windows.Thickness]::new(0, 10, 0, 0)
+    $body.Children.Add($hint) | Out-Null
+
+    # ── Close button row ──
+    $btnPanel = New-Object System.Windows.Controls.StackPanel
+    $btnPanel.HorizontalAlignment = "Center"
+    $btnPanel.Margin = [System.Windows.Thickness]::new(0, 12, 0, 16)
+
+    $dlgCloseBtn         = New-Object System.Windows.Controls.Button
+    $dlgCloseBtn.Content = "Close"
+    $dlgCloseBtn.Style   = $window.Resources["SecondaryButton"]
+    $dlgCloseBtn.Padding = [System.Windows.Thickness]::new(24, 7, 24, 7)
+    $dlgCloseBtn.Add_Click({ $dlg.Close() })
+    $btnPanel.Children.Add($dlgCloseBtn) | Out-Null
+
+    $root.Children.Add($titleBar) | Out-Null
+    $root.Children.Add($body)     | Out-Null
+    $root.Children.Add($btnPanel) | Out-Null
+    $outerBorder.Child = $root
+    $dlg.Content = $outerBorder
+
+    $dlg.ShowDialog() | Out-Null
+}
+
 # -- Wi-Fi passwords ---------------------------------------------------------
 $btnNetWifi.Add_Click({
     $netWifiPanel.Children.Clear()
@@ -374,6 +509,19 @@ $btnNetWifi.Add_Click({
                     ($pwdLine -replace ".*:\s*", "").Trim()
                 } else { "(open / no password)" }
 
+                # Determine auth type for QR code
+                $authLine = $details | Select-String "Authentication"
+                $authType = if ($authLine) {
+                    $authVal = ($authLine -replace ".*:\s*", "").Trim()
+                    switch -Wildcard ($authVal) {
+                        "*WPA3*"  { "SAE" }
+                        "*WPA2*"  { "WPA" }
+                        "*WPA*"   { "WPA" }
+                        "*Open*"  { "nopass" }
+                        default   { "WPA" }
+                    }
+                } else { "WPA" }
+
                 $border              = [System.Windows.Controls.Border]::new()
                 $border.Background   = if ($alt) {
                     $window.Resources["SurfaceBrush"]
@@ -389,13 +537,17 @@ $btnNetWifi.Add_Click({
                 $c0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
                 $c1   = [System.Windows.Controls.ColumnDefinition]::new()
                 $c1.Width = [System.Windows.GridLength]::Auto
+                $c2   = [System.Windows.Controls.ColumnDefinition]::new()
+                $c2.Width = [System.Windows.GridLength]::Auto
                 $grid.ColumnDefinitions.Add($c0)
                 $grid.ColumnDefinitions.Add($c1)
+                $grid.ColumnDefinitions.Add($c2)
 
                 $nameBlock            = [System.Windows.Controls.TextBlock]::new()
                 $nameBlock.Text       = $name
                 $nameBlock.FontSize   = 12
                 $nameBlock.FontWeight = [System.Windows.FontWeights]::SemiBold
+                $nameBlock.VerticalAlignment = "Center"
                 $nameBlock.SetResourceReference(
                     [System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
                 [System.Windows.Controls.Grid]::SetColumn($nameBlock, 0)
@@ -405,12 +557,32 @@ $btnNetWifi.Add_Click({
                 $pwBlock.FontSize            = 12
                 $pwBlock.FontFamily          = [System.Windows.Media.FontFamily]::new("Consolas")
                 $pwBlock.HorizontalAlignment = "Right"
+                $pwBlock.VerticalAlignment   = "Center"
                 $pwBlock.SetResourceReference(
                     [System.Windows.Controls.TextBlock]::ForegroundProperty, "AccentBrush")
                 [System.Windows.Controls.Grid]::SetColumn($pwBlock, 1)
 
+                # QR code button
+                $qrBtn            = [System.Windows.Controls.Button]::new()
+                $qrBtn.Content    = "QR"
+                $qrBtn.Style      = $window.Resources["SecondaryButton"]
+                $qrBtn.Padding    = [System.Windows.Thickness]::new(8, 3, 8, 3)
+                $qrBtn.Margin     = [System.Windows.Thickness]::new(8, 0, 0, 0)
+                $qrBtn.FontSize   = 11
+                $qrBtn.Cursor     = [System.Windows.Input.Cursors]::Hand
+                $qrBtn.VerticalAlignment = "Center"
+                [System.Windows.Controls.Grid]::SetColumn($qrBtn, 2)
+
+                $capturedName     = $name
+                $capturedPassword = $password
+                $capturedAuth     = $authType
+                $qrBtn.Add_Click({
+                    Show-WifiQRDialog $capturedName $capturedPassword $capturedAuth
+                }.GetNewClosure())
+
                 $grid.Children.Add($nameBlock) | Out-Null
                 $grid.Children.Add($pwBlock)   | Out-Null
+                $grid.Children.Add($qrBtn)     | Out-Null
                 $border.Child = $grid
                 $netWifiPanel.Children.Add($border) | Out-Null
 
@@ -429,3 +601,4 @@ $btnNetWifi.Add_Click({
     $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
     $footerStatus.Text          = "Ready"
 })
+
