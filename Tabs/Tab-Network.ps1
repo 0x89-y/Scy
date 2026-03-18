@@ -489,9 +489,34 @@ $btnNetWifi.Add_Click({
     $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 
     try {
-        $raw      = netsh wlan show profiles 2>&1
-        $profiles = $raw | Select-String "All User Profile" |
-                    ForEach-Object { ($_ -replace ".*:\s*", "").Trim() }
+        # Use XML export to avoid locale-dependent text parsing (netsh text
+        # output is translated on non-English Windows, but XML element names
+        # like <name>, <keyMaterial>, <authentication> are always English).
+        $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "scy_wifi_$([guid]::NewGuid().ToString('N').Substring(0,8))"
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+        try { netsh wlan export profile folder="$tempDir" key=clear 2>&1 | Out-Null } catch {}
+
+        $xmlFiles = Get-ChildItem -Path $tempDir -Filter "*.xml" -ErrorAction SilentlyContinue
+        $profiles = @()
+        foreach ($xf in $xmlFiles) {
+            try {
+                $xml  = [xml](Get-Content $xf.FullName -Raw)
+                $profiles += [PSCustomObject]@{
+                    Name     = $xml.WLANProfile.name
+                    Password = if ($xml.WLANProfile.MSM.security.sharedKey.keyMaterial) {
+                                   $xml.WLANProfile.MSM.security.sharedKey.keyMaterial
+                               } else { "(open / no password)" }
+                    AuthType = switch -Wildcard ($xml.WLANProfile.MSM.security.authEncryption.authentication) {
+                                   "*SAE*"  { "SAE" }
+                                   "*WPA2*" { "WPA" }
+                                   "*WPA*"  { "WPA" }
+                                   "open"   { "nopass" }
+                                   default  { "WPA" }
+                               }
+                }
+            } catch {}
+        }
+        Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 
         if (-not $profiles) {
             $tb          = [System.Windows.Controls.TextBlock]::new()
@@ -502,25 +527,10 @@ $btnNetWifi.Add_Click({
             $netWifiPanel.Children.Add($tb) | Out-Null
         } else {
             $alt = $false
-            foreach ($name in $profiles) {
-                $details  = netsh wlan show profile name="$name" key=clear 2>&1
-                $pwdLine  = $details | Select-String "Key Content"
-                $password = if ($pwdLine) {
-                    ($pwdLine -replace ".*:\s*", "").Trim()
-                } else { "(open / no password)" }
-
-                # Determine auth type for QR code
-                $authLine = $details | Select-String "Authentication"
-                $authType = if ($authLine) {
-                    $authVal = ($authLine -replace ".*:\s*", "").Trim()
-                    switch -Wildcard ($authVal) {
-                        "*WPA3*"  { "SAE" }
-                        "*WPA2*"  { "WPA" }
-                        "*WPA*"   { "WPA" }
-                        "*Open*"  { "nopass" }
-                        default   { "WPA" }
-                    }
-                } else { "WPA" }
+            foreach ($prof in $profiles) {
+                $name     = $prof.Name
+                $password = $prof.Password
+                $authType = $prof.AuthType
 
                 $border              = [System.Windows.Controls.Border]::new()
                 $border.Background   = if ($alt) {
