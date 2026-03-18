@@ -26,7 +26,8 @@
       @{ Name = "DirectX diagnostic";    Command = "dxdiag";                           Arguments = @(); Section = "Diagnostics" },
       @{ Name = "Event viewer";          Command = "eventvwr.msc";                     Arguments = @(); Section = "Diagnostics" },
       @{ Name = "Resource monitor";      Command = "resmon";                           Arguments = @(); Section = "Diagnostics" },
-      @{ Name = "Memory diagnostic";     Command = "mdsched";                          Arguments = @(); Section = "Diagnostics" }
+      @{ Name = "Memory diagnostic";     Command = "mdsched";                          Arguments = @(); Section = "Diagnostics" },
+    @{ Name = "Steps Recorder";        Command = "psr.exe";                          Arguments = @(); Section = "Diagnostics" }
   )
 
   # ── Groups ────────────────────────────────────────────────────

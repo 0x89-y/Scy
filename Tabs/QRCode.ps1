@@ -98,6 +98,7 @@ function _QR-BuildGenerator([int]$count) {
         }
         $gen = $newGen
     }
+    [Array]::Reverse($gen)
     $script:_qrTmpGen = $gen
 }
 
@@ -435,8 +436,8 @@ function _QR-WriteFormatInfo([bool[,]]$mat, [int]$size, [int]$mask) {
     [int]$s4 = $size - 4; [int]$s5 = $size - 5; [int]$s6 = $size - 6
     [int]$s7 = $size - 7; [int]$s8 = $size - 8
 
-    [int[]]$p2r = @(8, 8, 8, 8, 8, 8, 8, $s7, $s6, $s5, $s4, $s3, $s2, $s1, $s8)
-    [int[]]$p2c = @($s1, $s2, $s3, $s4, $s5, $s6, $s7, 8, 8, 8, 8, 8, 8, 8, 8)
+    [int[]]$p2r = @(8, 8, 8, 8, 8, 8, 8, 8, $s7, $s6, $s5, $s4, $s3, $s2, $s1)
+    [int[]]$p2c = @($s1, $s2, $s3, $s4, $s5, $s6, $s7, $s8, 8, 8, 8, 8, 8, 8, 8)
 
     for ([int]$i = 0; $i -lt 15; $i++) {
         [bool]$bit = [bool](($fmtBits -shr (14 - $i)) -band 1)
