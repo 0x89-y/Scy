@@ -1124,4 +1124,9 @@ function Render-GroupSettings {
     (Find "NewInstallCategoryBox").Text = ""
 })
 
+# ── Credits ────────────────────────────────────────────────────────
+(Find "BtnCreditsGitHub").Add_Click({
+    Start-Process "https://github.com/0x89-y/Scy"
+})
+
 Render-GroupSettings

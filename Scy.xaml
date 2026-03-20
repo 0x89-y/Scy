@@ -2833,6 +2833,35 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- Credits -->
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Padding="14,12" Margin="0,0,0,8">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,12">
+                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock Text="Credits" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <TextBlock FontSize="12" Foreground="{DynamicResource FgBrush}" Margin="0,0,0,6">
+                                        <Run FontWeight="SemiBold">Scy</Run>
+                                        <Run Foreground="{DynamicResource MutedText}">- Windows utility toolkit</Run>
+                                    </TextBlock>
+                                    <TextBlock FontSize="12" Foreground="{DynamicResource MutedText}" Margin="0,0,0,4">
+                                        <Run>Created by</Run>
+                                        <Run FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">0x89-y</Run>
+                                    </TextBlock>
+                                    <TextBlock FontSize="12" Foreground="{DynamicResource MutedText}" Margin="0,0,0,8">
+                                        <Run>Licensed under the MIT License</Run>
+                                    </TextBlock>
+                                    <Button x:Name="BtnCreditsGitHub"
+                                            Content="View on GitHub"
+                                            Style="{StaticResource SecondaryButton}"
+                                            HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </Border>
+
                             </StackPanel>
                             </Border>
 
