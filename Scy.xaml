@@ -1400,6 +1400,124 @@
                 </Border>
             </TabItem>
 
+            <!-- ─── Registry Bookmarks ─── -->
+            <TabItem Header="Registry">
+                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Action buttons -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                            <Button x:Name="BtnAddRegBookmark" Content="+ Add bookmark"
+                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                            <Button x:Name="BtnResetRegBookmarks" Content="Clear all bookmarks"
+                                    Style="{StaticResource DangerButton}"/>
+                        </StackPanel>
+
+                        <!-- Add bookmark form (collapsed by default) -->
+                        <Border x:Name="AddRegBookmarkPanel" Grid.Row="1" Visibility="Collapsed"
+                                Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                Padding="16" Margin="0,0,0,12">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,12">
+                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                    <TextBlock Text="Add registry bookmark" FontSize="14"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+
+                                <!-- Name -->
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="10,0" Margin="0,0,0,8">
+                                    <Grid>
+                                        <TextBlock x:Name="RegBookmarkNamePlaceholder"
+                                                   Text="Bookmark name (e.g. Startup programs)"
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                        <TextBox x:Name="RegBookmarkNameBox" Background="Transparent" BorderThickness="0"
+                                                 Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
+                                                 Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Registry Path -->
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="10,0" Margin="0,0,0,8">
+                                    <Grid>
+                                        <TextBlock x:Name="RegBookmarkPathPlaceholder"
+                                                   Text="Registry path (e.g. HKCU\Software\Microsoft\Windows\CurrentVersion\Run)"
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                        <TextBox x:Name="RegBookmarkPathBox" Background="Transparent" BorderThickness="0"
+                                                 Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
+                                                 Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Group selector -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                    <TextBlock Text="Group:" FontSize="12"
+                                               Foreground="{DynamicResource MutedText}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <ComboBox x:Name="RegBookmarkGroupBox"
+                                              MinWidth="200" SelectedIndex="0"/>
+                                </StackPanel>
+
+                                <!-- Create/Cancel -->
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="BtnCreateRegBookmark" Content="Create bookmark"
+                                            Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnCancelAddRegBookmark" Content="Cancel"
+                                            Style="{StaticResource SecondaryButton}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Search box and bookmarks list -->
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="4"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="10,0" Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="RegBookmarkSearchPlaceholder"
+                                                   Text="Search bookmarks..."
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                        <TextBox x:Name="RegBookmarkSearchBox"
+                                                 Background="Transparent" BorderThickness="0"
+                                                 Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                 CaretBrush="{DynamicResource FgBrush}" Padding="0,9"
+                                                 SelectionBrush="{DynamicResource AccentBrush}"/>
+                                        <Button x:Name="RegBookmarkSearchClear" Grid.Column="1"
+                                                Content="&#xD7;" FontSize="14" Visibility="Collapsed"
+                                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                Foreground="{DynamicResource MutedText}" Padding="4,0"
+                                                VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel x:Name="RegBookmarkSectionsPanel"/>
+
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </TabItem>
+
             <!-- ─── System Info ─── -->
             <TabItem Header="System info">
                 <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"

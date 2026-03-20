@@ -249,6 +249,7 @@ function Show-ThemedDialog {
 . (Join-Path $PSScriptRoot "Tabs\Tab-QRCode.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Network.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Hosts.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-RegBookmarks.ps1")
 
 # ── Restore saved window geometry ────────────────────────────────
 if ($script:rememberWindowPosition -and $script:windowGeometry) {

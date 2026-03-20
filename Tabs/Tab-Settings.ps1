@@ -42,6 +42,7 @@ $script:customShortcutGroups    = [System.Collections.Generic.List[string]]::new
 $script:customInstallCategories = [System.Collections.Generic.List[string]]::new()
 $script:hiddenDefaultShortcutGroups    = [System.Collections.Generic.List[string]]::new()
 $script:hiddenDefaultInstallCategories = [System.Collections.Generic.List[string]]::new()
+$script:customRegBookmarkGroups        = [System.Collections.Generic.List[string]]::new()
 
 # ── Theme definitions ─────────────────────────────────────────────
 $script:themes = [ordered]@{
@@ -262,6 +263,8 @@ function Save-Settings {
             RememberCleanTargets           = $script:rememberCleanTargets
             AutoScanLocalInstallers        = $script:autoScanLocalInstallers
             CleanTargetSelection           = $script:cleanTargetSelection
+            RegBookmarks                   = $script:settings.RegBookmarks
+            CustomRegBookmarkGroups        = @($script:customRegBookmarkGroups)
         } | ConvertTo-Json -Depth 5 | Set-Content -Path $script:settingsFile -Encoding UTF8
     } catch {}
 }
@@ -356,6 +359,13 @@ if (Test-Path $script:settingsFile) {
                 $script:cleanTargetSelection[$prop.Name] = [bool]$prop.Value
             }
         }
+        if ($null -ne $saved.RegBookmarks) {
+            $script:settings.RegBookmarks = $saved.RegBookmarks
+        }
+        if ($null -ne $saved.CustomRegBookmarkGroups) {
+            $script:customRegBookmarkGroups.Clear()
+            foreach ($g in $saved.CustomRegBookmarkGroups) { $script:customRegBookmarkGroups.Add([string]$g) }
+        }
     } catch {}
 }
 
@@ -378,6 +388,7 @@ Apply-Theme $script:currentTheme
 
 # Initialize shortcuts after settings are loaded
 $window.Dispatcher.BeginInvoke([action]{ Initialize-Shortcuts }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
+$window.Dispatcher.BeginInvoke([action]{ Initialize-RegBookmarks }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
 # Trigger update check on launch if enabled (deferred until window is rendered)
 if ($script:autoCheckUpdates) {
