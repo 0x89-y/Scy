@@ -156,6 +156,16 @@ function script:LerpHex($hex1, $hex2, $t) {
     "#{0:X2}{1:X2}{2:X2}" -f [int]($r1+($r2-$r1)*$t), [int]($g1+($g2-$g1)*$t), [int]($b1+($b2-$b1)*$t)
 }
 
+function script:Get-WindowsAccentHex {
+    try {
+        $dw = Get-ItemPropertyValue "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Accent" "AccentColorMenu"
+        $r = $dw -band 0xFF
+        $g = ($dw -shr 8) -band 0xFF
+        $b = ($dw -shr 16) -band 0xFF
+        return "#{0:X2}{1:X2}{2:X2}" -f $r, $g, $b
+    } catch { return $null }
+}
+
 function script:Apply-Theme {
     param([string]$ThemeName)
     $t = $script:themes[$ThemeName]
@@ -191,6 +201,15 @@ function script:Apply-Theme {
     $window.Resources["SuccessBrush"]      = New-Brush $t.Success
     $window.Resources["WarningBrush"]      = New-Brush $t.Warning
     $window.Resources["DangerBrush"]       = New-Brush $t.Danger
+
+    # Override accent with Windows system color if enabled
+    if ($script:useWindowsAccent) {
+        $winAccent = Get-WindowsAccentHex
+        if ($winAccent) {
+            $window.Resources["AccentBrush"]      = New-Brush $winAccent
+            $window.Resources["AccentHoverBrush"] = New-Brush (LightenHex $winAccent 20)
+        }
+    }
 
     # Window Background/Foreground set directly (root Window element can't use resource refs)
     $window.Background = New-Brush $t.WindowBg
@@ -266,6 +285,7 @@ function Save-Settings {
             RegBookmarks                   = $script:settings.RegBookmarks
             CustomRegBookmarkGroups        = @($script:customRegBookmarkGroups)
             NotesPreviewMode               = $script:notesPreviewMode
+            UseWindowsAccent               = $script:useWindowsAccent
         } | ConvertTo-Json -Depth 5 | Set-Content -Path $script:settingsFile -Encoding UTF8
     } catch {}
 }
@@ -288,6 +308,7 @@ $script:autoScanLocalInstallers = $false
 $script:cleanTargetSelection   = @{}
 $script:windowGeometry     = $null
 $script:speedTestServer    = "Hetzner FSN1 (DE)"
+$script:useWindowsAccent   = $false
 
 if (Test-Path $script:settingsFile) {
     try {
@@ -368,6 +389,7 @@ if (Test-Path $script:settingsFile) {
             foreach ($g in $saved.CustomRegBookmarkGroups) { $script:customRegBookmarkGroups.Add([string]$g) }
         }
         if ($null -ne $saved.NotesPreviewMode) { $script:notesPreviewMode = [bool]$saved.NotesPreviewMode }
+        if ($null -ne $saved.UseWindowsAccent) { $script:useWindowsAccent = [bool]$saved.UseWindowsAccent }
     } catch {}
 }
 
@@ -507,6 +529,15 @@ foreach ($colorKey in $script:customColorKeys) {
 
 (Find "ToggleScanLocalInstallers").Add_Checked({   $script:autoScanLocalInstallers = $true;  Save-Settings })
 (Find "ToggleScanLocalInstallers").Add_Unchecked({ $script:autoScanLocalInstallers = $false; Save-Settings })
+
+# ── Use Windows accent color toggle ───────────────────────────
+(Find "ToggleUseWindowsAccent").IsChecked = $script:useWindowsAccent
+(Find "ToggleUseWindowsAccent").Add_Checked({
+    $script:useWindowsAccent = $true; Save-Settings; Apply-Theme $script:currentTheme
+})
+(Find "ToggleUseWindowsAccent").Add_Unchecked({
+    $script:useWindowsAccent = $false; Save-Settings; Apply-Theme $script:currentTheme
+})
 
 # ── Scy self-update ──────────────────────────────────────────────
 $script:versionFile = Join-Path $PSScriptRoot "..\version.json"
@@ -748,6 +779,7 @@ $btnInstallSelfUpdate.Add_Click({
             }
             if ($null -ne $imported.RememberCleanTargets) { $script:rememberCleanTargets = [bool]$imported.RememberCleanTargets }
             if ($null -ne $imported.AutoScanLocalInstallers) { $script:autoScanLocalInstallers = [bool]$imported.AutoScanLocalInstallers }
+            if ($null -ne $imported.UseWindowsAccent) { $script:useWindowsAccent = [bool]$imported.UseWindowsAccent }
             if ($null -ne $imported.CleanTargetSelection) {
                 $script:cleanTargetSelection = @{}
                 foreach ($prop in $imported.CleanTargetSelection.PSObject.Properties) {
@@ -765,6 +797,7 @@ $btnInstallSelfUpdate.Add_Click({
                         (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
             (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
             (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
+            (Find "ToggleUseWindowsAccent").IsChecked = $script:useWindowsAccent
             Apply-Theme $script:currentTheme
             Update-LocalInstallers
             Update-QuickInstalls
