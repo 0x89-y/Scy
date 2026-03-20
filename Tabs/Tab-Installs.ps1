@@ -1117,5 +1117,7 @@ function Update-LocalInstallers {
     }
 })
 
-Update-LocalInstallers
+if ($script:autoScanLocalInstallers) {
+    $window.Dispatcher.BeginInvoke([action]{ Update-LocalInstallers }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
+}
 

@@ -11,8 +11,8 @@ $settingsPanelGeneral    = Find "SettingsPanel_General"
 $settingsPanelGroups     = Find "SettingsPanel_Groups"
 $settingsPanelBackup     = Find "SettingsPanel_Backup"
 
-$script:settingsNavButtons = @($settingsNavAppearance, $settingsNavGeneral, $settingsNavGroups, $settingsNavBackup)
-$script:settingsPanels     = @($settingsPanelAppearance, $settingsPanelGeneral, $settingsPanelGroups, $settingsPanelBackup)
+$script:settingsNavButtons = @($settingsNavGeneral, $settingsNavAppearance, $settingsNavGroups, $settingsNavBackup)
+$script:settingsPanels     = @($settingsPanelGeneral, $settingsPanelAppearance, $settingsPanelGroups, $settingsPanelBackup)
 
 function Set-SettingsSubNav {
     param([int]$Index)
@@ -31,8 +31,8 @@ function Set-SettingsSubNav {
 
 Set-SettingsSubNav 0
 
-$settingsNavAppearance.Add_Click({ Set-SettingsSubNav 0 })
-$settingsNavGeneral.Add_Click({    Set-SettingsSubNav 1 })
+$settingsNavGeneral.Add_Click({    Set-SettingsSubNav 0 })
+$settingsNavAppearance.Add_Click({ Set-SettingsSubNav 1 })
 $settingsNavGroups.Add_Click({     Set-SettingsSubNav 2 })
 $settingsNavBackup.Add_Click({     Set-SettingsSubNav 3 })
 
@@ -260,6 +260,7 @@ function Save-Settings {
             HiddenDefaultShortcutGroups    = @($script:hiddenDefaultShortcutGroups)
             HiddenDefaultInstallCategories = @($script:hiddenDefaultInstallCategories)
             RememberCleanTargets           = $script:rememberCleanTargets
+            AutoScanLocalInstallers        = $script:autoScanLocalInstallers
             CleanTargetSelection           = $script:cleanTargetSelection
         } | ConvertTo-Json -Depth 5 | Set-Content -Path $script:settingsFile -Encoding UTF8
     } catch {}
@@ -279,6 +280,7 @@ $script:autoCheckUpdates   = $false
 $script:autoCheckSelfUpdate = $false
 $script:rememberWindowPosition = $false
 $script:rememberCleanTargets   = $false
+$script:autoScanLocalInstallers = $false
 $script:cleanTargetSelection   = @{}
 $script:windowGeometry     = $null
 $script:speedTestServer    = "Hetzner FSN1 (DE)"
@@ -347,6 +349,7 @@ if (Test-Path $script:settingsFile) {
             foreach ($g in $saved.HiddenDefaultInstallCategories) { $script:hiddenDefaultInstallCategories.Add([string]$g) }
         }
         if ($null -ne $saved.RememberCleanTargets) { $script:rememberCleanTargets = [bool]$saved.RememberCleanTargets }
+        if ($null -ne $saved.AutoScanLocalInstallers) { $script:autoScanLocalInstallers = [bool]$saved.AutoScanLocalInstallers }
         if ($null -ne $saved.CleanTargetSelection) {
             $script:cleanTargetSelection = @{}
             foreach ($prop in $saved.CleanTargetSelection.PSObject.Properties) {
@@ -366,15 +369,15 @@ foreach ($staleKey in @("AccentHover","SubText","WinCtrlFg","ScrollThumb","Input
 (Find "ToggleAutoCheckSelfUpdate").IsChecked = $script:autoCheckSelfUpdate
 (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
 (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
-Update-LocalInstallers
-Update-QuickInstalls
+(Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
+$window.Dispatcher.BeginInvoke([action]{ Update-QuickInstalls }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
 # Apply the saved/default theme on startup
 $script:startupTheme = $script:currentTheme
 Apply-Theme $script:currentTheme
 
 # Initialize shortcuts after settings are loaded
-Initialize-Shortcuts
+$window.Dispatcher.BeginInvoke([action]{ Initialize-Shortcuts }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
 # Trigger update check on launch if enabled (deferred until window is rendered)
 if ($script:autoCheckUpdates) {
@@ -382,7 +385,7 @@ if ($script:autoCheckUpdates) {
         (Find "BtnCheckUpdates").RaiseEvent(
             [System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)
         )
-    }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle)
+    }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 }
 
 # Trigger Scy self-update check on launch if enabled
@@ -391,7 +394,7 @@ if ($script:autoCheckSelfUpdate) {
         try {
             $remoteJson = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/0x89-y/Scy/main/version.json" `
                                             -Headers @{ "User-Agent" = "Scy-Updater" } `
-                                            -TimeoutSec 15
+                                            -TimeoutSec 5
             $script:latestVersion = $remoteJson.version
 
             $selfUpdateStatusText   = Find "SelfUpdateStatusText"
@@ -411,7 +414,7 @@ if ($script:autoCheckSelfUpdate) {
         } catch {
             # Silently ignore - network may be unavailable
         }
-    }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle)
+    }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 }
 
 # ── Theme button handlers ─────────────────────────────────────────
@@ -488,6 +491,9 @@ foreach ($colorKey in $script:customColorKeys) {
 
 (Find "ToggleRememberCleanTargets").Add_Checked({   $script:rememberCleanTargets = $true;  Save-Settings })
 (Find "ToggleRememberCleanTargets").Add_Unchecked({ $script:rememberCleanTargets = $false; Save-Settings })
+
+(Find "ToggleScanLocalInstallers").Add_Checked({   $script:autoScanLocalInstallers = $true;  Save-Settings })
+(Find "ToggleScanLocalInstallers").Add_Unchecked({ $script:autoScanLocalInstallers = $false; Save-Settings })
 
 # ── Scy self-update ──────────────────────────────────────────────
 $script:versionFile = Join-Path $PSScriptRoot "..\version.json"
@@ -728,6 +734,7 @@ $btnInstallSelfUpdate.Add_Click({
                 foreach ($g in $imported.HiddenDefaultInstallCategories) { $script:hiddenDefaultInstallCategories.Add([string]$g) }
             }
             if ($null -ne $imported.RememberCleanTargets) { $script:rememberCleanTargets = [bool]$imported.RememberCleanTargets }
+            if ($null -ne $imported.AutoScanLocalInstallers) { $script:autoScanLocalInstallers = [bool]$imported.AutoScanLocalInstallers }
             if ($null -ne $imported.CleanTargetSelection) {
                 $script:cleanTargetSelection = @{}
                 foreach ($prop in $imported.CleanTargetSelection.PSObject.Properties) {
@@ -744,6 +751,7 @@ $btnInstallSelfUpdate.Add_Click({
             (Find "ToggleAutoCheckSelfUpdate").IsChecked = $script:autoCheckSelfUpdate
                         (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
             (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
+            (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
             Apply-Theme $script:currentTheme
             Update-LocalInstallers
             Update-QuickInstalls

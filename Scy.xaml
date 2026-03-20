@@ -2290,9 +2290,9 @@
 
                         <!-- Settings sub-navigation -->
                         <StackPanel x:Name="SettingsSubNav" Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
-                            <Button x:Name="SettingsNav_Appearance" Content="Appearance"
-                                    Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="SettingsNav_General"    Content="General"
+                                    Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="SettingsNav_Appearance" Content="Appearance"
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="SettingsNav_Groups"     Content="Groups"
                                     Style="{StaticResource SubNavButton}"/>
@@ -2304,7 +2304,7 @@
                         <StackPanel>
 
                             <!-- Appearance section -->
-                            <Border x:Name="SettingsPanel_Appearance">
+                            <Border x:Name="SettingsPanel_Appearance" Visibility="Collapsed">
 
                             <!-- Theme selector -->
                             <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
@@ -2562,7 +2562,7 @@
                             </Border>
 
                             <!-- General section -->
-                            <Border x:Name="SettingsPanel_General" Visibility="Collapsed">
+                            <Border x:Name="SettingsPanel_General">
                             <StackPanel>
 
                             <!-- Scy updates -->
@@ -2696,6 +2696,20 @@
                                                        FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
                                         </StackPanel>
                                         <CheckBox x:Name="ToggleRememberCleanTargets" Grid.Column="1"
+                                                  Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Scan local installers on launch" FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}"/>
+                                            <TextBlock Text="Automatically scan the local installers folder when Scy starts"
+                                                       FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <CheckBox x:Name="ToggleScanLocalInstallers" Grid.Column="1"
                                                   Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
                                     </Grid>
                                 </StackPanel>

@@ -821,8 +821,8 @@ function Reset-DnsToDHCP {
     }
 }
 
-# Load adapters on init
-Update-DnsAdapterList
+# Load adapters on init (deferred for faster startup)
+$window.Dispatcher.BeginInvoke([action]{ Update-DnsAdapterList }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
 # Update current DNS display when adapter selection changes
 $dnsAdapterBox.Add_SelectionChanged({ Update-DnsCurrentDisplay })
