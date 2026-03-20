@@ -1194,6 +1194,8 @@
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="SystemNav_Battery" Content="Battery"
                                     Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="SystemNav_Firmware" Content="BIOS/UEFI"
+                                    Style="{StaticResource SubNavButton}"/>
                         </StackPanel>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -1580,6 +1582,111 @@
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
                                 <StackPanel x:Name="BatteryHistoryPanel">
+                                    <TextBlock Text="—"
+                                               Foreground="{DynamicResource MutedText}" FontSize="12"
+                                               Margin="0,2"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                                </StackPanel>
+                                </Border>
+
+                                <!-- ─── Firmware (BIOS/UEFI) section ─── -->
+                                <Border x:Name="SystemSection_Firmware" Visibility="Collapsed">
+                                <StackPanel>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                    Margin="0,0,0,16">
+                            <Button x:Name="BtnFirmwareRefresh" Content="Refresh" Style="{StaticResource ActionButton}"/>
+                        </StackPanel>
+
+                        <!-- Firmware info -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- BIOS/UEFI card -->
+                            <Border Grid.Column="0" Background="{DynamicResource Surface2Brush}"
+                                    CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1" Padding="14,12">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock Text="Firmware"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}"
+                                                   VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <StackPanel x:Name="FirmwareInfoPanel">
+                                        <TextBlock Text="Click 'Refresh' to load firmware info."
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   Margin="0,2"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Security card -->
+                            <Border Grid.Column="2" Background="{DynamicResource Surface2Brush}"
+                                    CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1" Padding="14,12">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock Text="Security"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}"
+                                                   VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <StackPanel x:Name="FirmwareSecurityPanel">
+                                        <TextBlock Text="—"
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   Margin="0,2"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Virtualization & features -->
+                        <Border Background="{DynamicResource Surface2Brush}"
+                                CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" Padding="14,12" Margin="0,0,0,10">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,8">
+                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                    <TextBlock Text="Virtualization &amp; Features"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource FgBrush}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <StackPanel x:Name="FirmwareFeaturesPanel">
+                                    <TextBlock Text="—"
+                                               Foreground="{DynamicResource MutedText}" FontSize="12"
+                                               Margin="0,2"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Motherboard -->
+                        <Border Background="{DynamicResource Surface2Brush}"
+                                CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" Padding="14,12" Margin="0,0,0,10">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,8">
+                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                    <TextBlock Text="Motherboard"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource FgBrush}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <StackPanel x:Name="FirmwareMotherboardPanel">
                                     <TextBlock Text="—"
                                                Foreground="{DynamicResource MutedText}" FontSize="12"
                                                Margin="0,2"/>

@@ -243,6 +243,7 @@ function Show-ThemedDialog {
 . (Join-Path $PSScriptRoot "Tabs\Tab-Settings.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Info.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Battery.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-Firmware.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Cleanup.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Shortcuts.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-RegBookmarks.ps1")
