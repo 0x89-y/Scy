@@ -1722,6 +1722,8 @@
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="NetNav_Hosts"       Content="Hosts"
                                     Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="NetNav_DNS"         Content="DNS"
+                                    Style="{StaticResource SubNavButton}"/>
                         </StackPanel>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -2024,6 +2026,184 @@
                                                 <StackPanel x:Name="HostsEntriesPanel" Grid.Row="1"/>
                                             </Grid>
                                         </Border>
+
+                                    </StackPanel>
+                                </Border>
+                                </Border>
+
+                                <!-- ─── DNS Switcher ─── -->
+                                <Border x:Name="NetSection_DNS" Visibility="Collapsed">
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="16,14">
+                                    <StackPanel>
+                                        <!-- Header -->
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <DockPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock Text="DNS Switcher"
+                                                           FontSize="14" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                            <TextBlock x:Name="DnsStatusText" Grid.Column="2" Text="—"
+                                                       FontSize="11" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource MutedText}"/>
+                                        </Grid>
+
+                                        <!-- Admin warning banner -->
+                                        <Border x:Name="DnsAdminBanner" Visibility="Collapsed"
+                                                Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
+                                                BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1"
+                                                Padding="14,10" Margin="0,0,0,10">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="⚠" FontSize="13" Foreground="{DynamicResource WarningBrush}"
+                                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock FontSize="12" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource FgBrush}">
+                                                    <Run Text="Not running as Administrator — "/>
+                                                    <Run Text="DNS changes require elevation." Foreground="{DynamicResource WarningBrush}"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <TextBlock Text="Quick-swap DNS profiles per network adapter."
+                                                   FontSize="11" Foreground="{DynamicResource MutedText}"
+                                                   Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+                                        <!-- Adapter selector -->
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Adapter" FontSize="12"
+                                                       Foreground="{DynamicResource FgBrush}"
+                                                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <Border Grid.Column="1" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="4,0">
+                                                <ComboBox x:Name="DnsAdapterBox" Background="Transparent" BorderThickness="0"
+                                                          Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                          Padding="4,6"/>
+                                            </Border>
+                                            <Button x:Name="BtnDnsRefreshAdapters" Grid.Column="2" Content="Refresh"
+                                                    Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"/>
+                                        </Grid>
+
+                                        <!-- Current DNS display -->
+                                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="14,10" Margin="0,0,0,12">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Current DNS:" FontSize="12"
+                                                           Foreground="{DynamicResource MutedText}"
+                                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock x:Name="DnsCurrentDisplay" Text="—" FontSize="12"
+                                                           FontFamily="Consolas"
+                                                           Foreground="{DynamicResource AccentBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- DoH toggle -->
+                                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="14,10" Margin="0,0,0,12">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <CheckBox x:Name="DnsDoHCheckbox" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBlock Text="Enable DNS-over-HTTPS (DoH)" FontSize="12"
+                                                               Foreground="{DynamicResource FgBrush}"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <TextBlock x:Name="DnsDoHStatus" Grid.Column="2" Text=""
+                                                           FontSize="11" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource MutedText}"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- DoH unsupported warning -->
+                                        <Border x:Name="DnsDoHUnsupportedBanner" Visibility="Collapsed"
+                                                Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
+                                                BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1"
+                                                Padding="14,10" Margin="0,0,0,12">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="⚠" FontSize="13" Foreground="{DynamicResource WarningBrush}"
+                                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBlock FontSize="12" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource FgBrush}">
+                                                    <Run Text="DoH requires "/>
+                                                    <Run Text="Windows 11 or Windows 10 Build 19628+" Foreground="{DynamicResource WarningBrush}"/>
+                                                    <Run Text=". Not available on this system."/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- DNS profile buttons -->
+                                        <TextBlock Text="Profiles" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}" Margin="0,0,0,8"/>
+                                        <WrapPanel x:Name="DnsProfilePanel" Margin="0,0,0,12">
+                                            <Button x:Name="BtnDnsCloudflare" Content="Cloudflare (1.1.1.1)"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                                            <Button x:Name="BtnDnsGoogle"     Content="Google (8.8.8.8)"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                                            <Button x:Name="BtnDnsQuad9"     Content="Quad9 (9.9.9.9)"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                                            <Button x:Name="BtnDnsOpenDNS"   Content="OpenDNS (208.67.222.222)"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                                            <Button x:Name="BtnDnsDHCP"      Content="DHCP (Automatic)"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                                        </WrapPanel>
+
+                                        <!-- Custom DNS input -->
+                                        <TextBlock Text="Custom DNS" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}" Margin="0,0,0,8"/>
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="8"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0">
+                                                <Grid>
+                                                    <TextBlock x:Name="DnsPrimaryPlaceholder" Text="Primary DNS"
+                                                               Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                    <TextBox x:Name="DnsPrimaryBox" Background="Transparent" BorderThickness="0"
+                                                             Foreground="{DynamicResource FgBrush}" FontSize="12" FontFamily="Consolas"
+                                                             CaretBrush="{DynamicResource FgBrush}" Padding="0,8"
+                                                             SelectionBrush="{DynamicResource AccentBrush}"/>
+                                                </Grid>
+                                            </Border>
+                                            <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0">
+                                                <Grid>
+                                                    <TextBlock x:Name="DnsSecondaryPlaceholder" Text="Secondary DNS (optional)"
+                                                               Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                    <TextBox x:Name="DnsSecondaryBox" Background="Transparent" BorderThickness="0"
+                                                             Foreground="{DynamicResource FgBrush}" FontSize="12" FontFamily="Consolas"
+                                                             CaretBrush="{DynamicResource FgBrush}" Padding="0,8"
+                                                             SelectionBrush="{DynamicResource AccentBrush}"/>
+                                                </Grid>
+                                            </Border>
+                                            <Button x:Name="BtnDnsApplyCustom" Grid.Column="3" Content="Apply"
+                                                    Style="{StaticResource ActionButton}" Margin="8,0,0,0"/>
+                                        </Grid>
 
                                     </StackPanel>
                                 </Border>

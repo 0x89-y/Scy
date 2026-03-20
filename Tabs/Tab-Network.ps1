@@ -4,13 +4,15 @@
 $netNavDiagnostics = Find "NetNav_Diagnostics"
 $netNavWifi        = Find "NetNav_Wifi"
 $netNavHosts       = Find "NetNav_Hosts"
+$netNavDNS         = Find "NetNav_DNS"
 
 $netSectionDiagnostics = Find "NetSection_Diagnostics"
 $netSectionWifi        = Find "NetSection_Wifi"
 $netSectionHosts       = Find "NetSection_Hosts"
+$netSectionDNS         = Find "NetSection_DNS"
 
-$script:netNavButtons = @($netNavDiagnostics, $netNavWifi, $netNavHosts)
-$script:netSections   = @($netSectionDiagnostics, $netSectionWifi, $netSectionHosts)
+$script:netNavButtons = @($netNavDiagnostics, $netNavWifi, $netNavHosts, $netNavDNS)
+$script:netSections   = @($netSectionDiagnostics, $netSectionWifi, $netSectionHosts, $netSectionDNS)
 
 function Set-NetSubNav {
     param([int]$Index)
@@ -32,6 +34,7 @@ Set-NetSubNav 0
 $netNavDiagnostics.Add_Click({ Set-NetSubNav 0 })
 $netNavWifi.Add_Click({        Set-NetSubNav 1 })
 $netNavHosts.Add_Click({       Set-NetSubNav 2 })
+$netNavDNS.Add_Click({         Set-NetSubNav 3 })
 
 $netHostBox         = Find "NetHostBox"
 $netHostPlaceholder = Find "NetHostPlaceholder"
@@ -610,5 +613,280 @@ $btnNetWifi.Add_Click({
     $statusIndicator.Text       = "* Ready"
     $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
     $footerStatus.Text          = "Ready"
+})
+
+# -- DNS Switcher ---------------------------------------------------------------
+$dnsAdapterBox          = Find "DnsAdapterBox"
+$dnsCurrentDisplay      = Find "DnsCurrentDisplay"
+$dnsStatusText          = Find "DnsStatusText"
+$dnsPrimaryBox          = Find "DnsPrimaryBox"
+$dnsSecondaryBox        = Find "DnsSecondaryBox"
+$dnsPrimaryPlaceholder  = Find "DnsPrimaryPlaceholder"
+$dnsSecondaryPlaceholder = Find "DnsSecondaryPlaceholder"
+$btnDnsRefreshAdapters  = Find "BtnDnsRefreshAdapters"
+$btnDnsApplyCustom      = Find "BtnDnsApplyCustom"
+$btnDnsCloudflare       = Find "BtnDnsCloudflare"
+$btnDnsGoogle           = Find "BtnDnsGoogle"
+$btnDnsQuad9            = Find "BtnDnsQuad9"
+$btnDnsOpenDNS          = Find "BtnDnsOpenDNS"
+$btnDnsDHCP             = Find "BtnDnsDHCP"
+$dnsAdminBanner         = Find "DnsAdminBanner"
+$dnsDoHCheckbox         = Find "DnsDoHCheckbox"
+$dnsDoHStatus           = Find "DnsDoHStatus"
+$dnsDoHUnsupportedBanner = Find "DnsDoHUnsupportedBanner"
+
+# Check admin status
+$script:dnsIsAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $script:dnsIsAdmin) {
+    $dnsAdminBanner.Visibility = "Visible"
+}
+
+# Check DoH support (requires Windows 10 Build 19628+ or Windows 11)
+$script:dohSupported = $false
+try {
+    $null = Get-Command Set-DnsClientDohServerAddress -ErrorAction Stop
+    $script:dohSupported = $true
+    $dnsDoHStatus.Text       = "Supported"
+    $dnsDoHStatus.Foreground = $window.Resources["SuccessBrush"]
+} catch {
+    $dnsDoHCheckbox.IsEnabled = $false
+    $dnsDoHUnsupportedBanner.Visibility = "Visible"
+    $dnsDoHStatus.Text       = "Not available"
+    $dnsDoHStatus.Foreground = $window.Resources["MutedText"]
+}
+
+# Placeholder toggle helpers
+$dnsPrimaryBox.Add_GotFocus({   $dnsPrimaryPlaceholder.Visibility   = "Collapsed" })
+$dnsPrimaryBox.Add_LostFocus({  if ($dnsPrimaryBox.Text -eq "")   { $dnsPrimaryPlaceholder.Visibility   = "Visible" } })
+$dnsSecondaryBox.Add_GotFocus({ $dnsSecondaryPlaceholder.Visibility = "Collapsed" })
+$dnsSecondaryBox.Add_LostFocus({ if ($dnsSecondaryBox.Text -eq "") { $dnsSecondaryPlaceholder.Visibility = "Visible" } })
+
+# DNS profiles: Name -> @{ Primary; Secondary; DohTemplate }
+$script:dnsProfiles = @{
+    "Cloudflare" = @{
+        Primary     = "1.1.1.1"
+        Secondary   = "1.0.0.1"
+        DohTemplate = "https://cloudflare-dns.com/dns-query"
+    }
+    "Google" = @{
+        Primary     = "8.8.8.8"
+        Secondary   = "8.8.4.4"
+        DohTemplate = "https://dns.google/dns-query"
+    }
+    "Quad9" = @{
+        Primary     = "9.9.9.9"
+        Secondary   = "149.112.112.112"
+        DohTemplate = "https://dns.quad9.net/dns-query"
+    }
+    "OpenDNS" = @{
+        Primary     = "208.67.222.222"
+        Secondary   = "208.67.220.220"
+        DohTemplate = "https://doh.opendns.com/dns-query"
+    }
+}
+
+function Get-DnsAdapters {
+    Get-NetAdapter | Where-Object { $_.Status -eq "Up" } |
+        Select-Object -Property Name, InterfaceIndex, InterfaceDescription |
+        Sort-Object Name
+}
+
+function Update-DnsAdapterList {
+    $dnsAdapterBox.Items.Clear()
+    $script:dnsAdapters = @(Get-DnsAdapters)
+    foreach ($a in $script:dnsAdapters) {
+        $dnsAdapterBox.Items.Add($a.Name) | Out-Null
+    }
+    if ($dnsAdapterBox.Items.Count -gt 0) {
+        $dnsAdapterBox.SelectedIndex = 0
+    }
+}
+
+function Get-CurrentDnsForAdapter {
+    param([string]$AdapterName)
+    try {
+        $cfg = Get-DnsClientServerAddress -InterfaceAlias $AdapterName -AddressFamily IPv4 -ErrorAction Stop
+        if ($cfg.ServerAddresses.Count -eq 0) { return "DHCP (Automatic)" }
+        $display = $cfg.ServerAddresses -join ", "
+        # Check if any of the current DNS servers have DoH registered
+        if ($script:dohSupported) {
+            $dohServers = Get-DnsClientDohServerAddress -ErrorAction SilentlyContinue
+            $hasDoH = $false
+            foreach ($addr in $cfg.ServerAddresses) {
+                if ($dohServers | Where-Object { $_.ServerAddress -eq $addr -and $_.AutoUpgrade }) {
+                    $hasDoH = $true; break
+                }
+            }
+            if ($hasDoH) { $display += "  [DoH]" }
+        }
+        return $display
+    } catch {
+        return "Unknown"
+    }
+}
+
+function Update-DnsCurrentDisplay {
+    if ($dnsAdapterBox.SelectedItem) {
+        $dns = Get-CurrentDnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem
+        $dnsCurrentDisplay.Text = $dns
+    }
+}
+
+function Register-DohServer {
+    param(
+        [string]$ServerAddress,
+        [string]$DohTemplate
+    )
+    if (-not $script:dohSupported -or -not $DohTemplate) { return }
+    try {
+        # Check if already registered
+        $existing = Get-DnsClientDohServerAddress -ErrorAction SilentlyContinue |
+            Where-Object { $_.ServerAddress -eq $ServerAddress }
+        if (-not $existing) {
+            Add-DnsClientDohServerAddress -ServerAddress $ServerAddress `
+                -DohTemplate $DohTemplate -AllowFallbackToUdp $true -AutoUpgrade $true -ErrorAction Stop
+        }
+    } catch {
+        # Silently continue — registration may already exist via system policy
+    }
+}
+
+function Set-DnsForAdapter {
+    param(
+        [string]$AdapterName,
+        [string]$Primary,
+        [string]$Secondary,
+        [string]$DohTemplate
+    )
+    if (-not $script:dnsIsAdmin) {
+        [System.Windows.MessageBox]::Show(
+            "DNS changes require running as Administrator.`nPlease restart Scy with elevated privileges.",
+            "Scy - DNS", "OK", "Warning") | Out-Null
+        return
+    }
+    try {
+        $useDoH = $dnsDoHCheckbox.IsChecked -and $script:dohSupported
+        $statusLabel = if ($useDoH) { "Applying with DoH..." } else { "Applying..." }
+        $dnsStatusText.Text       = $statusLabel
+        $dnsStatusText.Foreground = $window.Resources["WarningBrush"]
+
+        $addresses = @($Primary)
+        if ($Secondary -and $Secondary.Trim() -ne "") { $addresses += $Secondary }
+
+        # Register DoH templates before setting DNS addresses
+        if ($useDoH -and $DohTemplate) {
+            Register-DohServer -ServerAddress $Primary -DohTemplate $DohTemplate
+            if ($Secondary -and $Secondary.Trim() -ne "") {
+                Register-DohServer -ServerAddress $Secondary -DohTemplate $DohTemplate
+            }
+        }
+
+        Set-DnsClientServerAddress -InterfaceAlias $AdapterName -ServerAddresses $addresses
+
+        # Flush DNS cache so new settings take effect immediately
+        Clear-DnsClientCache -ErrorAction SilentlyContinue
+
+        $resultLabel = if ($useDoH) { "Applied with DoH" } else { "Applied" }
+        $dnsStatusText.Text       = $resultLabel
+        $dnsStatusText.Foreground = $window.Resources["SuccessBrush"]
+        Update-DnsCurrentDisplay
+    } catch {
+        $dnsStatusText.Text       = "Error: $_"
+        $dnsStatusText.Foreground = $window.Resources["DangerBrush"]
+    }
+}
+
+function Reset-DnsToDHCP {
+    param([string]$AdapterName)
+    if (-not $script:dnsIsAdmin) {
+        [System.Windows.MessageBox]::Show(
+            "DNS changes require running as Administrator.`nPlease restart Scy with elevated privileges.",
+            "Scy - DNS", "OK", "Warning") | Out-Null
+        return
+    }
+    try {
+        $dnsStatusText.Text       = "Resetting..."
+        $dnsStatusText.Foreground = $window.Resources["WarningBrush"]
+
+        Set-DnsClientServerAddress -InterfaceAlias $AdapterName -ResetServerAddresses
+        Clear-DnsClientCache -ErrorAction SilentlyContinue
+
+        $dnsStatusText.Text       = "Reset to DHCP"
+        $dnsStatusText.Foreground = $window.Resources["SuccessBrush"]
+        Update-DnsCurrentDisplay
+    } catch {
+        $dnsStatusText.Text       = "Error: $_"
+        $dnsStatusText.Foreground = $window.Resources["DangerBrush"]
+    }
+}
+
+# Load adapters on init
+Update-DnsAdapterList
+
+# Update current DNS display when adapter selection changes
+$dnsAdapterBox.Add_SelectionChanged({ Update-DnsCurrentDisplay })
+
+# Refresh button
+$btnDnsRefreshAdapters.Add_Click({
+    Update-DnsAdapterList
+    $dnsStatusText.Text       = "Refreshed"
+    $dnsStatusText.Foreground = $window.Resources["SuccessBrush"]
+})
+
+# Preset profile buttons
+$btnDnsCloudflare.Add_Click({
+    if ($dnsAdapterBox.SelectedItem) {
+        $p = $script:dnsProfiles["Cloudflare"]
+        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -DohTemplate $p.DohTemplate
+    }
+})
+$btnDnsGoogle.Add_Click({
+    if ($dnsAdapterBox.SelectedItem) {
+        $p = $script:dnsProfiles["Google"]
+        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -DohTemplate $p.DohTemplate
+    }
+})
+$btnDnsQuad9.Add_Click({
+    if ($dnsAdapterBox.SelectedItem) {
+        $p = $script:dnsProfiles["Quad9"]
+        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -DohTemplate $p.DohTemplate
+    }
+})
+$btnDnsOpenDNS.Add_Click({
+    if ($dnsAdapterBox.SelectedItem) {
+        $p = $script:dnsProfiles["OpenDNS"]
+        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -DohTemplate $p.DohTemplate
+    }
+})
+$btnDnsDHCP.Add_Click({
+    if ($dnsAdapterBox.SelectedItem) {
+        Reset-DnsToDHCP -AdapterName $dnsAdapterBox.SelectedItem
+    }
+})
+
+# Custom DNS apply
+$btnDnsApplyCustom.Add_Click({
+    if (-not $dnsAdapterBox.SelectedItem) { return }
+    $primary = $dnsPrimaryBox.Text.Trim()
+    if ($primary -eq "") {
+        $dnsStatusText.Text       = "Enter a primary DNS"
+        $dnsStatusText.Foreground = $window.Resources["WarningBrush"]
+        return
+    }
+    # Basic IP validation
+    $ipRegex = '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$'
+    if ($primary -notmatch $ipRegex) {
+        $dnsStatusText.Text       = "Invalid primary IP"
+        $dnsStatusText.Foreground = $window.Resources["DangerBrush"]
+        return
+    }
+    $secondary = $dnsSecondaryBox.Text.Trim()
+    if ($secondary -ne "" -and $secondary -notmatch $ipRegex) {
+        $dnsStatusText.Text       = "Invalid secondary IP"
+        $dnsStatusText.Foreground = $window.Resources["DangerBrush"]
+        return
+    }
+    Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $primary -Secondary $secondary
 })
 
