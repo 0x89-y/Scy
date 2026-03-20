@@ -12,6 +12,7 @@ $script:toolsSections   = @($toolsSectionQRCode, $toolsSectionNotes, $toolsSecti
 
 function Set-ToolsSubNav {
     param([int]$Index)
+    $script:toolsSubNavIndex = $Index
     for ($i = 0; $i -lt $script:toolsSections.Count; $i++) {
         $script:toolsSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
         $btn = $script:toolsNavButtons[$i]

@@ -76,6 +76,7 @@ $script:pkgSections    = @($pkgSectionUpdates, $pkgSectionSearch, $pkgSectionQui
 
 function Set-PkgSubNav {
     param([int]$Index)
+    $script:pkgSubNavIndex = $Index
     for ($i = 0; $i -lt $script:pkgSections.Count; $i++) {
         $script:pkgSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
         $btn = $script:pkgNavButtons[$i]

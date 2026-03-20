@@ -14,6 +14,7 @@ $script:systemSections   = @($systemSectionInfo, $systemSectionCleanup, $systemS
 
 function Set-SystemSubNav {
     param([int]$Index)
+    $script:systemSubNavIndex = $Index
     for ($i = 0; $i -lt $script:systemSections.Count; $i++) {
         $script:systemSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
         $btn = $script:systemNavButtons[$i]

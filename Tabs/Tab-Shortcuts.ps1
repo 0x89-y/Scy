@@ -10,6 +10,7 @@
 
   function Set-BookmarksSubNav {
       param([int]$Index)
+      $script:bookmarksSubNavIndex = $Index
       for ($i = 0; $i -lt $script:bookmarksSections.Count; $i++) {
           $script:bookmarksSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
           $btn = $script:bookmarksNavButtons[$i]

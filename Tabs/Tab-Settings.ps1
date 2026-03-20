@@ -16,6 +16,7 @@ $script:settingsPanels     = @($settingsPanelGeneral, $settingsPanelAppearance, 
 
 function Set-SettingsSubNav {
     param([int]$Index)
+    $script:settingsSubNavIndex = $Index
     for ($i = 0; $i -lt $script:settingsPanels.Count; $i++) {
         $script:settingsPanels[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
         $btn = $script:settingsNavButtons[$i]
@@ -250,6 +251,14 @@ function script:Apply-Theme {
 
     $script:currentTheme = $ThemeName
     Save-Settings
+
+    # Re-apply sub-nav borders so they pick up the new theme brushes
+    if ($null -ne $script:pkgSubNavIndex)       { Set-PkgSubNav       $script:pkgSubNavIndex }
+    if ($null -ne $script:systemSubNavIndex)     { Set-SystemSubNav    $script:systemSubNavIndex }
+    if ($null -ne $script:settingsSubNavIndex)   { Set-SettingsSubNav  $script:settingsSubNavIndex }
+    if ($null -ne $script:netSubNavIndex)        { Set-NetSubNav       $script:netSubNavIndex }
+    if ($null -ne $script:toolsSubNavIndex)      { Set-ToolsSubNav     $script:toolsSubNavIndex }
+    if ($null -ne $script:bookmarksSubNavIndex)  { Set-BookmarksSubNav $script:bookmarksSubNavIndex }
 }
 
 function script:Update-CustomSwatches {

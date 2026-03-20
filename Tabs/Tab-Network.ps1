@@ -18,6 +18,7 @@ $script:netSections   = @($netSectionDiagnostics, $netSectionWifi, $netSectionHo
 
 function Set-NetSubNav {
     param([int]$Index)
+    $script:netSubNavIndex = $Index
     for ($i = 0; $i -lt $script:netSections.Count; $i++) {
         $script:netSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
         $btn = $script:netNavButtons[$i]
