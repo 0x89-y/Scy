@@ -1192,6 +1192,8 @@
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="SystemNav_Cleanup" Content="Cleanup"
                                     Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="SystemNav_Battery" Content="Battery"
+                                    Style="{StaticResource SubNavButton}"/>
                         </StackPanel>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -1481,6 +1483,111 @@
                                         </StackPanel>
                                     </Border>
                                 </Grid>
+                                </Border>
+
+                                <!-- ─── Battery section ─── -->
+                                <Border x:Name="SystemSection_Battery" Visibility="Collapsed">
+                                <StackPanel>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                    Margin="0,0,0,16">
+                            <Button x:Name="BtnBatteryRefresh" Content="Refresh" Style="{StaticResource ActionButton}"/>
+                        </StackPanel>
+
+                        <!-- Battery status -->
+                        <Border Background="{DynamicResource Surface2Brush}"
+                                CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" Padding="14,12" Margin="0,0,0,10">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,8">
+                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                    <TextBlock Text="Battery Status"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource FgBrush}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <StackPanel x:Name="BatteryStatusPanel">
+                                    <TextBlock Text="Click 'Refresh' to load battery info."
+                                               Foreground="{DynamicResource MutedText}" FontSize="12"
+                                               Margin="0,2"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Capacity comparison -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Design vs Full Charge -->
+                            <Border Grid.Column="0" Background="{DynamicResource Surface2Brush}"
+                                    CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1" Padding="14,12">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock Text="Capacity"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}"
+                                                   VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <StackPanel x:Name="BatteryCapacityPanel">
+                                        <TextBlock Text="—"
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   Margin="0,2"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Health gauge -->
+                            <Border Grid.Column="2" Background="{DynamicResource Surface2Brush}"
+                                    CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1" Padding="14,12">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,8">
+                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock Text="Health"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}"
+                                                   VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <StackPanel x:Name="BatteryHealthPanel">
+                                        <TextBlock Text="—"
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   Margin="0,2"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Charge history -->
+                        <Border Background="{DynamicResource Surface2Brush}"
+                                CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" Padding="14,12" Margin="0,0,0,10">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,8">
+                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                    <TextBlock Text="Recent Usage History"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource FgBrush}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <StackPanel x:Name="BatteryHistoryPanel">
+                                    <TextBlock Text="—"
+                                               Foreground="{DynamicResource MutedText}" FontSize="12"
+                                               Margin="0,2"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                                </StackPanel>
                                 </Border>
 
                             </StackPanel>

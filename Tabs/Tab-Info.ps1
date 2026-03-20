@@ -1,12 +1,14 @@
 ﻿# ── System sub-navigation ──────────────────────────────────────
 $systemNavInfo    = Find "SystemNav_Info"
 $systemNavCleanup = Find "SystemNav_Cleanup"
+$systemNavBattery = Find "SystemNav_Battery"
 
 $systemSectionInfo    = Find "SystemSection_Info"
 $systemSectionCleanup = Find "SystemSection_Cleanup"
+$systemSectionBattery = Find "SystemSection_Battery"
 
-$script:systemNavButtons = @($systemNavInfo, $systemNavCleanup)
-$script:systemSections   = @($systemSectionInfo, $systemSectionCleanup)
+$script:systemNavButtons = @($systemNavInfo, $systemNavCleanup, $systemNavBattery)
+$script:systemSections   = @($systemSectionInfo, $systemSectionCleanup, $systemSectionBattery)
 
 function Set-SystemSubNav {
     param([int]$Index)
@@ -27,6 +29,7 @@ Set-SystemSubNav 0
 
 $systemNavInfo.Add_Click({    Set-SystemSubNav 0 })
 $systemNavCleanup.Add_Click({ Set-SystemSubNav 1 })
+$systemNavBattery.Add_Click({ Set-SystemSubNav 2 })
 
 # -- System Info Tab ----------------------------------------------------------
 $sysOS       = Find "SysOS"
