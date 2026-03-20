@@ -232,7 +232,7 @@ function Render-RegBookmarks {
                 $newGroupItem = New-Object System.Windows.Controls.MenuItem
                 $newGroupItem.Header = "New group..."
                 $newGroupItem.Add_Click({
-                    $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Group name:", "New Group", "")
+                    Ensure-VisualBasic; $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Group name:", "New Group", "")
                     if ([string]::IsNullOrWhiteSpace($gName)) { return }
                     $gName = $gName.Trim()
                     if ($gName -notin (Get-AllRegBookmarkGroups)) {
@@ -304,7 +304,7 @@ Refresh-RegBookmarkGroupBox
 # Handle "New group..." selection
 (Find "RegBookmarkGroupBox").Add_SelectionChanged({
     if ($this.SelectedItem -eq "+ New group...") {
-        $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Group name:", "New Group", "")
+        Ensure-VisualBasic; $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Group name:", "New Group", "")
         if (-not [string]::IsNullOrWhiteSpace($gName)) {
             $gName = $gName.Trim()
             if ($gName -notin (Get-AllRegBookmarkGroups)) {

@@ -933,7 +933,7 @@ function Render-GroupSettings {
         $renameBtn.FontSize = 11; $renameBtn.Padding = [System.Windows.Thickness]::new(10, 4, 10, 4)
         $renameBtn.Margin = [System.Windows.Thickness]::new(0, 0, 6, 0)
         $renameBtn.Add_Click(({
-            $newName = [Microsoft.VisualBasic.Interaction]::InputBox("Rename '$capturedName' to:", "Rename Group", $capturedName)
+            Ensure-VisualBasic; $newName = [Microsoft.VisualBasic.Interaction]::InputBox("Rename '$capturedName' to:", "Rename Group", $capturedName)
             if ([string]::IsNullOrWhiteSpace($newName) -or $newName.Trim() -eq $capturedName) { return }
             $newName = $newName.Trim()
             $allExisting = @($capturedDefaultGroups) + @($capturedShortcutGroups)
@@ -1087,7 +1087,7 @@ function Render-GroupSettings {
         $renameBtn.FontSize = 11; $renameBtn.Padding = [System.Windows.Thickness]::new(10, 4, 10, 4)
         $renameBtn.Margin = [System.Windows.Thickness]::new(0, 0, 6, 0)
         $renameBtn.Add_Click(({
-            $newName = [Microsoft.VisualBasic.Interaction]::InputBox("Rename '$capturedName' to:", "Rename Category", $capturedName)
+            Ensure-VisualBasic; $newName = [Microsoft.VisualBasic.Interaction]::InputBox("Rename '$capturedName' to:", "Rename Category", $capturedName)
             if ([string]::IsNullOrWhiteSpace($newName) -or $newName.Trim() -eq $capturedName) { return }
             $newName = $newName.Trim()
             $allExisting = @($capturedDefaultCategories) + @($capturedInstallCategories)

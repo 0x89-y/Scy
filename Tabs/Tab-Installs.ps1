@@ -364,7 +364,7 @@ function Refresh-QuickInstallCategories {
 
 $quickInstallCategoryBox.Add_SelectionChanged({
     if ($this.SelectedItem -eq "+ New group...") {
-        $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Category name:", "New Category", "")
+        Ensure-VisualBasic; $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Category name:", "New Category", "")
         if (-not [string]::IsNullOrWhiteSpace($gName)) {
             $gName = $gName.Trim()
             if ($gName -notin (Get-AllQuickCategories)) {
@@ -584,7 +584,7 @@ function Update-QuickInstalls {
             $catBox.Add_SelectionChanged({
                 param($s, $e)
                 if ($s.SelectedItem -eq "+ New group...") {
-                    $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Category name:", "New Category", "")
+                    Ensure-VisualBasic; $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Category name:", "New Category", "")
                     if (-not [string]::IsNullOrWhiteSpace($gName)) {
                         $gName = $gName.Trim()
                         if ($gName -notin (Get-AllQuickCategories)) {
@@ -784,13 +784,13 @@ function Update-QuickInstalls {
         $newBundleBtn.Margin              = [System.Windows.Thickness]::new(0, 4, 0, 0)
         $newBundleBtn.HorizontalAlignment = "Left"
         $newBundleBtn.Add_Click({
-            $bName = [Microsoft.VisualBasic.Interaction]::InputBox("Bundle name:", "New Bundle", "")
+            Ensure-VisualBasic; $bName = [Microsoft.VisualBasic.Interaction]::InputBox("Bundle name:", "New Bundle", "")
             if ([string]::IsNullOrWhiteSpace($bName)) { return }
             if ($script:quickBundles | Where-Object { $_.Name -eq $bName }) {
                 Show-ThemedDialog "A bundle named '$bName' already exists." "Duplicate" "OK" "Warning"
                 return
             }
-            $bDesc = [Microsoft.VisualBasic.Interaction]::InputBox("Description (optional):", "Bundle Description", "")
+            Ensure-VisualBasic; $bDesc = [Microsoft.VisualBasic.Interaction]::InputBox("Description (optional):", "Bundle Description", "")
             $script:quickBundles.Add(@{
                 Name        = $bName
                 Description = $bDesc
@@ -960,14 +960,14 @@ $btnAddToBundle.Add_Click({
     $toAdd = @($script:searchItems | Where-Object { $_.CheckBox.IsChecked })
     if ($toAdd.Count -eq 0) { return }
 
-    $bName = [Microsoft.VisualBasic.Interaction]::InputBox(
+    Ensure-VisualBasic; $bName = [Microsoft.VisualBasic.Interaction]::InputBox(
         "Enter a bundle name (new or existing):",
         "Add to Bundle", "")
     if ([string]::IsNullOrWhiteSpace($bName)) { return }
 
     $bundle = $script:quickBundles | Where-Object { $_.Name -eq $bName } | Select-Object -First 1
     if ($null -eq $bundle) {
-        $bDesc = [Microsoft.VisualBasic.Interaction]::InputBox(
+        Ensure-VisualBasic; $bDesc = [Microsoft.VisualBasic.Interaction]::InputBox(
             "Description for '$bName' (optional):",
             "Bundle Description", "")
         $bundle = @{

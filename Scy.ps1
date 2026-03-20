@@ -3,7 +3,15 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
-Add-Type -AssemblyName Microsoft.VisualBasic
+
+# ── Lazy-load Microsoft.VisualBasic (only needed for InputBox dialogs) ──
+$script:vbLoaded = $false
+function Ensure-VisualBasic {
+    if (-not $script:vbLoaded) {
+        Add-Type -AssemblyName Microsoft.VisualBasic
+        $script:vbLoaded = $true
+    }
+}
 
 # ── Splash Screen ─────────────────────────────────────────────
 $splashVersion = "Scy"
@@ -12,6 +20,29 @@ if (Test-Path $splashVersionPath) {
     try {
         $sv = Get-Content $splashVersionPath -Raw -Encoding UTF8 | ConvertFrom-Json
         $splashVersion = "Scy v$($sv.version)"
+    } catch {}
+}
+
+# Read theme from settings early so the splash matches the user's theme
+$script:splashColors = @{ AppBg = "#0a0a0f"; Border = "#2a2a3a"; Fg = "#e0e0e8"; Muted = "#6b6b80" }
+$settingsPath = Join-Path $PSScriptRoot "settings.json"
+if (Test-Path $settingsPath) {
+    try {
+        $earlySettings = Get-Content $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $themeColors = @{
+            Aether   = @{ AppBg = "#0a0a0f"; Border = "#2a2a3a"; Fg = "#e0e0e8"; Muted = "#6b6b80" }
+            Midnight = @{ AppBg = "#080c14"; Border = "#30363d"; Fg = "#e6edf3"; Muted = "#656d76" }
+            Blossom  = @{ AppBg = "#f8f5ff"; Border = "#d4cce8"; Fg = "#2e2842"; Muted = "#8c84a8" }
+            Frost    = @{ AppBg = "#f1f5f9"; Border = "#cbd5e1"; Fg = "#1e293b"; Muted = "#64748b" }
+        }
+        if ($earlySettings.Theme -eq "Custom" -and $earlySettings.CustomTheme) {
+            $ct = $earlySettings.CustomTheme
+            if ($ct.AppBg -and $ct.Border -and $ct.FgBrush -and $ct.MutedText) {
+                $script:splashColors = @{ AppBg = $ct.AppBg; Border = $ct.Border; Fg = $ct.FgBrush; Muted = $ct.MutedText }
+            }
+        } elseif ($earlySettings.Theme -and $themeColors[$earlySettings.Theme]) {
+            $script:splashColors = $themeColors[$earlySettings.Theme]
+        }
     } catch {}
 }
 
@@ -27,8 +58,8 @@ $splash.Topmost             = $true
 $splash.ShowInTaskbar       = $false
 
 $splashBorder = New-Object System.Windows.Controls.Border
-$splashBorder.Background      = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString("#0a0a0f")))
-$splashBorder.BorderBrush     = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString("#2a2a3a")))
+$splashBorder.Background      = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($script:splashColors.AppBg)))
+$splashBorder.BorderBrush     = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($script:splashColors.Border)))
 $splashBorder.BorderThickness = [System.Windows.Thickness]::new(1)
 $splashBorder.CornerRadius    = [System.Windows.CornerRadius]::new(12)
 
@@ -44,7 +75,7 @@ $splashTitle            = New-Object System.Windows.Controls.TextBlock
 $splashTitle.Text       = "Scy"
 $splashTitle.FontSize   = 38
 $splashTitle.FontWeight = [System.Windows.FontWeights]::Light
-$splashTitle.Foreground = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString("#e0e0e8")))
+$splashTitle.Foreground = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($script:splashColors.Fg)))
 $splashTitle.HorizontalAlignment = "Center"
 $splashTitle.VerticalAlignment   = "Bottom"
 [System.Windows.Controls.Grid]::SetRow($splashTitle, 0)
@@ -52,7 +83,7 @@ $splashTitle.VerticalAlignment   = "Bottom"
 $splashVer            = New-Object System.Windows.Controls.TextBlock
 $splashVer.Text       = $splashVersion
 $splashVer.FontSize   = 12
-$splashVer.Foreground = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString("#6b6b80")))
+$splashVer.Foreground = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($script:splashColors.Muted)))
 $splashVer.HorizontalAlignment = "Center"
 $splashVer.Margin     = [System.Windows.Thickness]::new(0, 4, 0, 0)
 [System.Windows.Controls.Grid]::SetRow($splashVer, 1)
@@ -60,7 +91,7 @@ $splashVer.Margin     = [System.Windows.Thickness]::new(0, 4, 0, 0)
 $splashLoading            = New-Object System.Windows.Controls.TextBlock
 $splashLoading.Text       = "Loading..."
 $splashLoading.FontSize   = 13
-$splashLoading.Foreground = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString("#6b6b80")))
+$splashLoading.Foreground = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($script:splashColors.Muted)))
 $splashLoading.HorizontalAlignment = "Center"
 $splashLoading.Margin     = [System.Windows.Thickness]::new(0, 24, 0, 30)
 [System.Windows.Controls.Grid]::SetRow($splashLoading, 2)
@@ -71,14 +102,15 @@ $splashGrid.Children.Add($splashLoading) | Out-Null
 $splashBorder.Child = $splashGrid
 $splash.Content     = $splashBorder
 
-# Animated dots timer
+# Animated dots timer with status text
 $script:splashDotState = 0
+$script:splashStatus   = "Loading"
 $splashTimer = New-Object System.Windows.Threading.DispatcherTimer
 $splashTimer.Interval = [TimeSpan]::FromMilliseconds(400)
 $splashTimer.Add_Tick({
     $script:splashDotState = ($script:splashDotState + 1) % 4
     $dots = "." * $script:splashDotState
-    $splashLoading.Text = "Loading$dots"
+    $splashLoading.Text = "$($script:splashStatus)$dots"
 })
 $splashTimer.Start()
 
@@ -93,6 +125,7 @@ function Pump-Splash {
 try {
 
 # ── XAML UI Definition ──────────────────────────────────────────
+$script:splashStatus = "Loading UI"
 $xamlString = Get-Content -Path (Join-Path $PSScriptRoot "Scy.xaml") -Raw -Encoding UTF8
 Pump-Splash
 
@@ -325,18 +358,21 @@ function Show-ThemedDialog {
 # ══════════════════════════════════════════════════════════════════
 #  TAB HANDLERS
 # ══════════════════════════════════════════════════════════════════
+$script:splashStatus = "Loading packages"
 Pump-Splash
 . (Join-Path $PSScriptRoot "Tabs\Tab-Updates.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Installs.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Uninstall.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Tweaks.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Settings.ps1")
+$script:splashStatus = "Loading system"
 Pump-Splash
 . (Join-Path $PSScriptRoot "Tabs\Tab-Info.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Battery.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Firmware.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Cleanup.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Shortcuts.ps1")
+$script:splashStatus = "Loading network"
 Pump-Splash
 . (Join-Path $PSScriptRoot "Tabs\Tab-RegBookmarks.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Network.ps1")
@@ -346,6 +382,7 @@ Pump-Splash
 . (Join-Path $PSScriptRoot "Tabs\Tab-QRCode.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Notes.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Export.ps1")
+$script:splashStatus = "Almost ready"
 Pump-Splash
 
 # ── Restore saved window geometry ────────────────────────────────
@@ -382,10 +419,17 @@ $window.Add_Closing({
 })
 (Find "BtnClose").Add_Click({ $window.Close() })
 
-# ── Run as Admin ─────────────────────────────────────────────────
+# ── Startup ──────────────────────────────────────────────────────
+$psVersion.Text = "$($PSVersionTable.PSVersion)"
+
+# Reuse version already read for splash
+(Find "AppVersion").Text = $splashVersion
+
+# Single admin check, reused by the button handler
+$script:isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
 (Find "BtnRunAsAdmin").Add_Click({
-    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    if ($isAdmin) {
+    if ($script:isAdmin) {
         Show-ThemedDialog "Already running as Administrator!" "Info" "OK" "Information"
     } else {
         Start-Process powershell "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
@@ -393,21 +437,7 @@ $window.Add_Closing({
     }
 })
 
-# ── Startup ──────────────────────────────────────────────────────
-$psVersion.Text = "$($PSVersionTable.PSVersion)"
-
-# Set app version from version.json
-$appVersionRun = Find "AppVersion"
-$versionJsonPath = Join-Path $PSScriptRoot "version.json"
-if (Test-Path $versionJsonPath) {
-    try {
-        $vInfo = Get-Content $versionJsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        $appVersionRun.Text = "Scy v$($vInfo.version)"
-    } catch { $appVersionRun.Text = "Scy" }
-} else { $appVersionRun.Text = "Scy" }
-
-$isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if ($isAdmin) {
+if ($script:isAdmin) {
     $window.Title = "Scy [Administrator]"
     (Find "BtnRunAsAdmin").Content   = "Admin (active)"
     (Find "BtnRunAsAdmin").IsEnabled = $false
