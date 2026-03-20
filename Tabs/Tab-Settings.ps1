@@ -265,6 +265,7 @@ function Save-Settings {
             CleanTargetSelection           = $script:cleanTargetSelection
             RegBookmarks                   = $script:settings.RegBookmarks
             CustomRegBookmarkGroups        = @($script:customRegBookmarkGroups)
+            NotesPreviewMode               = $script:notesPreviewMode
         } | ConvertTo-Json -Depth 5 | Set-Content -Path $script:settingsFile -Encoding UTF8
     } catch {}
 }
@@ -366,6 +367,7 @@ if (Test-Path $script:settingsFile) {
             $script:customRegBookmarkGroups.Clear()
             foreach ($g in $saved.CustomRegBookmarkGroups) { $script:customRegBookmarkGroups.Add([string]$g) }
         }
+        if ($null -ne $saved.NotesPreviewMode) { $script:notesPreviewMode = [bool]$saved.NotesPreviewMode }
     } catch {}
 }
 

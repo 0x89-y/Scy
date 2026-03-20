@@ -2670,6 +2670,8 @@
                                         <TextBlock x:Name="NotesSaveStatus" Text=""
                                                    FontSize="11" Foreground="{DynamicResource MutedText}"
                                                    VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                        <Button x:Name="BtnNotesPreview" Content="Preview"
+                                                Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
                                         <Button x:Name="BtnNotesClear" Content="Clear"
                                                 Style="{StaticResource DangerButton}"/>
                                     </StackPanel>
@@ -2697,6 +2699,13 @@
                                                  TextWrapping="Wrap" AcceptsReturn="True" AcceptsTab="True"
                                                  VerticalScrollBarVisibility="Auto"
                                                  HorizontalScrollBarVisibility="Disabled"/>
+                                        <RichTextBox x:Name="NotesPreview" Background="Transparent" BorderThickness="0"
+                                                     Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                     FontFamily="Segoe UI, Arial"
+                                                     Padding="4,4" IsReadOnly="True" IsDocumentEnabled="True"
+                                                     VerticalScrollBarVisibility="Auto"
+                                                     HorizontalScrollBarVisibility="Disabled"
+                                                     Visibility="Collapsed"/>
                                     </Grid>
                                 </Border>
 
