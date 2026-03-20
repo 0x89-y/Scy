@@ -239,17 +239,17 @@ function Show-ThemedDialog {
 . (Join-Path $PSScriptRoot "Tabs\Tab-Updates.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Installs.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Uninstall.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Cleanup.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Shortcuts.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Info.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Tweaks.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Settings.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-Info.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-Cleanup.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-Shortcuts.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-RegBookmarks.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-Network.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-Hosts.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-SSH.ps1")
 . (Join-Path $PSScriptRoot "Tabs\QRCode.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-QRCode.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Network.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Hosts.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-RegBookmarks.ps1")
 
 # ── Restore saved window geometry ────────────────────────────────
 if ($script:rememberWindowPosition -and $script:windowGeometry) {

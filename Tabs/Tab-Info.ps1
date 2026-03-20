@@ -1,4 +1,34 @@
-﻿# -- System Info Tab ----------------------------------------------------------
+﻿# ── System sub-navigation ──────────────────────────────────────
+$systemNavInfo    = Find "SystemNav_Info"
+$systemNavCleanup = Find "SystemNav_Cleanup"
+
+$systemSectionInfo    = Find "SystemSection_Info"
+$systemSectionCleanup = Find "SystemSection_Cleanup"
+
+$script:systemNavButtons = @($systemNavInfo, $systemNavCleanup)
+$script:systemSections   = @($systemSectionInfo, $systemSectionCleanup)
+
+function Set-SystemSubNav {
+    param([int]$Index)
+    for ($i = 0; $i -lt $script:systemSections.Count; $i++) {
+        $script:systemSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
+        $btn = $script:systemNavButtons[$i]
+        if ($i -eq $Index) {
+            $btn.Foreground = $window.Resources["FgBrush"]
+            $btn.BorderBrush = $window.Resources["AccentBrush"]
+        } else {
+            $btn.Foreground = $window.Resources["MutedText"]
+            $btn.BorderBrush = $window.Resources["BorderBrush"]
+        }
+    }
+}
+
+Set-SystemSubNav 0
+
+$systemNavInfo.Add_Click({    Set-SystemSubNav 0 })
+$systemNavCleanup.Add_Click({ Set-SystemSubNav 1 })
+
+# -- System Info Tab ----------------------------------------------------------
 $sysOS       = Find "SysOS"
 $sysBuild    = Find "SysBuild"
 $sysComputer = Find "SysComputer"

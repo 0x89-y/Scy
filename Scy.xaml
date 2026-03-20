@@ -1176,359 +1176,32 @@
                 </Border>
             </TabItem>
 
-            <!-- ─── Cleanup ─── -->
-            <TabItem Header="Cleanup">
-                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
-                    <Grid x:Name="GridCleanup">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="280"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Cleanup targets (left column) -->
-                        <Border Grid.Column="0" Background="{DynamicResource Surface2Brush}" CornerRadius="6"
-                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                Padding="16,14" Margin="0,0,16,0">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <Grid Grid.Row="0" Margin="0,0,0,12">
-                                    <StackPanel VerticalAlignment="Center">
-                                        <DockPanel>
-                                            <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                                    Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                            <TextBlock Text="Cleanup targets"
-                                                       FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                                       VerticalAlignment="Center"/>
-                                        </DockPanel>
-                                        <TextBlock x:Name="CleanTempStatus" Text="Not cleaned yet"
-                                                   FontSize="11" Foreground="{DynamicResource MutedText}" Margin="11,2,0,0"/>
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <TextBlock x:Name="CleanTempTotal" Text=""
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"
-                                                   FontSize="16" FontWeight="Bold"
-                                                   Foreground="{DynamicResource SuccessBrush}"
-                                                   Visibility="Collapsed"/>
-                                        <Button x:Name="BtnScan"  Content="Scan"
-                                                Style="{StaticResource ActionButton}" Margin="0,0,4,0"/>
-                                        <Button x:Name="BtnClean" Content="Clean"
-                                                Style="{StaticResource DangerButton}" IsEnabled="False" Opacity="0.4"/>
-                                    </StackPanel>
-                                </Grid>
-                                <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,12"/>
-                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                                    <StackPanel x:Name="CleanTempRows">
-                                        <TextBlock Text="Click 'Scan' to preview what will be cleaned."
-                                                   FontSize="11" Foreground="{DynamicResource MutedText}"/>
-                                    </StackPanel>
-                                </ScrollViewer>
-                            </Grid>
-                        </Border>
-
-                        <!-- Recycle bin (right column) -->
-                        <Border Grid.Column="1" Background="{DynamicResource Surface2Brush}" CornerRadius="6"
-                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                Padding="16,14" VerticalAlignment="Top">
-                            <StackPanel>
-                                <DockPanel Margin="0,0,0,12">
-                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Recycle bin"
-                                               FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                               VerticalAlignment="Center"/>
-                                </DockPanel>
-                                <TextBlock x:Name="RecycleBinStatus" Text="Not emptied yet"
-                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,0,0,8"/>
-                                <TextBlock x:Name="RecycleBinSize" Text=""
-                                           FontSize="13" FontWeight="SemiBold"
-                                           Foreground="#a89bc9" Visibility="Collapsed" Margin="0,0,0,4"/>
-                                <TextBlock x:Name="RecycleBinResult" Text=""
-                                           FontSize="20" Visibility="Collapsed" Margin="0,0,0,8"/>
-                                <Button x:Name="BtnEmptyRecycleBin" Content="Empty recycle bin"
-                                        Style="{StaticResource DangerButton}" HorizontalAlignment="Left"/>
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-                </Border>
-            </TabItem>
-
-            <!-- ─── Shortcuts ─── -->
-            <TabItem Header="Shortcuts">
+            <!-- ─── System (Info + Cleanup) ─── -->
+            <TabItem Header="System">
                 <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Action buttons -->
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-                            <Button x:Name="BtnAddShortcut" Content="+ Add shortcut"
-                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                            <Button x:Name="BtnRestoreDefaults" Content="Restore defaults"
-                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                            <Button x:Name="BtnResetShortcuts" Content="Reset shortcuts"
-                                    Style="{StaticResource DangerButton}"/>
+                        <!-- System sub-navigation -->
+                        <StackPanel x:Name="SystemSubNav" Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                            <Button x:Name="SystemNav_Info"    Content="Info"
+                                    Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="SystemNav_Cleanup" Content="Cleanup"
+                                    Style="{StaticResource SubNavButton}"/>
                         </StackPanel>
 
-                        <!-- Add shortcut form (collapsed by default) -->
-                        <Border x:Name="AddShortcutPanel" Grid.Row="1" Visibility="Collapsed"
-                                Background="{DynamicResource Surface2Brush}" CornerRadius="6"
-                                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
-                                Padding="16" Margin="0,0,0,12">
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                             <StackPanel>
-                                <DockPanel Margin="0,0,0,12">
-                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Add custom shortcut" FontSize="14"
-                                               FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                               VerticalAlignment="Center"/>
-                                </DockPanel>
 
-                                <!-- Name -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                        Padding="10,0" Margin="0,0,0,8">
-                                    <Grid>
-                                        <TextBlock x:Name="ShortcutNamePlaceholder"
-                                                   Text="Shortcut name (e.g. VS Code)"
-                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                        <TextBox x:Name="ShortcutNameBox" Background="Transparent" BorderThickness="0"
-                                                 Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
-                                                 Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
-                                    </Grid>
-                                </Border>
+                                <!-- ─── Info section ─── -->
+                                <Border x:Name="SystemSection_Info">
+                                <StackPanel>
 
-                                <!-- Command with browse button -->
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                            Padding="10,0" Margin="0,0,8,0">
-                                        <Grid>
-                                            <TextBlock x:Name="ShortcutCommandPlaceholder"
-                                                       Text="Command (e.g. code.exe, sysdm.cpl, or full path)"
-                                                       Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                       VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                            <TextBox x:Name="ShortcutCommandBox" Background="Transparent" BorderThickness="0"
-                                                     Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
-                                                     Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
-                                        </Grid>
-                                    </Border>
-                                    <Button x:Name="BtnBrowseShortcut" Grid.Column="1" Content="Browse"
-                                            Style="{StaticResource SecondaryButton}"/>
-                                </Grid>
-
-                                <!-- Group selector -->
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <TextBlock Text="Group:" FontSize="12"
-                                               Foreground="{DynamicResource MutedText}"
-                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <ComboBox x:Name="ShortcutGroupBox"
-                                              MinWidth="200" SelectedIndex="7"/>
-                                </StackPanel>
-
-                                <!-- Arguments -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                        Padding="10,0" Margin="0,0,0,14">
-                                    <Grid>
-                                        <TextBlock x:Name="ShortcutArgsPlaceholder"
-                                                   Text="Arguments (optional, e.g. --profile dev)"
-                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                        <TextBox x:Name="ShortcutArgsBox" Background="Transparent" BorderThickness="0"
-                                                 Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
-                                                 Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Create/Cancel -->
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="BtnCreateShortcut" Content="Create shortcut"
-                                            Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                                    <Button x:Name="BtnCancelAddShortcut" Content="Cancel"
-                                            Style="{StaticResource SecondaryButton}"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Search box and shortcuts list -->
-                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                            <StackPanel>
-                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="4"
-                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                        Padding="10,0" Margin="0,0,0,12">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock x:Name="ShortcutSearchPlaceholder"
-                                                   Text="Search shortcuts..."
-                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                        <TextBox x:Name="ShortcutSearchBox"
-                                                 Background="Transparent" BorderThickness="0"
-                                                 Foreground="{DynamicResource FgBrush}" FontSize="12"
-                                                 CaretBrush="{DynamicResource FgBrush}" Padding="0,9"
-                                                 SelectionBrush="{DynamicResource AccentBrush}"/>
-                                        <Button x:Name="ShortcutSearchClear" Grid.Column="1"
-                                                Content="&#xD7;" FontSize="14" Visibility="Collapsed"
-                                                Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                                Foreground="{DynamicResource MutedText}" Padding="4,0"
-                                                VerticalAlignment="Center"/>
-                                    </Grid>
-                                </Border>
-
-                                <StackPanel x:Name="ShortcutSectionsPanel"/>
-
-                            </StackPanel>
-                        </ScrollViewer>
-                    </Grid>
-                </Border>
-            </TabItem>
-
-            <!-- ─── Registry Bookmarks ─── -->
-            <TabItem Header="Registry">
-                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <!-- Action buttons -->
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-                            <Button x:Name="BtnAddRegBookmark" Content="+ Add bookmark"
-                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                            <Button x:Name="BtnResetRegBookmarks" Content="Clear all bookmarks"
-                                    Style="{StaticResource DangerButton}"/>
-                        </StackPanel>
-
-                        <!-- Add bookmark form (collapsed by default) -->
-                        <Border x:Name="AddRegBookmarkPanel" Grid.Row="1" Visibility="Collapsed"
-                                Background="{DynamicResource Surface2Brush}" CornerRadius="6"
-                                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
-                                Padding="16" Margin="0,0,0,12">
-                            <StackPanel>
-                                <DockPanel Margin="0,0,0,12">
-                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Add registry bookmark" FontSize="14"
-                                               FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                               VerticalAlignment="Center"/>
-                                </DockPanel>
-
-                                <!-- Name -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                        Padding="10,0" Margin="0,0,0,8">
-                                    <Grid>
-                                        <TextBlock x:Name="RegBookmarkNamePlaceholder"
-                                                   Text="Bookmark name (e.g. Startup programs)"
-                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                        <TextBox x:Name="RegBookmarkNameBox" Background="Transparent" BorderThickness="0"
-                                                 Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
-                                                 Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Registry Path -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                        Padding="10,0" Margin="0,0,0,8">
-                                    <Grid>
-                                        <TextBlock x:Name="RegBookmarkPathPlaceholder"
-                                                   Text="Registry path (e.g. HKCU\Software\Microsoft\Windows\CurrentVersion\Run)"
-                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                        <TextBox x:Name="RegBookmarkPathBox" Background="Transparent" BorderThickness="0"
-                                                 Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
-                                                 Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Group selector -->
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                    <TextBlock Text="Group:" FontSize="12"
-                                               Foreground="{DynamicResource MutedText}"
-                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <ComboBox x:Name="RegBookmarkGroupBox"
-                                              MinWidth="200" SelectedIndex="0"/>
-                                </StackPanel>
-
-                                <!-- Create/Cancel -->
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="BtnCreateRegBookmark" Content="Create bookmark"
-                                            Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                                    <Button x:Name="BtnCancelAddRegBookmark" Content="Cancel"
-                                            Style="{StaticResource SecondaryButton}"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Search box and bookmarks list -->
-                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                            <StackPanel>
-                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="4"
-                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                        Padding="10,0" Margin="0,0,0,12">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock x:Name="RegBookmarkSearchPlaceholder"
-                                                   Text="Search bookmarks..."
-                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                        <TextBox x:Name="RegBookmarkSearchBox"
-                                                 Background="Transparent" BorderThickness="0"
-                                                 Foreground="{DynamicResource FgBrush}" FontSize="12"
-                                                 CaretBrush="{DynamicResource FgBrush}" Padding="0,9"
-                                                 SelectionBrush="{DynamicResource AccentBrush}"/>
-                                        <Button x:Name="RegBookmarkSearchClear" Grid.Column="1"
-                                                Content="&#xD7;" FontSize="14" Visibility="Collapsed"
-                                                Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                                Foreground="{DynamicResource MutedText}" Padding="4,0"
-                                                VerticalAlignment="Center"/>
-                                    </Grid>
-                                </Border>
-
-                                <StackPanel x:Name="RegBookmarkSectionsPanel"/>
-
-                            </StackPanel>
-                        </ScrollViewer>
-                    </Grid>
-                </Border>
-            </TabItem>
-
-            <!-- ─── System Info ─── -->
-            <TabItem Header="System info">
-                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right"
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                                     Margin="0,0,0,16">
                             <Button x:Name="BtnOSInfo"       Content="OS"          Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                             <Button x:Name="BtnHardwareInfo" Content="Hardware"    Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
@@ -1536,9 +1209,6 @@
                             <Button x:Name="BtnNetworkInfo"  Content="Network"     Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                             <Button x:Name="BtnSysInfo"      Content="Refresh all" Style="{StaticResource ActionButton}"/>
                         </StackPanel>
-
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                            <StackPanel>
 
                                 <!-- OS + Hardware side by side -->
                                 <Grid Margin="0,0,0,10">
@@ -1732,92 +1402,353 @@
                                     </StackPanel>
                                 </Border>
 
+                                </StackPanel>
+                                </Border>
+
+                                <!-- ─── Cleanup section ─── -->
+                                <Border x:Name="SystemSection_Cleanup" Visibility="Collapsed">
+                                <Grid x:Name="GridCleanup">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="280"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Cleanup targets (left column) -->
+                                    <Border Grid.Column="0" Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="16,14" Margin="0,0,16,0">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <DockPanel>
+                                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                        <TextBlock Text="Cleanup targets"
+                                                                   FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                                                   VerticalAlignment="Center"/>
+                                                    </DockPanel>
+                                                    <TextBlock x:Name="CleanTempStatus" Text="Not cleaned yet"
+                                                               FontSize="11" Foreground="{DynamicResource MutedText}" Margin="11,2,0,0"/>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <TextBlock x:Name="CleanTempTotal" Text=""
+                                                               VerticalAlignment="Center" Margin="0,0,8,0"
+                                                               FontSize="16" FontWeight="Bold"
+                                                               Foreground="{DynamicResource SuccessBrush}"
+                                                               Visibility="Collapsed"/>
+                                                    <Button x:Name="BtnScan"  Content="Scan"
+                                                            Style="{StaticResource ActionButton}" Margin="0,0,4,0"/>
+                                                    <Button x:Name="BtnClean" Content="Clean"
+                                                            Style="{StaticResource DangerButton}" IsEnabled="False" Opacity="0.4"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,12"/>
+                                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                                <StackPanel x:Name="CleanTempRows">
+                                                    <TextBlock Text="Click 'Scan' to preview what will be cleaned."
+                                                               FontSize="11" Foreground="{DynamicResource MutedText}"/>
+                                                </StackPanel>
+                                            </ScrollViewer>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Recycle bin (right column) -->
+                                    <Border Grid.Column="1" Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="16,14" VerticalAlignment="Top">
+                                        <StackPanel>
+                                            <DockPanel Margin="0,0,0,12">
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock Text="Recycle bin"
+                                                           FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                            <TextBlock x:Name="RecycleBinStatus" Text="Not emptied yet"
+                                                       FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,0,0,8"/>
+                                            <TextBlock x:Name="RecycleBinSize" Text=""
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="#a89bc9" Visibility="Collapsed" Margin="0,0,0,4"/>
+                                            <TextBlock x:Name="RecycleBinResult" Text=""
+                                                       FontSize="20" Visibility="Collapsed" Margin="0,0,0,8"/>
+                                            <Button x:Name="BtnEmptyRecycleBin" Content="Empty recycle bin"
+                                                    Style="{StaticResource DangerButton}" HorizontalAlignment="Left"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                                </Border>
+
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
                 </Border>
             </TabItem>
 
-            <!-- ─── SSH Key Manager ─── -->
-            <TabItem Header="SSH">
+            <!-- ─── Bookmarks (Shortcuts + Registry) ─── -->
+            <TabItem Header="Bookmarks">
                 <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
                     <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="280"/>
-                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-                        <!-- Key list (left column) -->
-                        <Border Grid.Column="0" Background="{DynamicResource Surface2Brush}" CornerRadius="6"
-                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                Padding="14,12" Margin="0,0,16,0">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <Grid Grid.Row="0" Margin="0,0,0,12">
-                                    <DockPanel VerticalAlignment="Center">
-                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                        <TextBlock Text="Keys in ~/.ssh/" FontSize="14"
-                                                   FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                                   VerticalAlignment="Center"/>
-                                    </DockPanel>
-                                    <Button x:Name="BtnSSHRefresh" Content="Refresh"
-                                            Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right"/>
-                                </Grid>
-                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                    <StackPanel x:Name="SSHKeyPanel"/>
-                                </ScrollViewer>
-                            </Grid>
-                        </Border>
+                        <!-- Bookmarks sub-navigation -->
+                        <StackPanel x:Name="BookmarksSubNav" Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                            <Button x:Name="BookmarksNav_Shortcuts" Content="Shortcuts"
+                                    Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="BookmarksNav_Registry"  Content="Registry"
+                                    Style="{StaticResource SubNavButton}"/>
+                        </StackPanel>
 
-                        <!-- Generate key form (right column, always visible) -->
-                        <Border x:Name="SSHGeneratePanel" Grid.Column="1" Background="{DynamicResource Surface2Brush}" CornerRadius="6"
-                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                Padding="14,12" VerticalAlignment="Top">
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+
+                                <!-- ─── Shortcuts section ─── -->
+                                <Border x:Name="BookmarksSection_Shortcuts">
+                                <StackPanel>
+
+                        <!-- Action buttons -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Button x:Name="BtnAddShortcut" Content="+ Add shortcut"
+                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                            <Button x:Name="BtnRestoreDefaults" Content="Restore defaults"
+                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                            <Button x:Name="BtnResetShortcuts" Content="Reset shortcuts"
+                                    Style="{StaticResource DangerButton}"/>
+                        </StackPanel>
+
+                        <!-- Add shortcut form (collapsed by default) -->
+                        <Border x:Name="AddShortcutPanel" Visibility="Collapsed"
+                                Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                Padding="16" Margin="0,0,0,12">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,12">
                                     <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                             Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Generate key" FontSize="14"
+                                    <TextBlock Text="Add custom shortcut" FontSize="14"
                                                FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
 
-                                <!-- Key type -->
-                                <TextBlock Text="Type" FontSize="12" Foreground="{DynamicResource SubTextBrush}" Margin="0,0,0,4"/>
-                                <ComboBox x:Name="SSHKeyType" Margin="0,0,0,8">
-                                    <ComboBoxItem Content="ed25519" IsSelected="True"/>
-                                    <ComboBoxItem Content="rsa"/>
-                                    <ComboBoxItem Content="ecdsa"/>
-                                </ComboBox>
+                                <!-- Name -->
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="10,0" Margin="0,0,0,8">
+                                    <Grid>
+                                        <TextBlock x:Name="ShortcutNamePlaceholder"
+                                                   Text="Shortcut name (e.g. VS Code)"
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                        <TextBox x:Name="ShortcutNameBox" Background="Transparent" BorderThickness="0"
+                                                 Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
+                                                 Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
+                                    </Grid>
+                                </Border>
 
-                                <!-- Comment -->
-                                <TextBlock Text="Comment" FontSize="12" Foreground="{DynamicResource SubTextBrush}" Margin="0,0,0,4"/>
-                                <TextBox x:Name="SSHKeyComment"
-                                         Background="{DynamicResource InputBgBrush}"
-                                         Foreground="{DynamicResource FgBrush}"
-                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                         FontSize="12" Padding="8,5" Margin="0,0,0,8"/>
+                                <!-- Command with browse button -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="10,0" Margin="0,0,8,0">
+                                        <Grid>
+                                            <TextBlock x:Name="ShortcutCommandPlaceholder"
+                                                       Text="Command (e.g. code.exe, sysdm.cpl, or full path)"
+                                                       Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                       VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                            <TextBox x:Name="ShortcutCommandBox" Background="Transparent" BorderThickness="0"
+                                                     Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
+                                                     Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
+                                        </Grid>
+                                    </Border>
+                                    <Button x:Name="BtnBrowseShortcut" Grid.Column="1" Content="Browse"
+                                            Style="{StaticResource SecondaryButton}"/>
+                                </Grid>
 
-                                <!-- Filename -->
-                                <TextBlock Text="Filename" FontSize="12" Foreground="{DynamicResource SubTextBrush}" Margin="0,0,0,4"/>
-                                <TextBox x:Name="SSHKeyFilename"
-                                         Background="{DynamicResource InputBgBrush}"
-                                         Foreground="{DynamicResource FgBrush}"
-                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                         FontSize="12" Padding="8,5" Margin="0,0,0,12"/>
+                                <!-- Group selector -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="Group:" FontSize="12"
+                                               Foreground="{DynamicResource MutedText}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <ComboBox x:Name="ShortcutGroupBox"
+                                              MinWidth="200" SelectedIndex="7"/>
+                                </StackPanel>
 
-                                <Button x:Name="BtnSSHCreate" Content="Create key"
-                                        Style="{StaticResource ActionButton}" HorizontalAlignment="Stretch"/>
+                                <!-- Arguments -->
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="10,0" Margin="0,0,0,14">
+                                    <Grid>
+                                        <TextBlock x:Name="ShortcutArgsPlaceholder"
+                                                   Text="Arguments (optional, e.g. --profile dev)"
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                        <TextBox x:Name="ShortcutArgsBox" Background="Transparent" BorderThickness="0"
+                                                 Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
+                                                 Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
+                                    </Grid>
+                                </Border>
 
-                                <TextBlock x:Name="SSHGenerateStatus" FontSize="12" Margin="0,8,0,0"
-                                           Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/>
+                                <!-- Create/Cancel -->
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="BtnCreateShortcut" Content="Create shortcut"
+                                            Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnCancelAddShortcut" Content="Cancel"
+                                            Style="{StaticResource SecondaryButton}"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
+
+                        <!-- Search box and shortcuts list -->
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="4"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="10,0" Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="ShortcutSearchPlaceholder"
+                                                   Text="Search shortcuts..."
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                        <TextBox x:Name="ShortcutSearchBox"
+                                                 Background="Transparent" BorderThickness="0"
+                                                 Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                 CaretBrush="{DynamicResource FgBrush}" Padding="0,9"
+                                                 SelectionBrush="{DynamicResource AccentBrush}"/>
+                                        <Button x:Name="ShortcutSearchClear" Grid.Column="1"
+                                                Content="&#xD7;" FontSize="14" Visibility="Collapsed"
+                                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                Foreground="{DynamicResource MutedText}" Padding="4,0"
+                                                VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel x:Name="ShortcutSectionsPanel"/>
+
+                                </StackPanel>
+                                </Border>
+
+                                <!-- ─── Registry section ─── -->
+                                <Border x:Name="BookmarksSection_Registry" Visibility="Collapsed">
+                                <StackPanel>
+
+                        <!-- Action buttons -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <Button x:Name="BtnAddRegBookmark" Content="+ Add bookmark"
+                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                            <Button x:Name="BtnResetRegBookmarks" Content="Clear all bookmarks"
+                                    Style="{StaticResource DangerButton}"/>
+                        </StackPanel>
+
+                        <!-- Add bookmark form (collapsed by default) -->
+                        <Border x:Name="AddRegBookmarkPanel" Visibility="Collapsed"
+                                Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                Padding="16" Margin="0,0,0,12">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,12">
+                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                    <TextBlock Text="Add registry bookmark" FontSize="14"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+
+                                <!-- Name -->
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="10,0" Margin="0,0,0,8">
+                                    <Grid>
+                                        <TextBlock x:Name="RegBookmarkNamePlaceholder"
+                                                   Text="Bookmark name (e.g. Startup programs)"
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                        <TextBox x:Name="RegBookmarkNameBox" Background="Transparent" BorderThickness="0"
+                                                 Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
+                                                 Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Registry Path -->
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="10,0" Margin="0,0,0,8">
+                                    <Grid>
+                                        <TextBlock x:Name="RegBookmarkPathPlaceholder"
+                                                   Text="Registry path (e.g. HKCU\Software\Microsoft\Windows\CurrentVersion\Run)"
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                        <TextBox x:Name="RegBookmarkPathBox" Background="Transparent" BorderThickness="0"
+                                                 Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}"
+                                                 Padding="0,9" SelectionBrush="{DynamicResource AccentBrush}"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Group selector -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                    <TextBlock Text="Group:" FontSize="12"
+                                               Foreground="{DynamicResource MutedText}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <ComboBox x:Name="RegBookmarkGroupBox"
+                                              MinWidth="200" SelectedIndex="0"/>
+                                </StackPanel>
+
+                                <!-- Create/Cancel -->
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="BtnCreateRegBookmark" Content="Create bookmark"
+                                            Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnCancelAddRegBookmark" Content="Cancel"
+                                            Style="{StaticResource SecondaryButton}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Search box and bookmarks list -->
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="4"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="10,0" Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="RegBookmarkSearchPlaceholder"
+                                                   Text="Search bookmarks..."
+                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                        <TextBox x:Name="RegBookmarkSearchBox"
+                                                 Background="Transparent" BorderThickness="0"
+                                                 Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                 CaretBrush="{DynamicResource FgBrush}" Padding="0,9"
+                                                 SelectionBrush="{DynamicResource AccentBrush}"/>
+                                        <Button x:Name="RegBookmarkSearchClear" Grid.Column="1"
+                                                Content="&#xD7;" FontSize="14" Visibility="Collapsed"
+                                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                Foreground="{DynamicResource MutedText}" Padding="4,0"
+                                                VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <StackPanel x:Name="RegBookmarkSectionsPanel"/>
+
+                                </StackPanel>
+                                </Border>
+
+                            </StackPanel>
+                        </ScrollViewer>
                     </Grid>
                 </Border>
             </TabItem>
@@ -1841,6 +1772,8 @@
                             <Button x:Name="NetNav_Hosts"       Content="Hosts"
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="NetNav_DNS"         Content="DNS"
+                                    Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="NetNav_SSH"         Content="SSH"
                                     Style="{StaticResource SubNavButton}"/>
                         </StackPanel>
 
@@ -2327,18 +2260,116 @@
                                 </Border>
                                 </Border>
 
+                                <!-- ─── SSH section ─── -->
+                                <Border x:Name="NetSection_SSH" Visibility="Collapsed">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="280"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Key list (left column) -->
+                                    <Border Grid.Column="0" Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="14,12" Margin="0,0,16,0">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                                <DockPanel VerticalAlignment="Center">
+                                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                    <TextBlock Text="Keys in ~/.ssh/" FontSize="14"
+                                                               FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                                               VerticalAlignment="Center"/>
+                                                </DockPanel>
+                                                <Button x:Name="BtnSSHRefresh" Content="Refresh"
+                                                        Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right"/>
+                                            </Grid>
+                                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                                <StackPanel x:Name="SSHKeyPanel"/>
+                                            </ScrollViewer>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Generate key form (right column, always visible) -->
+                                    <Border x:Name="SSHGeneratePanel" Grid.Column="1" Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="14,12" VerticalAlignment="Top">
+                                        <StackPanel>
+                                            <DockPanel Margin="0,0,0,12">
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock Text="Generate key" FontSize="14"
+                                                           FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </DockPanel>
+
+                                            <!-- Key type -->
+                                            <TextBlock Text="Type" FontSize="12" Foreground="{DynamicResource SubTextBrush}" Margin="0,0,0,4"/>
+                                            <ComboBox x:Name="SSHKeyType" Margin="0,0,0,8">
+                                                <ComboBoxItem Content="ed25519" IsSelected="True"/>
+                                                <ComboBoxItem Content="rsa"/>
+                                                <ComboBoxItem Content="ecdsa"/>
+                                            </ComboBox>
+
+                                            <!-- Comment -->
+                                            <TextBlock Text="Comment" FontSize="12" Foreground="{DynamicResource SubTextBrush}" Margin="0,0,0,4"/>
+                                            <TextBox x:Name="SSHKeyComment"
+                                                     Background="{DynamicResource InputBgBrush}"
+                                                     Foreground="{DynamicResource FgBrush}"
+                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                     FontSize="12" Padding="8,5" Margin="0,0,0,8"/>
+
+                                            <!-- Filename -->
+                                            <TextBlock Text="Filename" FontSize="12" Foreground="{DynamicResource SubTextBrush}" Margin="0,0,0,4"/>
+                                            <TextBox x:Name="SSHKeyFilename"
+                                                     Background="{DynamicResource InputBgBrush}"
+                                                     Foreground="{DynamicResource FgBrush}"
+                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                     FontSize="12" Padding="8,5" Margin="0,0,0,12"/>
+
+                                            <Button x:Name="BtnSSHCreate" Content="Create key"
+                                                    Style="{StaticResource ActionButton}" HorizontalAlignment="Stretch"/>
+
+                                            <TextBlock x:Name="SSHGenerateStatus" FontSize="12" Margin="0,8,0,0"
+                                                       Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                                </Border>
+
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
                 </Border>
             </TabItem>
 
-            <!-- ─── QR Code ─── -->
-            <TabItem Header="QR Code">
+            <!-- ─── Tools ─── -->
+            <TabItem Header="Tools">
                 <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Tools sub-navigation -->
+                        <StackPanel x:Name="ToolsSubNav" Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                            <Button x:Name="ToolsNav_QRCode" Content="QR Code"
+                                    Style="{StaticResource SubNavButton}"/>
+                        </StackPanel>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+
+                                <!-- ─── QR Code section ─── -->
+                                <Border x:Name="ToolsSection_QRCode">
+                                <StackPanel>
+
                             <!-- QR Code Generator card -->
                             <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
@@ -2391,8 +2422,13 @@
                                     <StackPanel x:Name="QROutputPanel" HorizontalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
-                        </StackPanel>
-                    </ScrollViewer>
+
+                                </StackPanel>
+                                </Border>
+
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
                 </Border>
             </TabItem>
 

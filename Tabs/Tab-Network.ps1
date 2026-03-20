@@ -5,14 +5,16 @@ $netNavDiagnostics = Find "NetNav_Diagnostics"
 $netNavWifi        = Find "NetNav_Wifi"
 $netNavHosts       = Find "NetNav_Hosts"
 $netNavDNS         = Find "NetNav_DNS"
+$netNavSSH         = Find "NetNav_SSH"
 
 $netSectionDiagnostics = Find "NetSection_Diagnostics"
 $netSectionWifi        = Find "NetSection_Wifi"
 $netSectionHosts       = Find "NetSection_Hosts"
 $netSectionDNS         = Find "NetSection_DNS"
+$netSectionSSH         = Find "NetSection_SSH"
 
-$script:netNavButtons = @($netNavDiagnostics, $netNavWifi, $netNavHosts, $netNavDNS)
-$script:netSections   = @($netSectionDiagnostics, $netSectionWifi, $netSectionHosts, $netSectionDNS)
+$script:netNavButtons = @($netNavDiagnostics, $netNavWifi, $netNavHosts, $netNavDNS, $netNavSSH)
+$script:netSections   = @($netSectionDiagnostics, $netSectionWifi, $netSectionHosts, $netSectionDNS, $netSectionSSH)
 
 function Set-NetSubNav {
     param([int]$Index)
@@ -35,6 +37,7 @@ $netNavDiagnostics.Add_Click({ Set-NetSubNav 0 })
 $netNavWifi.Add_Click({        Set-NetSubNav 1 })
 $netNavHosts.Add_Click({       Set-NetSubNav 2 })
 $netNavDNS.Add_Click({         Set-NetSubNav 3 })
+$netNavSSH.Add_Click({         Set-NetSubNav 4 })
 
 $netHostBox         = Find "NetHostBox"
 $netHostPlaceholder = Find "NetHostPlaceholder"

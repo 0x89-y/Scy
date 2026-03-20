@@ -1,3 +1,33 @@
+  # ── Bookmarks sub-navigation ──────────────────────────────────────
+  $bookmarksNavShortcuts = Find "BookmarksNav_Shortcuts"
+  $bookmarksNavRegistry  = Find "BookmarksNav_Registry"
+
+  $bookmarksSectionShortcuts = Find "BookmarksSection_Shortcuts"
+  $bookmarksSectionRegistry  = Find "BookmarksSection_Registry"
+
+  $script:bookmarksNavButtons = @($bookmarksNavShortcuts, $bookmarksNavRegistry)
+  $script:bookmarksSections   = @($bookmarksSectionShortcuts, $bookmarksSectionRegistry)
+
+  function Set-BookmarksSubNav {
+      param([int]$Index)
+      for ($i = 0; $i -lt $script:bookmarksSections.Count; $i++) {
+          $script:bookmarksSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
+          $btn = $script:bookmarksNavButtons[$i]
+          if ($i -eq $Index) {
+              $btn.Foreground = $window.Resources["FgBrush"]
+              $btn.BorderBrush = $window.Resources["AccentBrush"]
+          } else {
+              $btn.Foreground = $window.Resources["MutedText"]
+              $btn.BorderBrush = $window.Resources["BorderBrush"]
+          }
+      }
+  }
+
+  Set-BookmarksSubNav 0
+
+  $bookmarksNavShortcuts.Add_Click({ Set-BookmarksSubNav 0 })
+  $bookmarksNavRegistry.Add_Click({  Set-BookmarksSubNav 1 })
+
   # ── Shortcuts Tab ────────────────────────────────────────────────
 
   # ── Default Shortcuts Definition ───────────────────────────────
