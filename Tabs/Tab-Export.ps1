@@ -1,0 +1,361 @@
+# ── Installed Software Exporter ───────────────────────────────────
+$exportResultsPanel  = Find "ExportResultsPanel"
+$exportStatus        = Find "ExportStatus"
+$exportSummary       = Find "ExportSummary"
+$exportFilterCount   = Find "ExportFilterCount"
+$exportFilterBox     = Find "ExportFilterBox"
+$exportFilterPlaceholder = Find "ExportFilterPlaceholder"
+$btnExportScan       = Find "BtnExportScan"
+$btnExportJSON       = Find "BtnExportJSON"
+$btnExportCSV        = Find "BtnExportCSV"
+$btnExportCopy       = Find "BtnExportCopy"
+
+# Store scan results on the panel's Tag so they survive across runspace boundaries
+# Tag = @{ Software = [array]; Rows = [arraylist] }
+$exportResultsPanel.Tag = @{ Software = @(); Rows = @() }
+
+# ── Filter placeholder ────────────────────────────────────────────
+$exportFilterBox.Add_GotFocus({  $exportFilterPlaceholder.Visibility = "Collapsed" })
+$exportFilterBox.Add_LostFocus({
+    if ([string]::IsNullOrWhiteSpace($exportFilterBox.Text)) {
+        $exportFilterPlaceholder.Visibility = "Visible"
+    }
+})
+
+# ── Live filter ──────────────────────────────────────────────────
+$exportFilterBox.Add_TextChanged({
+    $tagData = $exportResultsPanel.Tag
+    if (-not $tagData -or -not $tagData.Rows) { return }
+    $q = $exportFilterBox.Text.ToLower()
+    $visible = 0
+    foreach ($item in $tagData.Rows) {
+        $show = ($q -eq '' -or $item.Tag.ToLower().Contains($q))
+        $item.Border.Visibility = if ($show) { "Visible" } else { "Collapsed" }
+        if ($show) { $visible++ }
+    }
+    $total = $tagData.Rows.Count
+    if ($total -gt 0 -and $q -ne '') {
+        $exportFilterCount.Text = "$visible of $total shown"
+    } else {
+        $exportFilterCount.Text = ""
+    }
+})
+
+# ── Scan ─────────────────────────────────────────────────────────
+$btnExportScan.Add_Click({
+    Set-BusyStatus "Scanning installed software..."
+    $exportResultsPanel.Children.Clear()
+    $exportStatus.Text = "Scanning..."
+    $exportResultsPanel.Tag = @{ Software = @(); Rows = @() }
+
+    # Disable buttons during scan
+    $btnExportJSON.IsEnabled = $false; $btnExportJSON.Opacity = 0.4
+    $btnExportCSV.IsEnabled  = $false; $btnExportCSV.Opacity  = 0.4
+    $btnExportCopy.IsEnabled = $false; $btnExportCopy.Opacity = 0.4
+
+    $rs = [runspacefactory]::CreateRunspace()
+    $rs.ApartmentState = "STA"
+    $rs.ThreadOptions  = "ReuseThread"
+    $rs.Open()
+
+    $rs.SessionStateProxy.SetVariable("_win",      $window)
+    $rs.SessionStateProxy.SetVariable("_panel",    $exportResultsPanel)
+    $rs.SessionStateProxy.SetVariable("_status",   $exportStatus)
+    $rs.SessionStateProxy.SetVariable("_summary",  $exportSummary)
+    $rs.SessionStateProxy.SetVariable("_btnJSON",  $btnExportJSON)
+    $rs.SessionStateProxy.SetVariable("_btnCSV",   $btnExportCSV)
+    $rs.SessionStateProxy.SetVariable("_btnCopy",  $btnExportCopy)
+    $rs.SessionStateProxy.SetVariable("_si",       (Find "StatusIndicator"))
+    $rs.SessionStateProxy.SetVariable("_fs",       (Find "FooterStatus"))
+
+    $ps = [powershell]::Create()
+    $ps.Runspace = $rs
+
+    $ps.AddScript({
+        $allSoftware = @{}
+
+        # ── Winget list ──────────────────────────────────────
+        try {
+            $wingetOut = & winget list --accept-source-agreements 2>$null
+            if ($wingetOut) {
+                $lines = $wingetOut -split "`n"
+                # Find header line with dashes
+                $headerIdx = -1
+                for ($i = 0; $i -lt $lines.Count; $i++) {
+                    if ($lines[$i] -match '^-{2,}') { $headerIdx = $i; break }
+                }
+                if ($headerIdx -gt 0) {
+                    $dashLine = $lines[$headerIdx]
+
+                    # Determine column positions from the dash line
+                    $cols = @()
+                    $pos = 0
+                    foreach ($seg in ($dashLine -split '(?<=\S)(?=\s)')) {
+                        $cols += $pos
+                        $pos += $seg.Length
+                        if ($dashLine.Length -gt $pos) {
+                            $gap = ($dashLine.Substring($pos) -replace '^(\s*).*', '$1').Length
+                            $pos += $gap
+                        }
+                    }
+
+                    for ($i = $headerIdx + 1; $i -lt $lines.Count; $i++) {
+                        $line = $lines[$i]
+                        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                        if ($line.Length -lt 10) { continue }
+
+                        $name = ""; $id = ""; $version = ""
+                        if ($cols.Count -ge 3) {
+                            $name    = $line.Substring(0, [math]::Min($cols[1], $line.Length)).Trim()
+                            $idStart = $cols[1]
+                            $idEnd   = if ($cols.Count -ge 3) { $cols[2] } else { $line.Length }
+                            if ($idStart -lt $line.Length) {
+                                $id = $line.Substring($idStart, [math]::Min($idEnd - $idStart, $line.Length - $idStart)).Trim()
+                            }
+                            $verStart = $cols[2]
+                            if ($cols.Count -ge 4) { $verEnd = $cols[3] } else { $verEnd = $line.Length }
+                            if ($verStart -lt $line.Length) {
+                                $version = $line.Substring($verStart, [math]::Min($verEnd - $verStart, $line.Length - $verStart)).Trim()
+                            }
+                        }
+
+                        if ($name -and $name -ne "Name" -and $name -notmatch '^-+$') {
+                            $key = $name.ToLower()
+                            if (-not $allSoftware.ContainsKey($key)) {
+                                $allSoftware[$key] = [PSCustomObject]@{
+                                    Name    = $name
+                                    Id      = $id
+                                    Version = $version
+                                    Source  = "Winget"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch { }
+
+        # ── Registry (traditional installs) ──────────────────
+        $regPaths = @(
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+            "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+        )
+        foreach ($path in $regPaths) {
+            try {
+                $items = Get-ItemProperty $path -ErrorAction SilentlyContinue |
+                         Where-Object { $_.DisplayName -and $_.DisplayName.Trim() -ne "" }
+                foreach ($item in $items) {
+                    $name    = $item.DisplayName.Trim()
+                    $version = if ($item.DisplayVersion) { $item.DisplayVersion.Trim() } else { "" }
+                    $pub     = if ($item.Publisher) { $item.Publisher.Trim() } else { "" }
+                    $key     = $name.ToLower()
+
+                    if (-not $allSoftware.ContainsKey($key)) {
+                        $allSoftware[$key] = [PSCustomObject]@{
+                            Name      = $name
+                            Id        = ""
+                            Version   = $version
+                            Source    = "Registry"
+                            Publisher = $pub
+                            InstallDate     = if ($item.InstallDate) { $item.InstallDate } else { "" }
+                            InstallLocation = if ($item.InstallLocation) { $item.InstallLocation } else { "" }
+                        }
+                    } else {
+                        $existing = $allSoftware[$key]
+                        if (-not $existing.Publisher -and $pub) {
+                            $existing | Add-Member -NotePropertyName "Publisher" -NotePropertyValue $pub -Force
+                        }
+                        if (-not $existing.InstallDate -and $item.InstallDate) {
+                            $existing | Add-Member -NotePropertyName "InstallDate" -NotePropertyValue $item.InstallDate -Force
+                        }
+                        if (-not $existing.InstallLocation -and $item.InstallLocation) {
+                            $existing | Add-Member -NotePropertyName "InstallLocation" -NotePropertyValue $item.InstallLocation -Force
+                        }
+                    }
+                }
+            } catch { }
+        }
+
+        $sorted = @($allSoftware.Values | Sort-Object Name)
+        $wingetCount = @($sorted | Where-Object { $_.Source -eq "Winget" }).Count
+        $regCount    = @($sorted | Where-Object { $_.Source -eq "Registry" }).Count
+
+        # ── Marshal to UI ────────────────────────────────────
+        $_win.Dispatcher.Invoke([action]{
+            $_panel.Children.Clear()
+
+            # Header row
+            $hdr = New-Object System.Windows.Controls.Border
+            $hdr.Padding = [System.Windows.Thickness]::new(10, 8, 10, 8)
+            $hdr.Margin  = [System.Windows.Thickness]::new(0, 0, 0, 4)
+
+            $hGrid = New-Object System.Windows.Controls.Grid
+            $hc0 = New-Object System.Windows.Controls.ColumnDefinition; $hc0.Width = New-Object System.Windows.GridLength(3, [System.Windows.GridUnitType]::Star)
+            $hc1 = New-Object System.Windows.Controls.ColumnDefinition; $hc1.Width = New-Object System.Windows.GridLength(2, [System.Windows.GridUnitType]::Star)
+            $hc2 = New-Object System.Windows.Controls.ColumnDefinition; $hc2.Width = New-Object System.Windows.GridLength(1.5, [System.Windows.GridUnitType]::Star)
+            $hc3 = New-Object System.Windows.Controls.ColumnDefinition; $hc3.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
+            $hGrid.ColumnDefinitions.Add($hc0); $hGrid.ColumnDefinitions.Add($hc1)
+            $hGrid.ColumnDefinitions.Add($hc2); $hGrid.ColumnDefinitions.Add($hc3)
+
+            foreach ($colDef in @(
+                @{ T = "Name"; C = 0 }, @{ T = "Publisher"; C = 1 },
+                @{ T = "Version"; C = 2 }, @{ T = "Source"; C = 3 }
+            )) {
+                $h = New-Object System.Windows.Controls.TextBlock
+                $h.Text = $colDef.T; $h.FontSize = 11; $h.FontWeight = "SemiBold"
+                $h.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+                if ($colDef.C -gt 0) { $h.Margin = [System.Windows.Thickness]::new(8, 0, 0, 0) }
+                [System.Windows.Controls.Grid]::SetColumn($h, $colDef.C)
+                $hGrid.Children.Add($h) | Out-Null
+            }
+            $hdr.Child = $hGrid
+            $_panel.Children.Add($hdr) | Out-Null
+
+            $alt = $false
+            $rowTracker = [System.Collections.ArrayList]::new()
+
+            foreach ($app in $sorted) {
+                $border = New-Object System.Windows.Controls.Border
+                $border.Background  = if ($alt) { $_win.Resources["SurfaceBrush"] } else { $_win.Resources["InputBgBrush"] }
+                $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
+                $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
+                $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
+
+                $rGrid = New-Object System.Windows.Controls.Grid
+                $rc0 = New-Object System.Windows.Controls.ColumnDefinition; $rc0.Width = New-Object System.Windows.GridLength(3, [System.Windows.GridUnitType]::Star)
+                $rc1 = New-Object System.Windows.Controls.ColumnDefinition; $rc1.Width = New-Object System.Windows.GridLength(2, [System.Windows.GridUnitType]::Star)
+                $rc2 = New-Object System.Windows.Controls.ColumnDefinition; $rc2.Width = New-Object System.Windows.GridLength(1.5, [System.Windows.GridUnitType]::Star)
+                $rc3 = New-Object System.Windows.Controls.ColumnDefinition; $rc3.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
+                $rGrid.ColumnDefinitions.Add($rc0); $rGrid.ColumnDefinitions.Add($rc1)
+                $rGrid.ColumnDefinitions.Add($rc2); $rGrid.ColumnDefinitions.Add($rc3)
+
+                $tName = New-Object System.Windows.Controls.TextBlock
+                $tName.Text = $app.Name; $tName.FontSize = 11; $tName.TextTrimming = "CharacterEllipsis"
+                $tName.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+                [System.Windows.Controls.Grid]::SetColumn($tName, 0)
+
+                $pub = if ($app.PSObject.Properties["Publisher"]) { $app.Publisher } else { "" }
+                $tPub = New-Object System.Windows.Controls.TextBlock
+                $tPub.Text = $pub; $tPub.FontSize = 11; $tPub.TextTrimming = "CharacterEllipsis"
+                $tPub.Margin = [System.Windows.Thickness]::new(8, 0, 0, 0)
+                $tPub.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+                [System.Windows.Controls.Grid]::SetColumn($tPub, 1)
+
+                $tVer = New-Object System.Windows.Controls.TextBlock
+                $tVer.Text = $app.Version; $tVer.FontSize = 11
+                $tVer.Margin = [System.Windows.Thickness]::new(8, 0, 0, 0)
+                $tVer.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+                [System.Windows.Controls.Grid]::SetColumn($tVer, 2)
+
+                $srcBrush = if ($app.Source -eq "Winget") { "AccentBrush" } else { "MutedText" }
+                $tSrc = New-Object System.Windows.Controls.TextBlock
+                $tSrc.Text = $app.Source; $tSrc.FontSize = 11
+                $tSrc.Margin = [System.Windows.Thickness]::new(8, 0, 0, 0)
+                $tSrc.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $srcBrush)
+                [System.Windows.Controls.Grid]::SetColumn($tSrc, 3)
+
+                $rGrid.Children.Add($tName) | Out-Null; $rGrid.Children.Add($tPub) | Out-Null
+                $rGrid.Children.Add($tVer) | Out-Null; $rGrid.Children.Add($tSrc) | Out-Null
+                $border.Child = $rGrid
+                $_panel.Children.Add($border) | Out-Null
+
+                $searchTag = "$($app.Name) $pub $($app.Version) $($app.Source)"
+                $rowTracker.Add(@{ Border = $border; Tag = $searchTag }) | Out-Null
+                $alt = -not $alt
+            }
+
+            # Store results on the panel Tag so the main script can access them
+            $_panel.Tag = @{ Software = $sorted; Rows = $rowTracker }
+
+            $_summary.Text = "$($sorted.Count) programs found  ($wingetCount Winget, $regCount Registry-only)"
+            $_status.Text  = "Done"
+
+            $_btnJSON.IsEnabled = $true;  $_btnJSON.Opacity = 1
+            $_btnCSV.IsEnabled  = $true;  $_btnCSV.Opacity  = 1
+            $_btnCopy.IsEnabled = $true;  $_btnCopy.Opacity = 1
+
+            $_si.Text = "Ready"; $_si.Foreground = $_win.Resources["SuccessBrush"]; $_fs.Text = "Ready"
+        }, [System.Windows.Threading.DispatcherPriority]::Normal)
+    }) | Out-Null
+
+    $ps.BeginInvoke() | Out-Null
+})
+
+# ── Helper: build export data from panel Tag ─────────────────────
+function Get-ExportData {
+    $tagData = $exportResultsPanel.Tag
+    if (-not $tagData -or -not $tagData.Software) { return @() }
+    $tagData.Software | ForEach-Object {
+        $obj = [ordered]@{
+            Name    = $_.Name
+            Version = $_.Version
+            Source  = $_.Source
+        }
+        if ($_.PSObject.Properties["Id"] -and $_.Id)    { $obj["Id"] = $_.Id }
+        if ($_.PSObject.Properties["Publisher"])          { $obj["Publisher"] = $_.Publisher }
+        if ($_.PSObject.Properties["InstallDate"])       { $obj["InstallDate"] = $_.InstallDate }
+        if ($_.PSObject.Properties["InstallLocation"])   { $obj["InstallLocation"] = $_.InstallLocation }
+        [PSCustomObject]$obj
+    }
+}
+
+# ── Export JSON ──────────────────────────────────────────────────
+$btnExportJSON.Add_Click({
+    $data = Get-ExportData
+    if (-not $data -or @($data).Count -eq 0) { return }
+    $dlg = New-Object Microsoft.Win32.SaveFileDialog
+    $dlg.Filter   = "JSON files (*.json)|*.json"
+    $dlg.FileName = "$($env:COMPUTERNAME)-installed-software.json"
+    $dlg.Title    = "Export installed software as JSON"
+    if ($dlg.ShowDialog()) {
+        try {
+            $json = $data | ConvertTo-Json -Depth 4
+            [System.IO.File]::WriteAllText($dlg.FileName, $json, [System.Text.Encoding]::UTF8)
+            $exportStatus.Text = "Saved to $($dlg.FileName)"
+        } catch {
+            $exportStatus.Text = "Export failed: $_"
+        }
+    }
+})
+
+# ── Export CSV ───────────────────────────────────────────────────
+$btnExportCSV.Add_Click({
+    $data = Get-ExportData
+    if (-not $data -or @($data).Count -eq 0) { return }
+    $dlg = New-Object Microsoft.Win32.SaveFileDialog
+    $dlg.Filter   = "CSV files (*.csv)|*.csv"
+    $dlg.FileName = "$($env:COMPUTERNAME)-installed-software.csv"
+    $dlg.Title    = "Export installed software as CSV"
+    if ($dlg.ShowDialog()) {
+        try {
+            $data | Export-Csv -Path $dlg.FileName -NoTypeInformation -Encoding UTF8
+            $exportStatus.Text = "Saved to $($dlg.FileName)"
+        } catch {
+            $exportStatus.Text = "Export failed: $_"
+        }
+    }
+})
+
+# ── Copy to clipboard ───────────────────────────────────────────
+$capturedCopyBtn = $btnExportCopy
+$btnExportCopy.Add_Click({
+    $tagData = $exportResultsPanel.Tag
+    if (-not $tagData -or -not $tagData.Software -or @($tagData.Software).Count -eq 0) { return }
+    $lines = [System.Collections.ArrayList]::new()
+    $lines.Add("Name`tVersion`tSource`tPublisher") | Out-Null
+    foreach ($app in $tagData.Software) {
+        $pub = if ($app.PSObject.Properties["Publisher"]) { $app.Publisher } else { "" }
+        $lines.Add("$($app.Name)`t$($app.Version)`t$($app.Source)`t$pub") | Out-Null
+    }
+    [System.Windows.Clipboard]::SetText($lines -join "`r`n")
+    $capturedCopyBtn.Content = "Copied!"
+    $t = New-Object System.Windows.Threading.DispatcherTimer
+    $t.Interval = [TimeSpan]::FromSeconds(1.5)
+    $t.Tag = $capturedCopyBtn
+    $t.Add_Tick({
+        $args[0].Tag.Content = "Copy to clipboard"
+        $args[0].Stop()
+    })
+    $t.Start()
+}.GetNewClosure())

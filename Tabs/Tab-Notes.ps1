@@ -1,12 +1,14 @@
 # ── Tools sub-navigation ──────────────────────────────────────────
 $toolsNavQRCode = Find "ToolsNav_QRCode"
 $toolsNavNotes  = Find "ToolsNav_Notes"
+$toolsNavExport = Find "ToolsNav_Export"
 
 $toolsSectionQRCode = Find "ToolsSection_QRCode"
 $toolsSectionNotes  = Find "ToolsSection_Notes"
+$toolsSectionExport = Find "ToolsSection_Export"
 
-$script:toolsNavButtons = @($toolsNavQRCode, $toolsNavNotes)
-$script:toolsSections   = @($toolsSectionQRCode, $toolsSectionNotes)
+$script:toolsNavButtons = @($toolsNavQRCode, $toolsNavNotes, $toolsNavExport)
+$script:toolsSections   = @($toolsSectionQRCode, $toolsSectionNotes, $toolsSectionExport)
 
 function Set-ToolsSubNav {
     param([int]$Index)
@@ -27,6 +29,7 @@ Set-ToolsSubNav 0
 
 $toolsNavQRCode.Add_Click({ Set-ToolsSubNav 0 })
 $toolsNavNotes.Add_Click({  Set-ToolsSubNav 1 })
+$toolsNavExport.Add_Click({ Set-ToolsSubNav 2 })
 
 # ── Quick Notes / Scratchpad ─────────────────────────────────────
 $notesTextBox    = Find "NotesTextBox"
