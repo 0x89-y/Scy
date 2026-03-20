@@ -248,6 +248,7 @@ function Save-Settings {
             Theme              = $script:currentTheme
             CustomTheme        = $script:themes["Custom"]
             AutoCheckUpdates   = $script:autoCheckUpdates
+            AutoCheckSelfUpdate = $script:autoCheckSelfUpdate
             RememberWindowPosition = $script:rememberWindowPosition
             SpeedTestServer    = $script:speedTestServer
             WindowGeometry     = $script:windowGeometry
@@ -275,6 +276,7 @@ function Set-LocalInstallFolder {
 # ── Load saved settings ───────────────────────────────────────────
 $script:currentTheme       = "Aether"
 $script:autoCheckUpdates   = $false
+$script:autoCheckSelfUpdate = $false
 $script:rememberWindowPosition = $false
 $script:rememberCleanTargets   = $false
 $script:cleanTargetSelection   = @{}
@@ -287,6 +289,7 @@ if (Test-Path $script:settingsFile) {
         if ($saved.LocalInstallFolder) { $script:localInstallFolder = $saved.LocalInstallFolder }
         if ($saved.Theme)              { $script:currentTheme = $saved.Theme }
         if ($null -ne $saved.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$saved.AutoCheckUpdates }
+        if ($null -ne $saved.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$saved.AutoCheckSelfUpdate }
         if ($null -ne $saved.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$saved.RememberWindowPosition }
         if ($saved.SpeedTestServer)              { $script:speedTestServer    = [string]$saved.SpeedTestServer }
         if ($saved.WindowGeometry) {
@@ -360,6 +363,7 @@ foreach ($staleKey in @("AccentHover","SubText","WinCtrlFg","ScrollThumb","Input
 
 (Find "SettingsLocalFolder").Text = $script:localInstallFolder
 (Find "ToggleAutoCheckUpdates").IsChecked = $script:autoCheckUpdates
+(Find "ToggleAutoCheckSelfUpdate").IsChecked = $script:autoCheckSelfUpdate
 (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
 (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
 Update-LocalInstallers
@@ -378,6 +382,35 @@ if ($script:autoCheckUpdates) {
         (Find "BtnCheckUpdates").RaiseEvent(
             [System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)
         )
+    }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle)
+}
+
+# Trigger Scy self-update check on launch if enabled
+if ($script:autoCheckSelfUpdate) {
+    $window.Dispatcher.BeginInvoke([action]{
+        try {
+            $remoteJson = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/0x89-y/Scy/main/version.json" `
+                                            -Headers @{ "User-Agent" = "Scy-Updater" } `
+                                            -TimeoutSec 15
+            $script:latestVersion = $remoteJson.version
+
+            $selfUpdateStatusText   = Find "SelfUpdateStatusText"
+            $btnInstallSelfUpdate   = Find "BtnInstallSelfUpdate"
+            $updateBanner           = Find "UpdateBanner"
+
+            if ([version]$script:latestVersion -gt [version]$script:localVersion.version) {
+                $selfUpdateStatusText.Text       = "Update available  (v$($script:latestVersion))"
+                $selfUpdateStatusText.Foreground = $window.Resources["WarningBrush"]
+                $btnInstallSelfUpdate.Visibility = "Visible"
+                $updateBanner.Text       = "Update available (v$($script:latestVersion))"
+                $updateBanner.Visibility = "Visible"
+            } else {
+                $selfUpdateStatusText.Text       = "Up to date"
+                $selfUpdateStatusText.Foreground = $window.Resources["SuccessBrush"]
+            }
+        } catch {
+            # Silently ignore - network may be unavailable
+        }
     }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle)
 }
 
@@ -444,6 +477,10 @@ foreach ($colorKey in $script:customColorKeys) {
 # ── Auto-check for updates toggle ────────────────────────────────
 (Find "ToggleAutoCheckUpdates").Add_Checked({   $script:autoCheckUpdates = $true;  Save-Settings })
 (Find "ToggleAutoCheckUpdates").Add_Unchecked({ $script:autoCheckUpdates = $false; Save-Settings })
+
+# ── Auto-check for Scy self-updates toggle ───────────────────────
+(Find "ToggleAutoCheckSelfUpdate").Add_Checked({   $script:autoCheckSelfUpdate = $true;  Save-Settings })
+(Find "ToggleAutoCheckSelfUpdate").Add_Unchecked({ $script:autoCheckSelfUpdate = $false; Save-Settings })
 
 # ── Remember window position toggle ──────────────────────────────
 (Find "ToggleRememberPosition").Add_Checked({   $script:rememberWindowPosition = $true;  Save-Settings })
@@ -647,6 +684,7 @@ $btnInstallSelfUpdate.Add_Click({
             if ($imported.LocalInstallFolder) { $script:localInstallFolder = $imported.LocalInstallFolder }
             if ($imported.Theme)              { $script:currentTheme = $imported.Theme }
             if ($null -ne $imported.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$imported.AutoCheckUpdates }
+            if ($null -ne $imported.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$imported.AutoCheckSelfUpdate }
             if ($null -ne $imported.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$imported.RememberWindowPosition }
             if ($imported.SpeedTestServer)              { $script:speedTestServer    = [string]$imported.SpeedTestServer }
             if ($imported.CustomTheme) {
@@ -703,6 +741,7 @@ $btnInstallSelfUpdate.Add_Click({
 
             (Find "SettingsLocalFolder").Text = $script:localInstallFolder
             (Find "ToggleAutoCheckUpdates").IsChecked = $script:autoCheckUpdates
+            (Find "ToggleAutoCheckSelfUpdate").IsChecked = $script:autoCheckSelfUpdate
                         (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
             (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
             Apply-Theme $script:currentTheme

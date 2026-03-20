@@ -315,5 +315,13 @@ if ($isAdmin) {
     (Find "BtnRunAsAdmin").IsEnabled = $false
 }
 
+# ── Update banner click handler (visible from every tab) ───────
+(Find "UpdateBanner").Add_MouseLeftButtonDown({
+    # Trigger the existing self-update install button in Settings
+    (Find "BtnInstallSelfUpdate").RaiseEvent(
+        [System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)
+    )
+})
+
 # ── Show the window ─────────────────────────────────────────────
 $window.ShowDialog() | Out-Null
