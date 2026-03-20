@@ -5,11 +5,100 @@
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 Add-Type -AssemblyName Microsoft.VisualBasic
 
+# ── Splash Screen ─────────────────────────────────────────────
+$splashVersion = "Scy"
+$splashVersionPath = Join-Path $PSScriptRoot "version.json"
+if (Test-Path $splashVersionPath) {
+    try {
+        $sv = Get-Content $splashVersionPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $splashVersion = "Scy v$($sv.version)"
+    } catch {}
+}
+
+$splash = New-Object System.Windows.Window
+$splash.WindowStyle         = "None"
+$splash.ResizeMode          = "NoResize"
+$splash.Width               = 400
+$splash.Height              = 220
+$splash.WindowStartupLocation = "CenterScreen"
+$splash.AllowsTransparency  = $true
+$splash.Background          = [System.Windows.Media.Brushes]::Transparent
+$splash.Topmost             = $true
+$splash.ShowInTaskbar       = $false
+
+$splashBorder = New-Object System.Windows.Controls.Border
+$splashBorder.Background      = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString("#0a0a0f")))
+$splashBorder.BorderBrush     = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString("#2a2a3a")))
+$splashBorder.BorderThickness = [System.Windows.Thickness]::new(1)
+$splashBorder.CornerRadius    = [System.Windows.CornerRadius]::new(12)
+
+$splashGrid = New-Object System.Windows.Controls.Grid
+$r0 = New-Object System.Windows.Controls.RowDefinition; $r0.Height = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+$r1 = New-Object System.Windows.Controls.RowDefinition; $r1.Height = [System.Windows.GridLength]::Auto
+$r2 = New-Object System.Windows.Controls.RowDefinition; $r2.Height = [System.Windows.GridLength]::Auto
+$splashGrid.RowDefinitions.Add($r0)
+$splashGrid.RowDefinitions.Add($r1)
+$splashGrid.RowDefinitions.Add($r2)
+
+$splashTitle            = New-Object System.Windows.Controls.TextBlock
+$splashTitle.Text       = "Scy"
+$splashTitle.FontSize   = 38
+$splashTitle.FontWeight = [System.Windows.FontWeights]::Light
+$splashTitle.Foreground = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString("#e0e0e8")))
+$splashTitle.HorizontalAlignment = "Center"
+$splashTitle.VerticalAlignment   = "Bottom"
+[System.Windows.Controls.Grid]::SetRow($splashTitle, 0)
+
+$splashVer            = New-Object System.Windows.Controls.TextBlock
+$splashVer.Text       = $splashVersion
+$splashVer.FontSize   = 12
+$splashVer.Foreground = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString("#6b6b80")))
+$splashVer.HorizontalAlignment = "Center"
+$splashVer.Margin     = [System.Windows.Thickness]::new(0, 4, 0, 0)
+[System.Windows.Controls.Grid]::SetRow($splashVer, 1)
+
+$splashLoading            = New-Object System.Windows.Controls.TextBlock
+$splashLoading.Text       = "Loading..."
+$splashLoading.FontSize   = 13
+$splashLoading.Foreground = (New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString("#6b6b80")))
+$splashLoading.HorizontalAlignment = "Center"
+$splashLoading.Margin     = [System.Windows.Thickness]::new(0, 24, 0, 30)
+[System.Windows.Controls.Grid]::SetRow($splashLoading, 2)
+
+$splashGrid.Children.Add($splashTitle)   | Out-Null
+$splashGrid.Children.Add($splashVer)     | Out-Null
+$splashGrid.Children.Add($splashLoading) | Out-Null
+$splashBorder.Child = $splashGrid
+$splash.Content     = $splashBorder
+
+# Animated dots timer
+$script:splashDotState = 0
+$splashTimer = New-Object System.Windows.Threading.DispatcherTimer
+$splashTimer.Interval = [TimeSpan]::FromMilliseconds(400)
+$splashTimer.Add_Tick({
+    $script:splashDotState = ($script:splashDotState + 1) % 4
+    $dots = "." * $script:splashDotState
+    $splashLoading.Text = "Loading$dots"
+})
+$splashTimer.Start()
+
+$splash.Show()
+
+function Pump-Splash {
+    if ($splash -and $splash.IsVisible) {
+        $splash.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+    }
+}
+
+try {
+
 # ── XAML UI Definition ──────────────────────────────────────────
 $xamlString = Get-Content -Path (Join-Path $PSScriptRoot "Scy.xaml") -Raw -Encoding UTF8
+Pump-Splash
 
 # ── Build the Window ────────────────────────────────────────────
 $window = [Windows.Markup.XamlReader]::Parse($xamlString)
+Pump-Splash
 
 # ── Helper: find named elements ─────────────────────────────────
 function Find($name) { $window.FindName($name) }
@@ -236,16 +325,19 @@ function Show-ThemedDialog {
 # ══════════════════════════════════════════════════════════════════
 #  TAB HANDLERS
 # ══════════════════════════════════════════════════════════════════
+Pump-Splash
 . (Join-Path $PSScriptRoot "Tabs\Tab-Updates.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Installs.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Uninstall.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Tweaks.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Settings.ps1")
+Pump-Splash
 . (Join-Path $PSScriptRoot "Tabs\Tab-Info.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Battery.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Firmware.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Cleanup.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Shortcuts.ps1")
+Pump-Splash
 . (Join-Path $PSScriptRoot "Tabs\Tab-RegBookmarks.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Network.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Hosts.ps1")
@@ -254,6 +346,7 @@ function Show-ThemedDialog {
 . (Join-Path $PSScriptRoot "Tabs\Tab-QRCode.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Notes.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Export.ps1")
+Pump-Splash
 
 # ── Restore saved window geometry ────────────────────────────────
 if ($script:rememberWindowPosition -and $script:windowGeometry) {
@@ -328,5 +421,10 @@ if ($isAdmin) {
     )
 })
 
-# ── Show the window ─────────────────────────────────────────────
+} finally {
+    # ── Close splash and show the window ──────────────────────────────
+    $splashTimer.Stop()
+    if ($splash) { $splash.Close(); $splash = $null }
+}
+
 $window.ShowDialog() | Out-Null
