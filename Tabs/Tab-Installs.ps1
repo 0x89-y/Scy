@@ -149,7 +149,6 @@ function Set-ReadyStatus {
     $statusIndicator.Text       = "Ready"
     $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
     $footerStatus.Text          = "Ready"
-    Invoke-ConfirmSound
 }
 
 # -- Helper: update Install Selected button state -----------------------------

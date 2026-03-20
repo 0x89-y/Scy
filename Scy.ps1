@@ -14,13 +14,6 @@ $window = [Windows.Markup.XamlReader]::Parse($xamlString)
 # ── Helper: find named elements ─────────────────────────────────
 function Find($name) { $window.FindName($name) }
 
-# ── Confirmation sound (enabled via Settings toggle) ─────────────
-function Invoke-ConfirmSound {
-    if ($script:confirmationSounds) {
-        [System.Media.SystemSounds]::Asterisk.Play()
-    }
-}
-
 # ── Named controls ───────────────────────────────────────────────
 $statusIndicator = Find "StatusIndicator"
 $footerStatus    = Find "FooterStatus"

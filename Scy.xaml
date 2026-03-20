@@ -2482,20 +2482,6 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Confirmation sounds" FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource FgBrush}"/>
-                                            <TextBlock Text="Play a sound when actions complete successfully"
-                                                       FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
-                                        </StackPanel>
-                                        <CheckBox x:Name="ToggleConfirmSounds" Grid.Column="1"
-                                                  Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
-                                    </Grid>
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Remember window position and size" FontSize="12" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource FgBrush}"/>
                                             <TextBlock Text="Restore the window size and position from the last session"

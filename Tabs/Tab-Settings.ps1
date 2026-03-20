@@ -248,7 +248,6 @@ function Save-Settings {
             Theme              = $script:currentTheme
             CustomTheme        = $script:themes["Custom"]
             AutoCheckUpdates   = $script:autoCheckUpdates
-            ConfirmationSounds    = $script:confirmationSounds
             RememberWindowPosition = $script:rememberWindowPosition
             SpeedTestServer    = $script:speedTestServer
             WindowGeometry     = $script:windowGeometry
@@ -276,7 +275,6 @@ function Set-LocalInstallFolder {
 # ── Load saved settings ───────────────────────────────────────────
 $script:currentTheme       = "Aether"
 $script:autoCheckUpdates   = $false
-$script:confirmationSounds    = $false
 $script:rememberWindowPosition = $false
 $script:rememberCleanTargets   = $false
 $script:cleanTargetSelection   = @{}
@@ -289,7 +287,6 @@ if (Test-Path $script:settingsFile) {
         if ($saved.LocalInstallFolder) { $script:localInstallFolder = $saved.LocalInstallFolder }
         if ($saved.Theme)              { $script:currentTheme = $saved.Theme }
         if ($null -ne $saved.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$saved.AutoCheckUpdates }
-        if ($null -ne $saved.ConfirmationSounds)    { $script:confirmationSounds    = [bool]$saved.ConfirmationSounds }
         if ($null -ne $saved.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$saved.RememberWindowPosition }
         if ($saved.SpeedTestServer)              { $script:speedTestServer    = [string]$saved.SpeedTestServer }
         if ($saved.WindowGeometry) {
@@ -363,7 +360,6 @@ foreach ($staleKey in @("AccentHover","SubText","WinCtrlFg","ScrollThumb","Input
 
 (Find "SettingsLocalFolder").Text = $script:localInstallFolder
 (Find "ToggleAutoCheckUpdates").IsChecked = $script:autoCheckUpdates
-(Find "ToggleConfirmSounds").IsChecked    = $script:confirmationSounds
 (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
 (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
 Update-LocalInstallers
@@ -448,10 +444,6 @@ foreach ($colorKey in $script:customColorKeys) {
 # ── Auto-check for updates toggle ────────────────────────────────
 (Find "ToggleAutoCheckUpdates").Add_Checked({   $script:autoCheckUpdates = $true;  Save-Settings })
 (Find "ToggleAutoCheckUpdates").Add_Unchecked({ $script:autoCheckUpdates = $false; Save-Settings })
-
-# ── Confirmation sounds toggle ────────────────────────────────────
-(Find "ToggleConfirmSounds").Add_Checked({   $script:confirmationSounds = $true;  Save-Settings })
-(Find "ToggleConfirmSounds").Add_Unchecked({ $script:confirmationSounds = $false; Save-Settings })
 
 # ── Remember window position toggle ──────────────────────────────
 (Find "ToggleRememberPosition").Add_Checked({   $script:rememberWindowPosition = $true;  Save-Settings })
@@ -655,7 +647,6 @@ $btnInstallSelfUpdate.Add_Click({
             if ($imported.LocalInstallFolder) { $script:localInstallFolder = $imported.LocalInstallFolder }
             if ($imported.Theme)              { $script:currentTheme = $imported.Theme }
             if ($null -ne $imported.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$imported.AutoCheckUpdates }
-            if ($null -ne $imported.ConfirmationSounds)    { $script:confirmationSounds    = [bool]$imported.ConfirmationSounds }
             if ($null -ne $imported.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$imported.RememberWindowPosition }
             if ($imported.SpeedTestServer)              { $script:speedTestServer    = [string]$imported.SpeedTestServer }
             if ($imported.CustomTheme) {
@@ -712,8 +703,7 @@ $btnInstallSelfUpdate.Add_Click({
 
             (Find "SettingsLocalFolder").Text = $script:localInstallFolder
             (Find "ToggleAutoCheckUpdates").IsChecked = $script:autoCheckUpdates
-            (Find "ToggleConfirmSounds").IsChecked    = $script:confirmationSounds
-            (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
+                        (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
             (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
             Apply-Theme $script:currentTheme
             Update-LocalInstallers

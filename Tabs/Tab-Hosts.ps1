@@ -180,7 +180,6 @@ function Save-HostsFile {
             $lines.Add($line)
         }
         Set-Content -Path $hostsPath -Value $lines -Encoding UTF8 -Force
-        Invoke-ConfirmSound
         $hostsStatusText.Text = "Saved"
         $hostsStatusText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
     } catch {
