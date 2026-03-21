@@ -1,16 +1,18 @@
 ﻿# ── System sub-navigation ──────────────────────────────────────
-$systemNavInfo    = Find "SystemNav_Info"
-$systemNavCleanup = Find "SystemNav_Cleanup"
+$systemNavInfo     = Find "SystemNav_Info"
+$systemNavCleanup  = Find "SystemNav_Cleanup"
 $systemNavBattery  = Find "SystemNav_Battery"
 $systemNavFirmware = Find "SystemNav_Firmware"
+$systemNavSfcDism  = Find "SystemNav_SfcDism"
 
 $systemSectionInfo     = Find "SystemSection_Info"
 $systemSectionCleanup  = Find "SystemSection_Cleanup"
 $systemSectionBattery  = Find "SystemSection_Battery"
 $systemSectionFirmware = Find "SystemSection_Firmware"
+$systemSectionSfcDism  = Find "SystemSection_SfcDism"
 
-$script:systemNavButtons = @($systemNavInfo, $systemNavCleanup, $systemNavBattery, $systemNavFirmware)
-$script:systemSections   = @($systemSectionInfo, $systemSectionCleanup, $systemSectionBattery, $systemSectionFirmware)
+$script:systemNavButtons = @($systemNavInfo, $systemNavCleanup, $systemNavBattery, $systemNavFirmware, $systemNavSfcDism)
+$script:systemSections   = @($systemSectionInfo, $systemSectionCleanup, $systemSectionBattery, $systemSectionFirmware, $systemSectionSfcDism)
 
 function Set-SystemSubNav {
     param([int]$Index)
@@ -34,6 +36,7 @@ $systemNavInfo.Add_Click({    Set-SystemSubNav 0 })
 $systemNavCleanup.Add_Click({ Set-SystemSubNav 1 })
 $systemNavBattery.Add_Click({  Set-SystemSubNav 2 })
 $systemNavFirmware.Add_Click({ Set-SystemSubNav 3 })
+$systemNavSfcDism.Add_Click({  Set-SystemSubNav 4 })
 
 # -- System Info Tab ----------------------------------------------------------
 $sysOS       = Find "SysOS"

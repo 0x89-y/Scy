@@ -1196,6 +1196,8 @@
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="SystemNav_Firmware" Content="BIOS/UEFI"
                                     Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="SystemNav_SfcDism" Content="SFC / DISM"
+                                    Style="{StaticResource SubNavButton}"/>
                         </StackPanel>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -1691,6 +1693,92 @@
                                                Foreground="{DynamicResource MutedText}" FontSize="12"
                                                Margin="0,2"/>
                                 </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                                </StackPanel>
+                                </Border>
+
+                                <!-- ─── SFC / DISM section ─── -->
+                                <Border x:Name="SystemSection_SfcDism" Visibility="Collapsed">
+                                <StackPanel>
+
+                        <!-- Action buttons -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,16">
+                            <Button x:Name="BtnSfcRun"  Content="Run SFC"  Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                            <Button x:Name="BtnDismRun" Content="Run DISM" Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                            <Button x:Name="BtnSfcDismBoth" Content="Run Both" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                            <Button x:Name="BtnSfcDismStop" Content="Stop" Style="{StaticResource DangerButton}"
+                                    IsEnabled="False" Opacity="0.4"/>
+                        </StackPanel>
+
+                        <!-- Status -->
+                        <Border Background="{DynamicResource Surface2Brush}"
+                                CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" Padding="14,12" Margin="0,0,0,12">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,8">
+                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                    <TextBlock Text="Status"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource FgBrush}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <TextBlock x:Name="SfcDismStatus" Text="Ready -- click a button to start a scan."
+                                           Foreground="{DynamicResource MutedText}" FontSize="12"
+                                           TextWrapping="Wrap" Margin="0,2"/>
+                                <ProgressBar x:Name="SfcDismProgress" Height="6" Margin="0,8,0,0"
+                                             Minimum="0" Maximum="100" Value="0"
+                                             Foreground="{DynamicResource AccentBrush}"
+                                             Background="{DynamicResource Surface3Brush}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Results summary -->
+                        <Border x:Name="SfcDismResultCard" Background="{DynamicResource Surface2Brush}"
+                                CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" Padding="14,12" Margin="0,0,0,12"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,8">
+                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                    <TextBlock Text="Results"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource FgBrush}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <StackPanel x:Name="SfcDismResultPanel"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Raw output -->
+                        <Border Background="{DynamicResource Surface2Brush}"
+                                CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1" Padding="14,12" Margin="0,0,0,10">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,8">
+                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                    <TextBlock Text="Output Log"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource FgBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <Button x:Name="BtnToggleSfcDismLog" Content="Hide output"
+                                            Style="{StaticResource SecondaryButton}"
+                                            HorizontalAlignment="Right" Padding="10,3"
+                                            FontSize="11"/>
+                                </DockPanel>
+                                <TextBox x:Name="SfcDismOutput"
+                                         IsReadOnly="True" TextWrapping="Wrap"
+                                         VerticalScrollBarVisibility="Auto"
+                                         MaxHeight="350"
+                                         FontFamily="Consolas" FontSize="11"
+                                         Background="Transparent"
+                                         Foreground="{DynamicResource FgBrush}"
+                                         BorderThickness="0"
+                                         Padding="4"/>
                             </StackPanel>
                         </Border>
 

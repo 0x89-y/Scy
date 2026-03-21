@@ -371,6 +371,7 @@ Pump-Splash
 . (Join-Path $PSScriptRoot "Tabs\Tab-Battery.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Firmware.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Cleanup.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-SfcDism.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Shortcuts.ps1")
 $script:splashStatus = "Loading network"
 Pump-Splash
