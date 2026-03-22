@@ -37,6 +37,24 @@ $settingsNavAppearance.Add_Click({ Set-SettingsSubNav 1 })
 $settingsNavGroups.Add_Click({     Set-SettingsSubNav 2 })
 $settingsNavBackup.Add_Click({     Set-SettingsSubNav 3 })
 
+# ── Collapsible settings cards ──────────────────────────────────
+foreach ($section in @("Updates", "General", "LocalInstallers", "Credits")) {
+    $header  = Find "SettingsHeader_$section"
+    $header.Tag = $section
+    $header.Add_MouseLeftButtonUp({
+        $name    = $this.Tag
+        $body    = Find "SettingsBody_$name"
+        $chevron = Find "SettingsChevron_$name"
+        if ($body.Visibility -eq "Visible") {
+            $body.Visibility = "Collapsed"
+            $chevron.Text = "+"
+        } else {
+            $body.Visibility = "Visible"
+            $chevron.Text = "-"
+        }
+    })
+}
+
 $script:settingsFile = Join-Path $PSScriptRoot "..\settings.json"
 $script:settings = @{}
 $script:customShortcutGroups    = [System.Collections.Generic.List[string]]::new()
