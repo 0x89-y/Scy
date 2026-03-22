@@ -290,6 +290,9 @@ function Save-Settings {
             HiddenDefaultInstallCategories = @($script:hiddenDefaultInstallCategories)
             RememberCleanTargets           = $script:rememberCleanTargets
             AutoScanLocalInstallers        = $script:autoScanLocalInstallers
+            RememberLocalInstallers        = $script:rememberLocalInstallers
+            CachedLocalInstallers          = @($script:cachedLocalInstallers)
+            LocalInstallerExtensions       = @($script:localInstallerExtensions)
             CleanTargetSelection           = $script:cleanTargetSelection
             RegBookmarks                   = $script:settings.RegBookmarks
             CustomRegBookmarkGroups        = @($script:customRegBookmarkGroups)
@@ -313,7 +316,12 @@ $script:autoCheckUpdates   = $false
 $script:autoCheckSelfUpdate = $false
 $script:rememberWindowPosition = $false
 $script:rememberCleanTargets   = $false
-$script:autoScanLocalInstallers = $false
+$script:autoScanLocalInstallers    = $false
+$script:rememberLocalInstallers    = $false
+$script:cachedLocalInstallers      = @()
+$script:localInstallerExtensions   = [System.Collections.Generic.List[string]]::new()
+$script:localInstallerExtensions.Add('.exe')
+$script:localInstallerExtensions.Add('.msi')
 $script:cleanTargetSelection   = @{}
 $script:windowGeometry     = $null
 $script:speedTestServer    = "Hetzner FSN1 (DE)"
@@ -384,6 +392,14 @@ if (Test-Path $script:settingsFile) {
         }
         if ($null -ne $saved.RememberCleanTargets) { $script:rememberCleanTargets = [bool]$saved.RememberCleanTargets }
         if ($null -ne $saved.AutoScanLocalInstallers) { $script:autoScanLocalInstallers = [bool]$saved.AutoScanLocalInstallers }
+        if ($null -ne $saved.RememberLocalInstallers) { $script:rememberLocalInstallers = [bool]$saved.RememberLocalInstallers }
+        if ($null -ne $saved.LocalInstallerExtensions) {
+            $script:localInstallerExtensions.Clear()
+            foreach ($ext in $saved.LocalInstallerExtensions) { $script:localInstallerExtensions.Add([string]$ext) }
+        }
+        if ($null -ne $saved.CachedLocalInstallers) {
+            $script:cachedLocalInstallers = @($saved.CachedLocalInstallers | ForEach-Object { @{Name=[string]$_.Name; FullName=[string]$_.FullName} })
+        }
         if ($null -ne $saved.CleanTargetSelection) {
             $script:cleanTargetSelection = @{}
             foreach ($prop in $saved.CleanTargetSelection.PSObject.Properties) {
@@ -413,6 +429,7 @@ foreach ($staleKey in @("AccentHover","SubText","WinCtrlFg","ScrollThumb","Input
 (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
 (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
 (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
+(Find "ToggleRememberLocalInstallers").IsChecked = $script:rememberLocalInstallers
 $window.Dispatcher.BeginInvoke([action]{ Update-QuickInstalls }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
 # Apply the saved/default theme on startup
@@ -538,6 +555,66 @@ foreach ($colorKey in $script:customColorKeys) {
 
 (Find "ToggleScanLocalInstallers").Add_Checked({   $script:autoScanLocalInstallers = $true;  Save-Settings })
 (Find "ToggleScanLocalInstallers").Add_Unchecked({ $script:autoScanLocalInstallers = $false; Save-Settings })
+
+(Find "ToggleRememberLocalInstallers").Add_Checked({
+    $script:rememberLocalInstallers = $true
+    Save-Settings
+})
+(Find "ToggleRememberLocalInstallers").Add_Unchecked({
+    $script:rememberLocalInstallers = $false
+    $script:cachedLocalInstallers   = @()
+    Save-Settings
+})
+
+# ── Local installer file extensions ──────────────────────────
+$localExtPanel = Find "LocalExtensionsPanel"
+$localExtBox   = Find "LocalExtBox"
+$localExtPlaceholder = Find "LocalExtPlaceholder"
+
+function Render-LocalExtensions {
+    $localExtPanel.Children.Clear()
+    foreach ($ext in $script:localInstallerExtensions) {
+        $chip = New-Object System.Windows.Controls.Button
+        $chip.Content     = "$ext  x"
+        $chip.Style       = $window.Resources["QuickAppButton"]
+        $chip.Tag         = $ext
+        $chip.ToolTip     = "Click to remove $ext"
+        $chip.Add_Click({
+            $extToRemove = $this.Tag
+            $script:localInstallerExtensions.Remove($extToRemove)
+            Save-Settings
+            Render-LocalExtensions
+        })
+        $localExtPanel.Children.Add($chip) | Out-Null
+    }
+}
+
+Render-LocalExtensions
+
+$localExtBox.Add_TextChanged({
+    $localExtPlaceholder.Visibility = if ($localExtBox.Text) { "Collapsed" } else { "Visible" }
+})
+
+$localExtBox.Add_KeyDown({
+    param($s, $e)
+    if ($e.Key -eq [System.Windows.Input.Key]::Return) {
+        (Find "BtnAddLocalExt").RaiseEvent((New-Object System.Windows.RoutedEventArgs([System.Windows.Controls.Primitives.ButtonBase]::ClickEvent)))
+    }
+})
+
+(Find "BtnAddLocalExt").Add_Click({
+    $raw = $localExtBox.Text.Trim().ToLower()
+    if (-not $raw) { return }
+    if (-not $raw.StartsWith('.')) { $raw = ".$raw" }
+    if ($script:localInstallerExtensions -contains $raw) {
+        $localExtBox.Text = ""
+        return
+    }
+    $script:localInstallerExtensions.Add($raw)
+    $localExtBox.Text = ""
+    Save-Settings
+    Render-LocalExtensions
+})
 
 # ── Use Windows accent color toggle ───────────────────────────
 (Find "ToggleUseWindowsAccent").IsChecked = $script:useWindowsAccent
@@ -788,6 +865,11 @@ $btnInstallSelfUpdate.Add_Click({
             }
             if ($null -ne $imported.RememberCleanTargets) { $script:rememberCleanTargets = [bool]$imported.RememberCleanTargets }
             if ($null -ne $imported.AutoScanLocalInstallers) { $script:autoScanLocalInstallers = [bool]$imported.AutoScanLocalInstallers }
+            if ($null -ne $imported.RememberLocalInstallers) { $script:rememberLocalInstallers = [bool]$imported.RememberLocalInstallers }
+            if ($null -ne $imported.LocalInstallerExtensions) {
+                $script:localInstallerExtensions.Clear()
+                foreach ($ext in $imported.LocalInstallerExtensions) { $script:localInstallerExtensions.Add([string]$ext) }
+            }
             if ($null -ne $imported.UseWindowsAccent) { $script:useWindowsAccent = [bool]$imported.UseWindowsAccent }
             if ($null -ne $imported.CleanTargetSelection) {
                 $script:cleanTargetSelection = @{}
@@ -806,6 +888,7 @@ $btnInstallSelfUpdate.Add_Click({
                         (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
             (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
             (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
+            (Find "ToggleRememberLocalInstallers").IsChecked = $script:rememberLocalInstallers
             (Find "ToggleUseWindowsAccent").IsChecked = $script:useWindowsAccent
             Apply-Theme $script:currentTheme
             Update-LocalInstallers

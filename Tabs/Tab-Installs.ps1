@@ -1067,6 +1067,41 @@ $btnImportBundles.Add_Click({
 # -- Local installers ---------------------------------------------------------
 $script:localInstallFolder = [System.IO.Path]::Combine($env:USERPROFILE, "Downloads")
 
+function Render-LocalInstallerButtons {
+    param([array]$FileList)
+    $panel = Find "LocalInstallersPanel"
+    $panel.Children.Clear()
+
+    if ($FileList.Count -eq 0) {
+        $tb            = New-Object System.Windows.Controls.TextBlock
+        $tb.Text       = "No .exe or .msi files found."
+        $tb.Foreground = $window.Resources["MutedText"]
+        $tb.FontSize   = 12
+        $panel.Children.Add($tb) | Out-Null
+        return
+    }
+
+    foreach ($f in $FileList) {
+        $name     = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+        $fullPath = $f.FullName
+        $fileName = $f.Name
+        $btn         = New-Object System.Windows.Controls.Button
+        $btn.Content = $name
+        $btn.Style   = $window.Resources["QuickAppButton"]
+        $btn.Margin  = [System.Windows.Thickness]::new(0, 0, 6, 6)
+        $btn.ToolTip = $fullPath
+        $btn.Add_Click(({
+            try {
+                Start-Process $fullPath
+                $footerStatus.Text = "Scy - Launched: $fileName"
+            } catch {
+                Show-ThemedDialog "Could not run '$fileName':`n$_" "Error" "OK" "Error"
+            }
+        }.GetNewClosure()))
+        $panel.Children.Add($btn) | Out-Null
+    }
+}
+
 function Update-LocalInstallers {
     $panel  = Find "LocalInstallersPanel"
     $folder = $script:localInstallFolder
@@ -1082,34 +1117,24 @@ function Update-LocalInstallers {
         return
     }
 
+    $exts  = $script:localInstallerExtensions
     $files = @(Get-ChildItem -Path $folder -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Extension -in '.exe', '.msi' } | Sort-Object Name)
+        Where-Object { $_.Extension -in $exts } | Sort-Object Name)
 
-    if ($files.Count -eq 0) {
-        $tb            = New-Object System.Windows.Controls.TextBlock
-        $tb.Text       = "No .exe or .msi files found."
-        $tb.Foreground = $window.Resources["MutedText"]
-        $tb.FontSize   = 12
-        $panel.Children.Add($tb) | Out-Null
-        return
+    $fileList = @($files | ForEach-Object { @{Name=$_.Name; FullName=$_.FullName} })
+
+    # Cache the list if remember is enabled
+    if ($script:rememberLocalInstallers) {
+        $script:cachedLocalInstallers = $fileList
+        Save-Settings
     }
 
-    foreach ($file in $files) {
-        $btn         = New-Object System.Windows.Controls.Button
-        $btn.Content = $file.BaseName
-        $btn.Style   = $window.Resources["QuickAppButton"]
-        $btn.Margin  = [System.Windows.Thickness]::new(0, 0, 6, 6)
-        $btn.ToolTip = $file.FullName
-        $btn.Add_Click(({
-            try {
-                Start-Process $file.FullName
-                $footerStatus.Text = "Scy - Launched: " + $file.Name
-            } catch {
-                Show-ThemedDialog "Could not run '$($file.Name)':`n$_" "Error" "OK" "Error"
-            }
-        }.GetNewClosure()))
-        $panel.Children.Add($btn) | Out-Null
-    }
+    Render-LocalInstallerButtons $fileList
+
+    # After first scan, switch button to "Rescan" secondary style
+    $rescanBtn = Find "BtnLocalRescan"
+    $rescanBtn.Content = "Rescan"
+    $rescanBtn.Style   = $window.Resources["SecondaryButton"]
 }
 
 (Find "BtnLocalRescan").Add_Click({ Update-LocalInstallers })
@@ -1124,7 +1149,15 @@ function Update-LocalInstallers {
     }
 })
 
-if ($script:autoScanLocalInstallers) {
-    $window.Dispatcher.BeginInvoke([action]{ Update-LocalInstallers }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
-}
+# Deferred — settings are loaded by Tab-Settings.ps1 which is sourced after this file
+$window.Dispatcher.BeginInvoke([action]{
+    if ($script:rememberLocalInstallers -and $script:cachedLocalInstallers.Count -gt 0) {
+        Render-LocalInstallerButtons $script:cachedLocalInstallers
+        $rescanBtn = Find "BtnLocalRescan"
+        $rescanBtn.Content = "Rescan"
+        $rescanBtn.Style   = $window.Resources["SecondaryButton"]
+    } elseif ($script:autoScanLocalInstallers) {
+        Update-LocalInstallers
+    }
+}, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
