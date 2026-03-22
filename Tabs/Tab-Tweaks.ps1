@@ -346,6 +346,7 @@ Rebuild-TweaksPanel
 (Find "TweakSearchBox").Add_TextChanged({
     $query = (Find "TweakSearchBox").Text.Trim().ToLower()
     (Find "TweakSearchPlaceholder").Visibility = if ($query) { "Collapsed" } else { "Visible" }
+    (Find "TweakSearchClear").Visibility = if ($query) { "Visible" } else { "Collapsed" }
 
     foreach ($gName in $script:tweakGroupPanels.Keys) {
         $gData    = $script:tweakGroupPanels[$gName]
@@ -382,15 +383,18 @@ Rebuild-TweaksPanel
     }
 })
 
+(Find "TweakSearchClear").Add_Click({
+    (Find "TweakSearchBox").Text = ""
+    (Find "TweakSearchBox").Focus()
+})
+
 # ── Tweak creator ────────────────────────────────────────────────
 (Find "BtnToggleTweakCreator").Add_Click({
     $panel = Find "TweakCreatorPanel"
     if ($panel.Visibility -eq "Visible") {
         $panel.Visibility = "Collapsed"
-        (Find "TweakCreatorChevron").Text = "▶"
     } else {
         $panel.Visibility = "Visible"
-        (Find "TweakCreatorChevron").Text = "▼"
     }
 })
 
@@ -477,7 +481,6 @@ Rebuild-TweaksPanel
         (Find "TweakRevertPlaceholder").Visibility = "Visible"
         (Find "TweakGroupPlaceholder").Visibility  = "Visible"
         (Find "TweakCreatorPanel").Visibility      = "Collapsed"
-        (Find "TweakCreatorChevron").Text          = "▶"
 
         $footerStatus.Text = "Scy - Tweak '$name' created"
     } catch {

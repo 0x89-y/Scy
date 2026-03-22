@@ -5,6 +5,7 @@ $exportSummary       = Find "ExportSummary"
 $exportFilterCount   = Find "ExportFilterCount"
 $exportFilterBox     = Find "ExportFilterBox"
 $exportFilterPlaceholder = Find "ExportFilterPlaceholder"
+$exportFilterClear   = Find "ExportFilterClear"
 $btnExportScan       = Find "BtnExportScan"
 $btnExportJSON       = Find "BtnExportJSON"
 $btnExportCSV        = Find "BtnExportCSV"
@@ -27,6 +28,7 @@ $exportFilterBox.Add_TextChanged({
     $tagData = $exportResultsPanel.Tag
     if (-not $tagData -or -not $tagData.Rows) { return }
     $q = $exportFilterBox.Text.ToLower()
+    $exportFilterClear.Visibility = if ($q) { "Visible" } else { "Collapsed" }
     $visible = 0
     foreach ($item in $tagData.Rows) {
         $show = ($q -eq '' -or $item.Tag.ToLower().Contains($q))
@@ -39,6 +41,10 @@ $exportFilterBox.Add_TextChanged({
     } else {
         $exportFilterCount.Text = ""
     }
+})
+$exportFilterClear.Add_Click({
+    $exportFilterBox.Text = ""
+    $exportFilterBox.Focus()
 })
 
 # ── Scan ─────────────────────────────────────────────────────────

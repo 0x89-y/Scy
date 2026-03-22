@@ -6,19 +6,19 @@ $settingsNavGeneral    = Find "SettingsNav_General"
 $settingsNavGroups     = Find "SettingsNav_Groups"
 $settingsNavBackup     = Find "SettingsNav_Backup"
 
-$settingsPanelAppearance = Find "SettingsPanel_Appearance"
-$settingsPanelGeneral    = Find "SettingsPanel_General"
-$settingsPanelGroups     = Find "SettingsPanel_Groups"
-$settingsPanelBackup     = Find "SettingsPanel_Backup"
+$settingsSectionAppearance = Find "SettingsSection_Appearance"
+$settingsSectionGeneral    = Find "SettingsSection_General"
+$settingsSectionGroups     = Find "SettingsSection_Groups"
+$settingsSectionBackup     = Find "SettingsSection_Backup"
 
-$script:settingsNavButtons = @($settingsNavGeneral, $settingsNavAppearance, $settingsNavGroups, $settingsNavBackup)
-$script:settingsPanels     = @($settingsPanelGeneral, $settingsPanelAppearance, $settingsPanelGroups, $settingsPanelBackup)
+$script:settingsNavButtons  = @($settingsNavGeneral, $settingsNavAppearance, $settingsNavGroups, $settingsNavBackup)
+$script:settingsSections    = @($settingsSectionGeneral, $settingsSectionAppearance, $settingsSectionGroups, $settingsSectionBackup)
 
 function Set-SettingsSubNav {
     param([int]$Index)
     $script:settingsSubNavIndex = $Index
-    for ($i = 0; $i -lt $script:settingsPanels.Count; $i++) {
-        $script:settingsPanels[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
+    for ($i = 0; $i -lt $script:settingsSections.Count; $i++) {
+        $script:settingsSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
         $btn = $script:settingsNavButtons[$i]
         if ($i -eq $Index) {
             $btn.Foreground = $window.Resources["FgBrush"]

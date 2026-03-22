@@ -87,7 +87,7 @@ function Initialize-RegBookmarks {
 
 # ── Render ──────────────────────────────────────────────────────
 function Render-RegBookmarks {
-    $parentPanel = Find "RegBookmarkSectionsPanel"
+    $parentPanel = Find "RegBookmarkGroupsPanel"
     $parentPanel.Children.Clear()
     $script:regBookmarkSectionElements = @{}
 

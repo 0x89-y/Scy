@@ -142,7 +142,7 @@
   }
 
   function Render-Shortcuts {
-      $parentPanel = Find "ShortcutSectionsPanel"
+      $parentPanel = Find "ShortcutGroupsPanel"
       $parentPanel.Children.Clear()
       $script:shortcutSectionElements = @{}
 

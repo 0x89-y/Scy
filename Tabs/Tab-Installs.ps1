@@ -17,6 +17,7 @@ $installedPanel            = Find "InstalledPanel"
 $installedCountLabel       = Find "InstalledCountLabel"
 $installedFilterBox        = Find "InstalledFilterBox"
 $installedFilterPlaceholder = Find "InstalledFilterPlaceholder"
+$installedFilterClear      = Find "InstalledFilterClear"
 
 # Tracks search result rows for checkbox harvesting
 $script:searchItems    = [System.Collections.Generic.List[hashtable]]::new()
@@ -53,9 +54,14 @@ $installedFilterBox.Add_LostFocus({
 })
 $installedFilterBox.Add_TextChanged({
     $q = $installedFilterBox.Text.ToLower()
+    $installedFilterClear.Visibility = if ($q) { "Visible" } else { "Collapsed" }
     foreach ($item in $script:installedItems) {
         $item.Border.Visibility = if ($q -eq '' -or $item.Tag.Contains($q)) { "Visible" } else { "Collapsed" }
     }
+})
+$installedFilterClear.Add_Click({
+    $installedFilterBox.Text = ""
+    $installedFilterBox.Focus()
 })
 
 # -- Package sub-navigation ---------------------------------------------------
