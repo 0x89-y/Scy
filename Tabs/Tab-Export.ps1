@@ -84,46 +84,40 @@ $btnExportScan.Add_Click({
         try {
             $wingetOut = & winget list --accept-source-agreements 2>$null
             if ($wingetOut) {
-                $lines = $wingetOut -split "`n"
-                # Find header line with dashes
-                $headerIdx = -1
-                for ($i = 0; $i -lt $lines.Count; $i++) {
-                    if ($lines[$i] -match '^-{2,}') { $headerIdx = $i; break }
-                }
-                if ($headerIdx -gt 0) {
-                    $dashLine = $lines[$headerIdx]
+                # Strip ANSI escape codes and carriage returns
+                $lines = @($wingetOut | ForEach-Object { ($_ -replace '\x1B\[[0-9;]*[mK]', '') -replace '\r', '' })
 
-                    # Determine column positions from the dash line
-                    $cols = @()
-                    $pos = 0
-                    foreach ($seg in ($dashLine -split '(?<=\S)(?=\s)')) {
-                        $cols += $pos
-                        $pos += $seg.Length
-                        if ($dashLine.Length -gt $pos) {
-                            $gap = ($dashLine.Substring($pos) -replace '^(\s*).*', '$1').Length
-                            $pos += $gap
-                        }
+                # Find the separator line (continuous dashes, at least 10 wide)
+                $sepIdx = -1
+                for ($i = 0; $i -lt $lines.Count; $i++) {
+                    if ($lines[$i] -match '^-{10,}\s*$') { $sepIdx = $i; break }
+                }
+
+                if ($sepIdx -gt 0) {
+                    # Derive column positions from the header line above the separator
+                    $header    = $lines[$sepIdx - 1]
+                    $colStarts = @(0)
+                    for ($i = 1; $i -lt $header.Length; $i++) {
+                        if ($header[$i] -ne ' ' -and $header[$i - 1] -eq ' ') { $colStarts += $i }
                     }
 
-                    for ($i = $headerIdx + 1; $i -lt $lines.Count; $i++) {
-                        $line = $lines[$i]
-                        if ([string]::IsNullOrWhiteSpace($line)) { continue }
-                        if ($line.Length -lt 10) { continue }
+                    for ($r = $sepIdx + 1; $r -lt $lines.Count; $r++) {
+                        $line = $lines[$r]
+                        if ($line.Trim().Length -lt 2) { continue }
 
-                        $name = ""; $id = ""; $version = ""
-                        if ($cols.Count -ge 3) {
-                            $name    = $line.Substring(0, [math]::Min($cols[1], $line.Length)).Trim()
-                            $idStart = $cols[1]
-                            $idEnd   = if ($cols.Count -ge 3) { $cols[2] } else { $line.Length }
-                            if ($idStart -lt $line.Length) {
-                                $id = $line.Substring($idStart, [math]::Min($idEnd - $idStart, $line.Length - $idStart)).Trim()
-                            }
-                            $verStart = $cols[2]
-                            if ($cols.Count -ge 4) { $verEnd = $cols[3] } else { $verEnd = $line.Length }
-                            if ($verStart -lt $line.Length) {
-                                $version = $line.Substring($verStart, [math]::Min($verEnd - $verStart, $line.Length - $verStart)).Trim()
-                            }
+                        # Slice row at column positions
+                        $vals = @()
+                        for ($ci = 0; $ci -lt $colStarts.Count; $ci++) {
+                            $cs = $colStarts[$ci]
+                            if ($cs -ge $line.Length) { $vals += ''; continue }
+                            $ce = if ($ci + 1 -lt $colStarts.Count) { $colStarts[$ci + 1] } else { $line.Length }
+                            $ce = [Math]::Min($ce, $line.Length)
+                            $vals += $line.Substring($cs, $ce - $cs).TrimEnd()
                         }
+
+                        $name    = if ($vals.Count -ge 1) { $vals[0].Trim() } else { "" }
+                        $id      = if ($vals.Count -ge 2) { $vals[1].Trim() } else { "" }
+                        $version = if ($vals.Count -ge 3) { $vals[2].Trim() } else { "" }
 
                         if ($name -and $name -ne "Name" -and $name -notmatch '^-+$') {
                             $key = $name.ToLower()
