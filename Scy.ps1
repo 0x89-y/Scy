@@ -383,6 +383,7 @@ Pump-Splash
 . (Join-Path $PSScriptRoot "Tabs\Tab-QRCode.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Notes.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Export.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-GlobalSearch.ps1")
 $script:splashStatus = "Almost ready"
 Pump-Splash
 

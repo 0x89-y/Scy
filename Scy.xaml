@@ -565,7 +565,43 @@
         </Border>
 
         <!-- ═══ TABS ═══ -->
-        <TabControl x:Name="MainTabControl" Grid.Row="1" Background="Transparent" BorderThickness="0"
+        <Grid Grid.Row="1">
+            <!-- Global Search - top right, aligned with tab row -->
+            <Border HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                    Padding="10,0" Width="260" Margin="0,14,20,0" Panel.ZIndex="10">
+                <Grid>
+                    <TextBlock x:Name="GlobalSearchPlaceholder" Text="Search... (Ctrl+K)"
+                               Foreground="{DynamicResource MutedText}" FontSize="12"
+                               VerticalAlignment="Center" IsHitTestVisible="False"/>
+                    <TextBox x:Name="GlobalSearchBox" Background="Transparent" BorderThickness="0"
+                             Foreground="{DynamicResource FgBrush}" FontSize="12"
+                             CaretBrush="{DynamicResource FgBrush}" Padding="0,6"
+                             SelectionBrush="{DynamicResource AccentBrush}"/>
+                </Grid>
+            </Border>
+
+            <!-- Global Search Results Popup -->
+            <Popup x:Name="GlobalSearchPopup" PlacementTarget="{Binding ElementName=GlobalSearchBox}"
+                   Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+                   PopupAnimation="Fade" HorizontalOffset="-10" VerticalOffset="4">
+                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                        Width="320" MaxHeight="400">
+                    <Grid>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0">
+                            <StackPanel x:Name="GlobalSearchResults" Margin="6"/>
+                        </ScrollViewer>
+                        <TextBlock x:Name="GlobalSearchEmpty" Text="No results found"
+                                   Foreground="{DynamicResource MutedText}" FontSize="12"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Margin="0,16" Visibility="Collapsed"/>
+                    </Grid>
+                </Border>
+            </Popup>
+
+        <TabControl x:Name="MainTabControl" Background="Transparent" BorderThickness="0"
                     Margin="16,8,16,8" Padding="0">
             <TabControl.Resources>
                 <Style TargetType="TabPanel">
@@ -3488,6 +3524,7 @@
             </TabItem>
 
         </TabControl>
+        </Grid>
 
         <!-- ═══ FOOTER ═══ -->
         <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}"

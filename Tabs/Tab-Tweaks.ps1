@@ -331,6 +331,11 @@ function Rebuild-TweaksPanel {
         $groupPanel.Children.Add($groupContainer) | Out-Null
         $script:tweakGroupPanels[$gName] = @{ Container = $groupContainer; ItemsPanel = $itemsPanel; Rows = $rows; Header = $header }
     }
+
+    # Refresh global search index if available
+    if (Get-Command Update-GlobalSearchIndex -ErrorAction SilentlyContinue) {
+        Update-GlobalSearchIndex
+    }
 }
 
 # ── Initial load ──────────────────────────────────────────────────
