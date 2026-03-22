@@ -1,4 +1,5 @@
 {
     "group": "Privacy & Telemetry",
-    "description": "Stop Windows from collecting and uploading activity history (requires admin)"
+    "description": "Stop Windows from collecting and uploading activity history",
+    "requiresAdmin": true
 }

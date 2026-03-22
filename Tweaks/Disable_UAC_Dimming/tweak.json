@@ -1,4 +1,5 @@
 {
     "group": "System",
-    "description": "Stop the screen from dimming on UAC prompts (requires admin)"
+    "description": "Stop the screen from dimming on UAC prompts",
+    "requiresAdmin": true
 }

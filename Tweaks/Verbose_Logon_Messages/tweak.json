@@ -1,4 +1,5 @@
 {
     "group": "System",
-    "description": "Show detailed status messages during startup and shutdown (requires admin)"
+    "description": "Show detailed status messages during startup and shutdown",
+    "requiresAdmin": true
 }

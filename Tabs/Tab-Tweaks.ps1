@@ -7,7 +7,7 @@
 #      My_Tweak_Name\
 #        Apply.ps1        ← required - runs when applying the tweak
 #        Revert.ps1       ← optional - runs when reverting the tweak
-#        tweak.json       ← optional - { "group": "...", "description": "..." }
+#        tweak.json       ← optional - { "group": "...", "description": "...", "requiresAdmin": false }
 #
 #  The folder name is used as the display name (underscores → spaces).
 #  Tweaks are auto-grouped by common prefix (e.g. Disable_*, Show_*).
@@ -26,9 +26,10 @@ function Build-TweakRow {
 
     if (-not (Test-Path $applyScript)) { return $null }
 
-    $displayName = $Dir.Name -replace '_', ' '
-    $tweakMeta   = if (Test-Path $jsonFile) { Get-Content $jsonFile -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
-    $description = if ($tweakMeta -and $tweakMeta.description) { $tweakMeta.description } else { $null }
+    $displayName   = $Dir.Name -replace '_', ' '
+    $tweakMeta     = if (Test-Path $jsonFile) { Get-Content $jsonFile -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
+    $description   = if ($tweakMeta -and $tweakMeta.description) { $tweakMeta.description } else { $null }
+    $requiresAdmin = if ($tweakMeta -and $tweakMeta.requiresAdmin) { $true } else { $false }
 
     # Outer border
     $border = New-Object System.Windows.Controls.Border
@@ -52,12 +53,29 @@ function Build-TweakRow {
     $stack = New-Object System.Windows.Controls.StackPanel
     [System.Windows.Controls.Grid]::SetColumn($stack, 0)
 
+    $nameRow = New-Object System.Windows.Controls.StackPanel
+    $nameRow.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+
     $nameBlock            = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text       = $displayName
     $nameBlock.FontSize   = 13
     $nameBlock.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $nameBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-    $stack.Children.Add($nameBlock) | Out-Null
+    $nameRow.Children.Add($nameBlock) | Out-Null
+
+    if ($requiresAdmin) {
+        $adminBadge              = New-Object System.Windows.Controls.TextBlock
+        $adminBadge.Text         = "Admin"
+        $adminBadge.FontSize     = 10
+        $adminBadge.Margin       = [System.Windows.Thickness]::new(8, 0, 0, 0)
+        $adminBadge.Padding      = [System.Windows.Thickness]::new(6, 1, 6, 1)
+        $adminBadge.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+        $adminBadge.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
+        $nameRow.Children.Add($adminBadge) | Out-Null
+    }
+
+    $stack.Children.Add($nameRow) | Out-Null
 
     if ($description) {
         $descBlock              = New-Object System.Windows.Controls.TextBlock
@@ -111,13 +129,14 @@ function Build-TweakRow {
     $border.Child = $grid
 
     return @{
-        Border       = $border
-        CheckBox     = $cb
-        ApplyScript  = $applyScript
-        RevertScript = $revertScript
-        DisplayName  = $displayName
-        Description  = $description
-        FolderName   = $Dir.Name
+        Border        = $border
+        CheckBox      = $cb
+        ApplyScript   = $applyScript
+        RevertScript  = $revertScript
+        DisplayName   = $displayName
+        Description   = $description
+        FolderName    = $Dir.Name
+        RequiresAdmin = $requiresAdmin
     }
 }
 
@@ -435,6 +454,7 @@ Rebuild-TweaksPanel
     $group     = (Find "TweakGroupBox").Text.Trim()
     $desc      = (Find "TweakDescBox").Text.Trim()
     $applyPath = (Find "TweakApplyPath").Text.Trim()
+    $needsAdmin = (Find "TweakRequiresAdminToggle").IsChecked
 
     if (-not $name) {
         Show-ThemedDialog "Please enter a tweak name." "Missing Name" "OK" "Warning"
@@ -461,10 +481,11 @@ Rebuild-TweaksPanel
         if ($revertPath) {
             Copy-Item -Path $revertPath -Destination (Join-Path $destDir "Revert.ps1") -Force
         }
-        if ($desc -or $group) {
+        if ($desc -or $group -or $needsAdmin) {
             $tweakJson = @{}
             if ($group) { $tweakJson.group = $group }
             if ($desc)  { $tweakJson.description = $desc }
+            if ($needsAdmin) { $tweakJson.requiresAdmin = $true }
             $tweakJson | ConvertTo-Json | Set-Content -Path (Join-Path $destDir "tweak.json") -Encoding UTF8
         }
 
@@ -477,10 +498,11 @@ Rebuild-TweaksPanel
         (Find "TweakDescBox").Text    = ""
         (Find "TweakApplyPath").Text  = ""
         (Find "TweakRevertPath").Text = ""
-        (Find "TweakApplyPlaceholder").Visibility  = "Visible"
-        (Find "TweakRevertPlaceholder").Visibility = "Visible"
-        (Find "TweakGroupPlaceholder").Visibility  = "Visible"
-        (Find "TweakCreatorPanel").Visibility      = "Collapsed"
+        (Find "TweakApplyPlaceholder").Visibility    = "Visible"
+        (Find "TweakRevertPlaceholder").Visibility   = "Visible"
+        (Find "TweakGroupPlaceholder").Visibility    = "Visible"
+        (Find "TweakRequiresAdminToggle").IsChecked  = $false
+        (Find "TweakCreatorPanel").Visibility        = "Collapsed"
 
         $footerStatus.Text = "Scy - Tweak '$name' created"
     } catch {
@@ -488,22 +510,43 @@ Rebuild-TweaksPanel
     }
 })
 
+# ── Elevated execution helper ────────────────────────────────────
+function Invoke-TweakElevated {
+    param([string]$ScriptPath)
+    $proc = Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`"" `
+        -Verb RunAs -WindowStyle Hidden -Wait -PassThru
+    if ($proc.ExitCode -ne 0) {
+        throw "Elevated script exited with code $($proc.ExitCode)"
+    }
+}
+
 # ── Apply button ─────────────────────────────────────────────────
 (Find "BtnApplyTweaks").Add_Click({
     $applied = 0
+    $failed = @()
     foreach ($key in $tweakCheckboxes.Keys) {
         $row = $tweakCheckboxes[$key]
         if ($row.CheckBox.IsChecked) {
             try {
-                & $row.ApplyScript
+                if ($row.RequiresAdmin) {
+                    Invoke-TweakElevated $row.ApplyScript
+                } else {
+                    & $row.ApplyScript -ErrorAction Stop *>&1 | ForEach-Object {
+                        if ($_ -is [System.Management.Automation.ErrorRecord]) { throw $_ }
+                    }
+                }
                 $applied++
             } catch {
-                Show-ThemedDialog "Error applying tweak: $_" "Error" "OK" "Error"
+                $failed += "$($row.DisplayName): $_"
             }
         }
     }
-    if ($applied -eq 0) {
+    if ($applied -eq 0 -and $failed.Count -eq 0) {
         Show-ThemedDialog "No tweaks selected." "Info" "OK" "Information"
+    } elseif ($failed.Count -gt 0) {
+        $msg = if ($applied -gt 0) { "Applied $applied tweak(s).`n`n" } else { "" }
+        $msg += "Failed ($($failed.Count)):`n" + ($failed -join "`n")
+        Show-ThemedDialog $msg "Tweak Errors" "OK" "Warning"
     } else {
         Show-ThemedDialog "Applied $applied tweak(s) successfully!" "Done" "OK" "Information"
     }
@@ -512,24 +555,35 @@ Rebuild-TweaksPanel
 # ── Revert button ────────────────────────────────────────────────
 (Find "BtnRevertTweaks").Add_Click({
     $reverted = 0
+    $failed = @()
     foreach ($key in $tweakCheckboxes.Keys) {
         $row = $tweakCheckboxes[$key]
         if ($row.CheckBox.IsChecked) {
             if (Test-Path $row.RevertScript) {
                 try {
-                    & $row.RevertScript
+                    if ($row.RequiresAdmin) {
+                        Invoke-TweakElevated $row.RevertScript
+                    } else {
+                        & $row.RevertScript -ErrorAction Stop *>&1 | ForEach-Object {
+                            if ($_ -is [System.Management.Automation.ErrorRecord]) { throw $_ }
+                        }
+                    }
                     $row.CheckBox.IsChecked = $false
                     $reverted++
                 } catch {
-                    Show-ThemedDialog "Error reverting tweak: $_" "Error" "OK" "Error"
+                    $failed += "$($row.DisplayName): $_"
                 }
             } else {
                 Show-ThemedDialog "'$($row.DisplayName)' has no Revert.ps1." "No Revert Available" "OK" "Warning"
             }
         }
     }
-    if ($reverted -eq 0) {
+    if ($reverted -eq 0 -and $failed.Count -eq 0) {
         Show-ThemedDialog "No tweaks selected to revert." "Info" "OK" "Information"
+    } elseif ($failed.Count -gt 0) {
+        $msg = if ($reverted -gt 0) { "Reverted $reverted tweak(s).`n`n" } else { "" }
+        $msg += "Failed ($($failed.Count)):`n" + ($failed -join "`n")
+        Show-ThemedDialog $msg "Revert Errors" "OK" "Warning"
     } else {
         Show-ThemedDialog "Reverted $reverted tweak(s)." "Done" "OK" "Information"
     }

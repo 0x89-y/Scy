@@ -1204,6 +1204,18 @@
                                             Style="{StaticResource SecondaryButton}"/>
                                 </Grid>
 
+                                <!-- Requires admin toggle -->
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Requires admin" FontSize="12"
+                                               Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="TweakRequiresAdminToggle" Grid.Column="1"
+                                              Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                </Grid>
+
                                 <!-- Create -->
                                 <Button x:Name="BtnCreateTweak" Content="Create tweak"
                                         Style="{StaticResource ActionButton}" HorizontalAlignment="Right"/>
