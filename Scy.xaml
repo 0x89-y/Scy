@@ -2728,6 +2728,8 @@
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="ToolsNav_Export" Content="Software Export"
                                     Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="ToolsNav_Hashing" Content="File Hashing"
+                                    Style="{StaticResource SubNavButton}"/>
                         </StackPanel>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -2966,6 +2968,174 @@
                                 </StackPanel>
                             </StackPanel>
                         </Border>
+
+                                </StackPanel>
+                                </Border>
+
+                                <!-- ─── File Hashing section ─── -->
+                                <Border x:Name="ToolsSection_Hashing" Visibility="Collapsed">
+                                <StackPanel>
+
+                            <!-- File Hashing Tool card -->
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Padding="16,14" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <DockPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                    Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                            <TextBlock Text="File Hashing Tool"
+                                                       FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button x:Name="BtnHashBrowse" Content="Browse File"
+                                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                            <Button x:Name="BtnHashCopy" Content="Copy Hashes"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    IsEnabled="False" Opacity="0.4"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Text="Get MD5, SHA1, and SHA256 hashes for any file. Compare two files or verify downloads."
+                                               FontSize="11" Foreground="{DynamicResource MutedText}"
+                                               Margin="0,0,0,10" TextWrapping="Wrap"/>
+
+                                    <!-- File path input -->
+                                    <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="10,0" Margin="0,0,0,12">
+                                        <Grid>
+                                            <TextBlock x:Name="HashFilePlaceholder" Text="Drop a file here or click Browse..."
+                                                       Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                       VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                            <TextBox x:Name="HashFileBox" Background="Transparent" BorderThickness="0"
+                                                     Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                     CaretBrush="{DynamicResource FgBrush}" Padding="0,8"
+                                                     SelectionBrush="{DynamicResource AccentBrush}"
+                                                     AllowDrop="True"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Hash results -->
+                                    <StackPanel x:Name="HashResultsPanel" Visibility="Collapsed">
+                                        <!-- MD5 -->
+                                        <DockPanel Margin="0,0,0,8">
+                                            <TextBlock Text="MD5" FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource MutedText}" Width="55"
+                                                       VerticalAlignment="Center"/>
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                    Padding="8,6">
+                                                <TextBox x:Name="HashMD5" Background="Transparent" BorderThickness="0"
+                                                         Foreground="{DynamicResource FgBrush}" FontSize="11"
+                                                         FontFamily="Consolas, Courier New" IsReadOnly="True"
+                                                         CaretBrush="{DynamicResource FgBrush}"
+                                                         SelectionBrush="{DynamicResource AccentBrush}"/>
+                                            </Border>
+                                        </DockPanel>
+                                        <!-- SHA1 -->
+                                        <DockPanel Margin="0,0,0,8">
+                                            <TextBlock Text="SHA1" FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource MutedText}" Width="55"
+                                                       VerticalAlignment="Center"/>
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                    Padding="8,6">
+                                                <TextBox x:Name="HashSHA1" Background="Transparent" BorderThickness="0"
+                                                         Foreground="{DynamicResource FgBrush}" FontSize="11"
+                                                         FontFamily="Consolas, Courier New" IsReadOnly="True"
+                                                         CaretBrush="{DynamicResource FgBrush}"
+                                                         SelectionBrush="{DynamicResource AccentBrush}"/>
+                                            </Border>
+                                        </DockPanel>
+                                        <!-- SHA256 -->
+                                        <DockPanel Margin="0,0,0,8">
+                                            <TextBlock Text="SHA256" FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource MutedText}" Width="55"
+                                                       VerticalAlignment="Center"/>
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                    Padding="8,6">
+                                                <TextBox x:Name="HashSHA256" Background="Transparent" BorderThickness="0"
+                                                         Foreground="{DynamicResource FgBrush}" FontSize="11"
+                                                         FontFamily="Consolas, Courier New" IsReadOnly="True"
+                                                         CaretBrush="{DynamicResource FgBrush}"
+                                                         SelectionBrush="{DynamicResource AccentBrush}"/>
+                                            </Border>
+                                        </DockPanel>
+                                        <!-- File info -->
+                                        <TextBlock x:Name="HashFileInfo" Text=""
+                                                   FontSize="11" Foreground="{DynamicResource MutedText}"
+                                                   Margin="0,4,0,0"/>
+                                    </StackPanel>
+
+                                    <!-- Progress -->
+                                    <TextBlock x:Name="HashStatus" Text=""
+                                               FontSize="11" Foreground="{DynamicResource MutedText}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Compare / Verify card -->
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Padding="16,14">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,10">
+                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock Text="Compare &amp; Verify"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}"
+                                                   VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button x:Name="BtnHashCompare" Content="Compare Files"
+                                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                            <Button x:Name="BtnHashVerify" Content="Verify Hash"
+                                                    Style="{StaticResource SecondaryButton}"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <TextBlock Text="Compare two files by hash or paste an expected hash to verify a download."
+                                               FontSize="11" Foreground="{DynamicResource MutedText}"
+                                               Margin="0,0,0,10" TextWrapping="Wrap"/>
+
+                                    <!-- Expected hash input for verification -->
+                                    <TextBlock Text="Expected hash (paste from download page)"
+                                               FontSize="11" Foreground="{DynamicResource MutedText}"
+                                               Margin="0,0,0,4"/>
+                                    <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="10,0" Margin="0,0,0,12">
+                                        <Grid>
+                                            <TextBlock x:Name="HashExpectedPlaceholder" Text="Paste expected hash here..."
+                                                       Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                       VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                            <TextBox x:Name="HashExpectedBox" Background="Transparent" BorderThickness="0"
+                                                     Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                     FontFamily="Consolas, Courier New"
+                                                     CaretBrush="{DynamicResource FgBrush}" Padding="0,8"
+                                                     SelectionBrush="{DynamicResource AccentBrush}"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Verification result -->
+                                    <Border x:Name="HashVerifyResult" Visibility="Collapsed"
+                                            CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                                        <TextBlock x:Name="HashVerifyText" FontSize="12" FontWeight="SemiBold"/>
+                                    </Border>
+
+                                    <!-- Compare result -->
+                                    <Border x:Name="HashCompareResult" Visibility="Collapsed"
+                                            CornerRadius="4" Padding="10,8">
+                                        <TextBlock x:Name="HashCompareText" FontSize="12" FontWeight="SemiBold"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
 
                                 </StackPanel>
                                 </Border>

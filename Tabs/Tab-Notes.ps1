@@ -1,14 +1,16 @@
 # ── Tools sub-navigation ──────────────────────────────────────────
-$toolsNavQRCode = Find "ToolsNav_QRCode"
-$toolsNavNotes  = Find "ToolsNav_Notes"
-$toolsNavExport = Find "ToolsNav_Export"
+$toolsNavQRCode  = Find "ToolsNav_QRCode"
+$toolsNavNotes   = Find "ToolsNav_Notes"
+$toolsNavExport  = Find "ToolsNav_Export"
+$toolsNavHashing = Find "ToolsNav_Hashing"
 
-$toolsSectionQRCode = Find "ToolsSection_QRCode"
-$toolsSectionNotes  = Find "ToolsSection_Notes"
-$toolsSectionExport = Find "ToolsSection_Export"
+$toolsSectionQRCode  = Find "ToolsSection_QRCode"
+$toolsSectionNotes   = Find "ToolsSection_Notes"
+$toolsSectionExport  = Find "ToolsSection_Export"
+$toolsSectionHashing = Find "ToolsSection_Hashing"
 
-$script:toolsNavButtons = @($toolsNavQRCode, $toolsNavNotes, $toolsNavExport)
-$script:toolsSections   = @($toolsSectionQRCode, $toolsSectionNotes, $toolsSectionExport)
+$script:toolsNavButtons = @($toolsNavQRCode, $toolsNavNotes, $toolsNavExport, $toolsNavHashing)
+$script:toolsSections   = @($toolsSectionQRCode, $toolsSectionNotes, $toolsSectionExport, $toolsSectionHashing)
 
 function Set-ToolsSubNav {
     param([int]$Index)
@@ -28,9 +30,10 @@ function Set-ToolsSubNav {
 
 Set-ToolsSubNav 0
 
-$toolsNavQRCode.Add_Click({ Set-ToolsSubNav 0 })
-$toolsNavNotes.Add_Click({  Set-ToolsSubNav 1 })
-$toolsNavExport.Add_Click({ Set-ToolsSubNav 2 })
+$toolsNavQRCode.Add_Click({  Set-ToolsSubNav 0 })
+$toolsNavNotes.Add_Click({   Set-ToolsSubNav 1 })
+$toolsNavExport.Add_Click({  Set-ToolsSubNav 2 })
+$toolsNavHashing.Add_Click({ Set-ToolsSubNav 3 })
 
 # ── Quick Notes / Scratchpad ─────────────────────────────────────
 $notesTextBox    = Find "NotesTextBox"

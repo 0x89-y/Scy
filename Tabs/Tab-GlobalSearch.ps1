@@ -60,10 +60,11 @@ function Build-GlobalSearchIndex {
     $items.Add(@{ Name = "DNS";             Description = "Change DNS servers";                       Category = "Network"; TabIndex = 4; SubNavIndex = 3 })
     $items.Add(@{ Name = "SSH";             Description = "SSH key management";                       Category = "Network"; TabIndex = 4; SubNavIndex = 4 })
 
-    $items.Add(@{ Name = "Tools";     Description = "QR code, notes & export";                        Category = "Tabs"; TabIndex = 5; SubNavIndex = $null })
+    $items.Add(@{ Name = "Tools";     Description = "QR code, notes, export & hashing";               Category = "Tabs"; TabIndex = 5; SubNavIndex = $null })
     $items.Add(@{ Name = "QR Code";         Description = "Generate QR codes";                        Category = "Tools"; TabIndex = 5; SubNavIndex = 0 })
     $items.Add(@{ Name = "Notes";           Description = "Quick notes and scratchpad";               Category = "Tools"; TabIndex = 5; SubNavIndex = 1 })
     $items.Add(@{ Name = "Export";          Description = "Export system report";                      Category = "Tools"; TabIndex = 5; SubNavIndex = 2 })
+    $items.Add(@{ Name = "File Hashing";    Description = "MD5/SHA1/SHA256 hashes, compare & verify"; Category = "Tools"; TabIndex = 5; SubNavIndex = 3 })
 
     $items.Add(@{ Name = "Settings";  Description = "App settings, themes & backup";                  Category = "Tabs"; TabIndex = 6; SubNavIndex = $null })
     $items.Add(@{ Name = "General Settings";    Description = "General app preferences";              Category = "Settings"; TabIndex = 6; SubNavIndex = 0 })
