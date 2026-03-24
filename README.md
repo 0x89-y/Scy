@@ -12,6 +12,14 @@ A system utility thing for things like network config, managing SSH keys, notes,
 - PowerShell 5.1+
 - Admin privileges (for some features)
 
+## Install
+
+```powershell
+irm https://raw.githubusercontent.com/0x89-y/Scy/main/install.ps1 | iex
+```
+
+Downloads Scy to `%LOCALAPPDATA%\Scy` and launches it. Preserves settings on re-run.
+
 ## Running it
 
 ```
