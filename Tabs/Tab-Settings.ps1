@@ -733,6 +733,11 @@ $btnInstallSelfUpdate.Add_Click({
             Copy-Item $_.FullName -Destination $destFile -Force
         }
 
+        # Remove unnecessary files (LICENSE, README)
+        Get-ChildItem -Path $targetDir -File | Where-Object { $_.Name -match '^(LICENSE|README)' } | ForEach-Object {
+            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+        }
+
         # Clean up temp files
         Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
         Remove-Item $extPath -Recurse -Force -ErrorAction SilentlyContinue
