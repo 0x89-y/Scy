@@ -54,7 +54,8 @@ function Build-GlobalSearchIndex {
     $items.Add(@{ Name = "Registry Bookmarks"; Description = "Saved registry key bookmarks";          Category = "Bookmarks"; TabIndex = 3; SubNavIndex = 1 })
 
     $items.Add(@{ Name = "Network";   Description = "Diagnostics, Wi-Fi, hosts, DNS & SSH";           Category = "Tabs"; TabIndex = 4; SubNavIndex = $null })
-    $items.Add(@{ Name = "Network Diagnostics"; Description = "Ping, traceroute & speed test";        Category = "Network"; TabIndex = 4; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Network Diagnostics"; Description = "Ping, traceroute, speed test & NSLookup"; Category = "Network"; TabIndex = 4; SubNavIndex = 0 })
+    $items.Add(@{ Name = "NSLookup";          Description = "DNS record lookup for domains";           Category = "Network"; TabIndex = 4; SubNavIndex = 0 })
     $items.Add(@{ Name = "Wi-Fi";           Description = "Wi-Fi profiles and passwords";             Category = "Network"; TabIndex = 4; SubNavIndex = 1 })
     $items.Add(@{ Name = "Hosts File";      Description = "Edit the system hosts file";               Category = "Network"; TabIndex = 4; SubNavIndex = 2 })
     $items.Add(@{ Name = "DNS";             Description = "Change DNS servers";                       Category = "Network"; TabIndex = 4; SubNavIndex = 3 })

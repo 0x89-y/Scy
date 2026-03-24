@@ -43,7 +43,6 @@ $netNavSSH.Add_Click({         Set-NetSubNav 4 })
 $netHostBox         = Find "NetHostBox"
 $netHostPlaceholder = Find "NetHostPlaceholder"
 $netPingOutput      = Find "NetPingOutput"
-$netSpeedOutput     = Find "NetSpeedOutput"
 $netWifiPanel       = Find "NetWifiPanel"
 $btnNetPing         = Find "BtnNetPing"
 $btnNetTrace        = Find "BtnNetTrace"
@@ -227,10 +226,21 @@ $btnNetStop.Add_Click({
 })
 
 # -- Speed test --------------------------------------------------------------
+$netSpeedStatus      = Find "NetSpeedStatus"
+$netSpeedResultPanel = Find "NetSpeedResultPanel"
+$netSpeedValue       = Find "NetSpeedValue"
+$netSpeedLabel       = Find "NetSpeedLabel"
+$netSpeedDetailsGrid = Find "NetSpeedDetailsGrid"
+$netSpeedStreams     = Find "NetSpeedStreams"
+$netSpeedSampled     = Find "NetSpeedSampled"
+$netSpeedDuration    = Find "NetSpeedDuration"
+
 $btnNetSpeed.Add_Click({
     $selectedServer = $script:speedTestServer
     $serverUrl      = $script:speedServers[$selectedServer]
-    $netSpeedOutput.Text = "> Running speed test via $selectedServer (8 streams, ~5s)...`r`n$('-' * 60)`r`n"
+    $netSpeedStatus.Text = "Running speed test via $selectedServer ..."
+    $netSpeedResultPanel.Visibility = "Collapsed"
+    $netSpeedDetailsGrid.Visibility = "Collapsed"
     Set-NetBusy "Speed test running..."
     # Speed test has no killable process, keep Stop disabled
     $btnNetStop.IsEnabled = $false
@@ -241,35 +251,39 @@ $btnNetSpeed.Add_Click({
     $rs.ThreadOptions  = "ReuseThread"
     $rs.Open()
 
-    $rs.SessionStateProxy.SetVariable("_box",       $netSpeedOutput)
-    $rs.SessionStateProxy.SetVariable("_win",       $window)
-    $rs.SessionStateProxy.SetVariable("_si",        $statusIndicator)
-    $rs.SessionStateProxy.SetVariable("_fs",        $footerStatus)
-    $rs.SessionStateProxy.SetVariable("_speedBtn",  $btnNetSpeed)
-    $rs.SessionStateProxy.SetVariable("_pingBtn",   $btnNetPing)
-    $rs.SessionStateProxy.SetVariable("_traceBtn",  $btnNetTrace)
-    $rs.SessionStateProxy.SetVariable("_stopBtn",   $btnNetStop)
-    $rs.SessionStateProxy.SetVariable("_serverUrl", $serverUrl)
+    $rs.SessionStateProxy.SetVariable("_win",          $window)
+    $rs.SessionStateProxy.SetVariable("_si",           $statusIndicator)
+    $rs.SessionStateProxy.SetVariable("_fs",           $footerStatus)
+    $rs.SessionStateProxy.SetVariable("_speedBtn",     $btnNetSpeed)
+    $rs.SessionStateProxy.SetVariable("_pingBtn",      $btnNetPing)
+    $rs.SessionStateProxy.SetVariable("_traceBtn",     $btnNetTrace)
+    $rs.SessionStateProxy.SetVariable("_stopBtn",      $btnNetStop)
+    $rs.SessionStateProxy.SetVariable("_serverUrl",    $serverUrl)
+    $rs.SessionStateProxy.SetVariable("_statusTxt",    $netSpeedStatus)
+    $rs.SessionStateProxy.SetVariable("_resultPanel",  $netSpeedResultPanel)
+    $rs.SessionStateProxy.SetVariable("_speedVal",     $netSpeedValue)
+    $rs.SessionStateProxy.SetVariable("_speedLbl",     $netSpeedLabel)
+    $rs.SessionStateProxy.SetVariable("_detailsGrid",  $netSpeedDetailsGrid)
+    $rs.SessionStateProxy.SetVariable("_streamsTxt",   $netSpeedStreams)
+    $rs.SessionStateProxy.SetVariable("_sampledTxt",   $netSpeedSampled)
+    $rs.SessionStateProxy.SetVariable("_durationTxt",  $netSpeedDuration)
+    $rs.SessionStateProxy.SetVariable("_selectedSrv",  $selectedServer)
 
     $ps = [powershell]::Create()
     $ps.Runspace = $rs
 
     $ps.AddScript({
-        function Ui([string]$t) {
+        function UiStatus([string]$t) {
             $_win.Dispatcher.Invoke([action]{
-                $_box.AppendText("$t`r`n")
-                $_box.ScrollToEnd()
+                $_statusTxt.Text = $t
             }, [System.Windows.Threading.DispatcherPriority]::Normal)
         }
 
         try {
-            # 8 parallel streams via RunspacePool (each worker gets its own runspace).
-            # Shared [long[]] and [int[]] arrays are .NET reference types, so all
-            # workers see the same objects despite running in separate runspaces.
             $url      = $_serverUrl
             $numConns = 8
-            $total    = [long[]]::new(1)   # shared byte counter
-            $phase    = [int[]]::new(1)    # 0=warmup  1=measure  2=stop
+            $total    = [long[]]::new(1)
+            $phase    = [int[]]::new(1)
             $lk       = [object]::new()
 
             $workerScript = {
@@ -281,7 +295,7 @@ $btnNetSpeed.Add_Click({
                     $req.Timeout   = 20000
                     $resp          = $req.GetResponse()
                     $str           = $resp.GetResponseStream()
-                    $buf           = New-Object byte[] 524288   # 512 KB buffer
+                    $buf           = New-Object byte[] 524288
                     while ($phase[0] -lt 2) {
                         $r = $str.Read($buf, 0, $buf.Length)
                         if ($r -le 0) { break }
@@ -298,7 +312,7 @@ $btnNetSpeed.Add_Click({
             $pool = [runspacefactory]::CreateRunspacePool($numConns, $numConns)
             $pool.Open()
 
-            Ui "Connecting ($numConns parallel streams)..."
+            UiStatus "Connecting ($numConns parallel streams)..."
             $jobs = 1..$numConns | ForEach-Object {
                 $ps = [powershell]::Create()
                 $ps.RunspacePool = $pool
@@ -310,11 +324,11 @@ $btnNetSpeed.Add_Click({
                 @{ PS = $ps; Handle = $ps.BeginInvoke() }
             }
 
-            Ui "Warming up..."
+            UiStatus "Warming up..."
             $phase[0] = 0
             Start-Sleep -Milliseconds 1500
 
-            Ui "Measuring..."
+            UiStatus "Measuring download speed..."
             $phase[0] = 1
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             Start-Sleep -Milliseconds 3000
@@ -328,29 +342,294 @@ $btnNetSpeed.Add_Click({
             $sizeMB  = [math]::Round($total[0] / 1MB, 2)
             $mbps    = [math]::Round(($total[0] * 8) / $sw.Elapsed.TotalSeconds / 1000000, 2)
 
-            Ui ""
-            Ui "Streams    : $numConns parallel"
-            Ui "Sampled    : $sizeMB MB in $seconds s"
-            Ui "Download   : $mbps Mbps"
-            Ui ""
-            Ui "Done."
-        } catch {
-            Ui "Error: $_"
-        }
+            $_win.Dispatcher.Invoke([action]{
+                $_speedVal.Text      = "$mbps"
+                $_speedLbl.Text      = "Download  via $_selectedSrv"
+                $_streamsTxt.Text    = "$numConns"
+                $_sampledTxt.Text    = "$sizeMB MB"
+                $_durationTxt.Text   = "${seconds}s"
+                $_resultPanel.Visibility  = "Visible"
+                $_detailsGrid.Visibility  = "Visible"
+                $_statusTxt.Text     = "Completed"
 
-        $_win.Dispatcher.Invoke([action]{
-            $_si.Text            = "* Ready"
-            $_si.Foreground      = $_win.Resources["SuccessBrush"]
-            $_fs.Text            = "Ready"
-            $_speedBtn.IsEnabled = $true
-            $_pingBtn.IsEnabled  = $true
-            $_traceBtn.IsEnabled = $true
-            $_stopBtn.IsEnabled  = $false
-            $_stopBtn.Opacity    = 0.4
-        }, [System.Windows.Threading.DispatcherPriority]::Normal)
+                $_si.Text            = "* Ready"
+                $_si.Foreground      = $_win.Resources["SuccessBrush"]
+                $_fs.Text            = "Ready"
+                $_speedBtn.IsEnabled = $true
+                $_pingBtn.IsEnabled  = $true
+                $_traceBtn.IsEnabled = $true
+                $_stopBtn.IsEnabled  = $false
+                $_stopBtn.Opacity    = 0.4
+            }, [System.Windows.Threading.DispatcherPriority]::Normal)
+        } catch {
+            $_win.Dispatcher.Invoke([action]{
+                $_statusTxt.Text     = "Error: $_"
+                $_si.Text            = "* Ready"
+                $_si.Foreground      = $_win.Resources["SuccessBrush"]
+                $_fs.Text            = "Ready"
+                $_speedBtn.IsEnabled = $true
+                $_pingBtn.IsEnabled  = $true
+                $_traceBtn.IsEnabled = $true
+                $_stopBtn.IsEnabled  = $false
+                $_stopBtn.Opacity    = 0.4
+            }, [System.Windows.Threading.DispatcherPriority]::Normal)
+        }
     }) | Out-Null
 
     $ps.BeginInvoke() | Out-Null
+})
+
+# -- NSLookup -----------------------------------------------------------------
+$netNSBox          = Find "NetNSBox"
+$netNSPlaceholder  = Find "NetNSPlaceholder"
+$netNSStatus       = Find "NetNSStatus"
+$netNSResultsPanel = Find "NetNSResultsPanel"
+$netNSTypeBox      = Find "NetNSTypeBox"
+$btnNetNSLookup    = Find "BtnNetNSLookup"
+$btnNetNSCopy      = Find "BtnNetNSCopy"
+
+# Record type selector
+$script:nsRecordTypes = @("All", "A", "AAAA", "MX", "NS", "CNAME", "TXT", "SOA", "SRV", "PTR")
+foreach ($rt in $script:nsRecordTypes) {
+    $netNSTypeBox.Items.Add($rt) | Out-Null
+}
+$netNSTypeBox.SelectedIndex = 0
+
+# Placeholder behavior
+$netNSBox.Add_GotFocus({  $netNSPlaceholder.Visibility = "Collapsed" })
+$netNSBox.Add_LostFocus({
+    if ([string]::IsNullOrWhiteSpace($netNSBox.Text)) {
+        $netNSPlaceholder.Visibility = "Visible"
+    }
+})
+
+# Store last results for copy
+$script:nsLastResults = ""
+
+# -- Helpers to build styled result elements ----------------------------------
+function New-NSRecordRow {
+    param([string]$Value, [string]$Detail)
+
+    $row = New-Object System.Windows.Controls.DockPanel
+    $row.Margin = [System.Windows.Thickness]::new(0, 2, 0, 2)
+
+    $valBlock = New-Object System.Windows.Controls.TextBlock
+    $valBlock.Text       = $Value
+    $valBlock.FontFamily = New-Object System.Windows.Media.FontFamily("Consolas, Courier New")
+    $valBlock.FontSize   = 12
+    $valBlock.Foreground = $window.Resources["FgBrush"]
+    $valBlock.VerticalAlignment = "Center"
+    $valBlock.TextWrapping = "Wrap"
+    $row.Children.Add($valBlock) | Out-Null
+
+    if ($Detail) {
+        $detBlock = New-Object System.Windows.Controls.TextBlock
+        $detBlock.Text       = $Detail
+        $detBlock.FontSize   = 11
+        $detBlock.Foreground = $window.Resources["MutedText"]
+        $detBlock.HorizontalAlignment = "Right"
+        $detBlock.VerticalAlignment   = "Center"
+        $detBlock.Margin = [System.Windows.Thickness]::new(12, 0, 0, 0)
+        [System.Windows.Controls.DockPanel]::SetDock($detBlock, "Right")
+        $row.Children.Insert(0, $detBlock) | Out-Null
+    }
+
+    return $row
+}
+
+function New-NSTypeGroup {
+    param([string]$TypeLabel, [System.Collections.ArrayList]$Rows)
+
+    $group = New-Object System.Windows.Controls.Border
+    $group.Background      = $window.Resources["InputBgBrush"]
+    $group.CornerRadius    = [System.Windows.CornerRadius]::new(4)
+    $group.Padding         = [System.Windows.Thickness]::new(12, 10, 12, 10)
+    $group.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 8)
+
+    $stack = New-Object System.Windows.Controls.StackPanel
+
+    # Type header
+    $header = New-Object System.Windows.Controls.DockPanel
+    $header.Margin = [System.Windows.Thickness]::new(0, 0, 0, 6)
+
+    $badge = New-Object System.Windows.Controls.Border
+    $badge.Background   = $window.Resources["AccentBrush"]
+    $badge.CornerRadius = [System.Windows.CornerRadius]::new(3)
+    $badge.Padding      = [System.Windows.Thickness]::new(8, 2, 8, 2)
+    $badgeText = New-Object System.Windows.Controls.TextBlock
+    $badgeText.Text       = $TypeLabel
+    $badgeText.FontSize   = 11
+    $badgeText.FontWeight = "SemiBold"
+    $badgeText.Foreground = $window.Resources["FgBrush"]
+    $badge.Child = $badgeText
+    $header.Children.Add($badge) | Out-Null
+
+    $countText = New-Object System.Windows.Controls.TextBlock
+    $countText.Text       = "$($Rows.Count) record$(if ($Rows.Count -ne 1) { 's' })"
+    $countText.FontSize   = 11
+    $countText.Foreground = $window.Resources["MutedText"]
+    $countText.HorizontalAlignment = "Right"
+    $countText.VerticalAlignment   = "Center"
+    $countText.Margin = [System.Windows.Thickness]::new(8, 0, 0, 0)
+    [System.Windows.Controls.DockPanel]::SetDock($countText, "Right")
+    $header.Children.Insert(0, $countText) | Out-Null
+
+    $stack.Children.Add($header) | Out-Null
+
+    # Separator
+    $sep = New-Object System.Windows.Controls.Border
+    $sep.BorderThickness = [System.Windows.Thickness]::new(0, 1, 0, 0)
+    $sep.BorderBrush     = $window.Resources["BorderBrush"]
+    $sep.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 6)
+    $stack.Children.Add($sep) | Out-Null
+
+    foreach ($r in $Rows) {
+        $stack.Children.Add($r) | Out-Null
+    }
+
+    $group.Child = $stack
+    return $group
+}
+
+# -- Main lookup function -----------------------------------------------------
+function Invoke-NSLookup {
+    $domain = $netNSBox.Text.Trim()
+    if ([string]::IsNullOrWhiteSpace($domain)) { return }
+
+    $selectedType = $netNSTypeBox.SelectedItem
+    $netNSResultsPanel.Children.Clear()
+    $netNSStatus.Text = "Resolving $domain ..."
+    $btnNetNSLookup.IsEnabled = $false
+    $window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Render)
+
+    $script:nsLastResults = "NSLookup: $domain`r`n$('=' * 50)`r`n"
+
+    try {
+        $types = if ($selectedType -eq "All") {
+            @("A", "AAAA", "MX", "NS", "CNAME", "TXT")
+        } else {
+            @($selectedType)
+        }
+
+        $totalRecords = 0
+
+        foreach ($type in $types) {
+            try {
+                $records = Resolve-DnsName -Name $domain -Type $type -ErrorAction Stop
+                $rows = [System.Collections.ArrayList]::new()
+                $script:nsLastResults += "`r`n[$type]`r`n"
+
+                foreach ($rec in $records) {
+                    $value  = ""
+                    $detail = ""
+                    switch ($rec.QueryType) {
+                        "A" {
+                            $value  = $rec.IPAddress
+                            $detail = "TTL $($rec.TTL)s"
+                            $script:nsLastResults += "  $($rec.IPAddress)  TTL=$($rec.TTL)`r`n"
+                        }
+                        "AAAA" {
+                            $value  = $rec.IPAddress
+                            $detail = "TTL $($rec.TTL)s"
+                            $script:nsLastResults += "  $($rec.IPAddress)  TTL=$($rec.TTL)`r`n"
+                        }
+                        "MX" {
+                            $value  = $rec.NameExchange
+                            $detail = "Priority $($rec.Preference)  |  TTL $($rec.TTL)s"
+                            $script:nsLastResults += "  $($rec.NameExchange)  Priority=$($rec.Preference)  TTL=$($rec.TTL)`r`n"
+                        }
+                        "NS" {
+                            $value  = $rec.NameHost
+                            $detail = "TTL $($rec.TTL)s"
+                            $script:nsLastResults += "  $($rec.NameHost)  TTL=$($rec.TTL)`r`n"
+                        }
+                        "CNAME" {
+                            $value  = $rec.NameHost
+                            $detail = "TTL $($rec.TTL)s"
+                            $script:nsLastResults += "  $($rec.NameHost)  TTL=$($rec.TTL)`r`n"
+                        }
+                        "TXT" {
+                            $value  = $rec.Strings -join ' '
+                            $detail = "TTL $($rec.TTL)s"
+                            $script:nsLastResults += "  $($rec.Strings -join ' ')  TTL=$($rec.TTL)`r`n"
+                        }
+                        "SOA" {
+                            $value  = "$($rec.PrimaryServer)  ($($rec.NameAdministrator))"
+                            $detail = "Serial $($rec.SerialNumber)  |  TTL $($rec.TTL)s"
+                            $script:nsLastResults += "  Primary=$($rec.PrimaryServer)  Admin=$($rec.NameAdministrator)  Serial=$($rec.SerialNumber)  TTL=$($rec.TTL)`r`n"
+                        }
+                        "SRV" {
+                            $value  = "$($rec.NameTarget):$($rec.Port)"
+                            $detail = "Priority $($rec.Priority)  Weight $($rec.Weight)  |  TTL $($rec.TTL)s"
+                            $script:nsLastResults += "  $($rec.NameTarget):$($rec.Port)  Priority=$($rec.Priority)  Weight=$($rec.Weight)  TTL=$($rec.TTL)`r`n"
+                        }
+                        "PTR" {
+                            $value  = $rec.NameHost
+                            $detail = "TTL $($rec.TTL)s"
+                            $script:nsLastResults += "  $($rec.NameHost)  TTL=$($rec.TTL)`r`n"
+                        }
+                        default {
+                            $value  = "$($rec.Name)  $($rec.Type)"
+                            $detail = "TTL $($rec.TTL)s"
+                            $script:nsLastResults += "  $($rec.Name)  $($rec.Type)  TTL=$($rec.TTL)`r`n"
+                        }
+                    }
+                    if ($value) {
+                        $rows.Add((New-NSRecordRow -Value $value -Detail $detail)) | Out-Null
+                    }
+                }
+
+                if ($rows.Count -gt 0) {
+                    $netNSResultsPanel.Children.Add((New-NSTypeGroup -TypeLabel $type -Rows $rows)) | Out-Null
+                    $totalRecords += $rows.Count
+                }
+            } catch {
+                # Skip types with no records silently in All mode
+                if ($selectedType -ne "All") {
+                    $noResult = New-Object System.Windows.Controls.TextBlock
+                    $noResult.Text       = "No $type records found for $domain"
+                    $noResult.FontSize   = 11
+                    $noResult.Foreground = $window.Resources["MutedText"]
+                    $noResult.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 8)
+                    $netNSResultsPanel.Children.Add($noResult) | Out-Null
+                    $script:nsLastResults += "`r`n[$type]  No records found`r`n"
+                }
+            }
+        }
+
+        if ($totalRecords -gt 0) {
+            $netNSStatus.Text = "$totalRecords record$(if ($totalRecords -ne 1) { 's' }) found for $domain"
+            $btnNetNSCopy.IsEnabled = $true
+            $btnNetNSCopy.Opacity = 1.0
+        } else {
+            $netNSStatus.Text = "No records found for $domain"
+        }
+    } catch {
+        $netNSStatus.Text = "Error: $($_.Exception.Message)"
+    }
+
+    $btnNetNSLookup.IsEnabled = $true
+}
+
+$btnNetNSLookup.Add_Click({ Invoke-NSLookup })
+
+$netNSBox.Add_KeyDown({
+    param($s, $e)
+    if ($e.Key -eq [System.Windows.Input.Key]::Return) { Invoke-NSLookup }
+})
+
+$btnNetNSCopy.Add_Click({
+    if ($script:nsLastResults) {
+        [System.Windows.Clipboard]::SetText($script:nsLastResults)
+    }
+    $btnNetNSCopy.Content = "Copied"
+    $fadeTimer = New-Object System.Windows.Threading.DispatcherTimer
+    $fadeTimer.Interval = [TimeSpan]::FromSeconds(2)
+    $fadeTimer.Add_Tick({
+        $args[0].Stop()
+        $btnNetNSCopy.Content = "Copy"
+    })
+    $fadeTimer.Start()
 })
 
 # -- Wi-Fi QR code dialog ----------------------------------------------------
