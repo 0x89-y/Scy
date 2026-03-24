@@ -733,8 +733,8 @@ $btnInstallSelfUpdate.Add_Click({
             Copy-Item $_.FullName -Destination $destFile -Force
         }
 
-        # Remove unnecessary files (LICENSE, README)
-        Get-ChildItem -Path $targetDir -File | Where-Object { $_.Name -match '^(LICENSE|README)' } | ForEach-Object {
+        # Remove unnecessary files (LICENSE, README, install script)
+        Get-ChildItem -Path $targetDir -File | Where-Object { $_.Name -match '^(LICENSE|README|install\.ps1)' } | ForEach-Object {
             Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
         }
 
