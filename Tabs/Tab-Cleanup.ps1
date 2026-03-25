@@ -62,7 +62,6 @@ function Get-CleanTargets {
     }
     [ordered]@{
         "%TEMP%"              = @{ Paths = @($env:TEMP);                                                   DeleteSelf = $false }
-        "%LOCALAPPDATA%\Temp" = @{ Paths = @("$env:LOCALAPPDATA\Temp");                                    DeleteSelf = $false }
         "%WINDIR%\Temp"       = @{ Paths = @("$env:WINDIR\Temp");                                          DeleteSelf = $false }
         "Windows Update"      = @{ Paths = @("$env:WINDIR\SoftwareDistribution\Download");                 DeleteSelf = $false }
         "Prefetch"            = @{ Paths = @("$env:WINDIR\Prefetch");                                      DeleteSelf = $false }
