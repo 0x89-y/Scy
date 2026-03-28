@@ -81,12 +81,14 @@ try {
         $path.CloseFigure()
 
         # Diagonal gradient: deep purple -> light purple (matches app AccentBrush #6c5ce7)
-        $bgRect = New-Object System.Drawing.Rectangle(0, 0, $sz, $sz)
+        # Use PointF overload to avoid ambiguity between (Rectangle,Color,Color,float) and (Rectangle,Color,Color,LinearGradientMode)
+        $pt1 = New-Object System.Drawing.PointF([float]0, [float]0)
+        $pt2 = New-Object System.Drawing.PointF([float]$sz, [float]$sz)
         $gradBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-            $bgRect,
+            $pt1,
+            $pt2,
             [System.Drawing.ColorTranslator]::FromHtml("#4834d4"),
-            [System.Drawing.ColorTranslator]::FromHtml("#a29bfe"),
-            135
+            [System.Drawing.ColorTranslator]::FromHtml("#a29bfe")
         )
         $g.FillPath($gradBrush, $path)
         $gradBrush.Dispose()
@@ -153,6 +155,10 @@ try {
     }
     $shortcut.Description = "Scy"
     $shortcut.Save()
+    # Notify the shell to refresh the icon cache so the new icon shows immediately
+    $shellCode = '[DllImport("Shell32.dll")] public static extern void SHChangeNotify(int e, int f, IntPtr a, IntPtr b);'
+    Add-Type -MemberDefinition $shellCode -Name Shell32 -Namespace Win32 -ErrorAction SilentlyContinue
+    [Win32.Shell32]::SHChangeNotify(0x8000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
     Write-Host "  Shortcut created on Desktop" -ForegroundColor Green
 } catch {
     Write-Host "  Shortcut creation failed: $_" -ForegroundColor Red
