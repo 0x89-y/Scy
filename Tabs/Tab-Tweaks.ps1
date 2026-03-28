@@ -31,45 +31,45 @@ function Build-TweakRow {
     $description   = if ($tweakMeta -and $tweakMeta.description) { $tweakMeta.description } else { $null }
     $requiresAdmin = if ($tweakMeta -and $tweakMeta.requiresAdmin) { $true } else { $false }
 
-    # Outer border
+    # Row container (no card styling — lives inside the group card)
     $border = New-Object System.Windows.Controls.Border
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty,   "Surface2Brush")
-    $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty,  "BorderBrush")
-    $border.CornerRadius    = [System.Windows.CornerRadius]::new(6)
-    $border.BorderThickness = [System.Windows.Thickness]::new(1)
-    $border.Padding         = [System.Windows.Thickness]::new(16, 12, 16, 12)
-    $border.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 6)
+    $border.Background      = [System.Windows.Media.Brushes]::Transparent
+    $border.BorderThickness = [System.Windows.Thickness]::new(0)
+    $border.Padding         = [System.Windows.Thickness]::new(0, 7, 0, 7)
+    $border.Cursor          = [System.Windows.Input.Cursors]::Hand
+    $border.Add_MouseEnter({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush") })
+    $border.Add_MouseLeave({ $this.Background = [System.Windows.Media.Brushes]::Transparent })
 
-    # Grid: text column + checkbox column
+    # Grid: text (star) | checkbox (auto) | remove (auto)
     $grid = New-Object System.Windows.Controls.Grid
-    $col0 = New-Object System.Windows.Controls.ColumnDefinition
-    $col0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-    $col1 = New-Object System.Windows.Controls.ColumnDefinition
-    $col1.Width = [System.Windows.GridLength]::Auto
+    $col0 = New-Object System.Windows.Controls.ColumnDefinition; $col0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+    $col1 = New-Object System.Windows.Controls.ColumnDefinition; $col1.Width = [System.Windows.GridLength]::Auto
+    $col2 = New-Object System.Windows.Controls.ColumnDefinition; $col2.Width = [System.Windows.GridLength]::Auto
     $grid.ColumnDefinitions.Add($col0)
     $grid.ColumnDefinitions.Add($col1)
+    $grid.ColumnDefinitions.Add($col2)
 
-    # Left stack: name + description
+    # Left stack: name row + optional description
     $stack = New-Object System.Windows.Controls.StackPanel
     [System.Windows.Controls.Grid]::SetColumn($stack, 0)
 
-    $nameRow = New-Object System.Windows.Controls.StackPanel
+    $nameRow             = New-Object System.Windows.Controls.StackPanel
     $nameRow.Orientation = [System.Windows.Controls.Orientation]::Horizontal
 
     $nameBlock            = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text       = $displayName
-    $nameBlock.FontSize   = 13
+    $nameBlock.FontSize   = 12
     $nameBlock.FontWeight = [System.Windows.FontWeights]::SemiBold
     $nameBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
     $nameRow.Children.Add($nameBlock) | Out-Null
 
     if ($requiresAdmin) {
-        $adminBadge              = New-Object System.Windows.Controls.TextBlock
-        $adminBadge.Text         = "Admin"
-        $adminBadge.FontSize     = 10
-        $adminBadge.Margin       = [System.Windows.Thickness]::new(8, 0, 0, 0)
-        $adminBadge.Padding      = [System.Windows.Thickness]::new(6, 1, 6, 1)
+        $adminBadge                   = New-Object System.Windows.Controls.TextBlock
+        $adminBadge.Text              = "Admin"
+        $adminBadge.FontSize          = 10
+        $adminBadge.Margin            = [System.Windows.Thickness]::new(8, 0, 0, 0)
+        $adminBadge.Padding           = [System.Windows.Thickness]::new(6, 1, 6, 1)
         $adminBadge.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
         $adminBadge.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
         $nameRow.Children.Add($adminBadge) | Out-Null
@@ -83,26 +83,23 @@ function Build-TweakRow {
         $descBlock.FontSize     = 11
         $descBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
         $descBlock.TextWrapping = [System.Windows.TextWrapping]::Wrap
-        $descBlock.Margin       = [System.Windows.Thickness]::new(0, 3, 0, 0)
+        $descBlock.Margin       = [System.Windows.Thickness]::new(0, 2, 0, 0)
         $stack.Children.Add($descBlock) | Out-Null
     }
 
-    # Right: checkbox
+    # Checkbox
     $cb                   = New-Object System.Windows.Controls.CheckBox
     $cb.Style             = $window.Resources["TweakToggle"]
     $cb.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    $cb.Margin            = [System.Windows.Thickness]::new(12, 0, 0, 0)
     [System.Windows.Controls.Grid]::SetColumn($cb, 1)
 
-    # Remove button (col 2)
-    $col2       = New-Object System.Windows.Controls.ColumnDefinition
-    $col2.Width = [System.Windows.GridLength]::Auto
-    $grid.ColumnDefinitions.Add($col2)
-
+    # Remove button
     $removeBtn                   = New-Object System.Windows.Controls.Button
     $removeBtn.Content           = "X"
     $removeBtn.FontSize          = 11
     $removeBtn.Padding           = [System.Windows.Thickness]::new(8, 3, 8, 3)
-    $removeBtn.Margin            = [System.Windows.Thickness]::new(10, 0, 0, 0)
+    $removeBtn.Margin            = [System.Windows.Thickness]::new(8, 0, 0, 0)
     $removeBtn.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     $removeBtn.Style             = $window.Resources["SecondaryButton"]
     $removeBtn.ToolTip           = "Remove this tweak"
@@ -218,55 +215,48 @@ $script:tweakGroupPanels = @{}  # groupName -> StackPanel (for search filtering)
 function Build-GroupHeader {
     param([string]$GroupName, [int]$Count)
 
-    # Use a Border as the clickable header instead of a Button to avoid default hover issues
-    $headerBorder = New-Object System.Windows.Controls.Border
-    $headerBorder.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
-    $headerBorder.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-    $headerBorder.CornerRadius    = [System.Windows.CornerRadius]::new(6)
-    $headerBorder.BorderThickness = [System.Windows.Thickness]::new(1)
-    $headerBorder.Padding         = [System.Windows.Thickness]::new(14, 9, 14, 9)
-    $headerBorder.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 6)
+    # Clickable header row embedded inside the group card
+    $headerBorder         = New-Object System.Windows.Controls.Border
+    $headerBorder.Background      = [System.Windows.Media.Brushes]::Transparent
+    $headerBorder.BorderThickness = [System.Windows.Thickness]::new(0)
+    $headerBorder.Padding         = [System.Windows.Thickness]::new(0, 0, 0, 8)
     $headerBorder.Cursor          = [System.Windows.Input.Cursors]::Hand
 
     $headerGrid = New-Object System.Windows.Controls.Grid
-    $hcol0 = New-Object System.Windows.Controls.ColumnDefinition
-    $hcol0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-    $hcol1 = New-Object System.Windows.Controls.ColumnDefinition
-    $hcol1.Width = [System.Windows.GridLength]::Auto
+    $hcol0 = New-Object System.Windows.Controls.ColumnDefinition; $hcol0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+    $hcol1 = New-Object System.Windows.Controls.ColumnDefinition; $hcol1.Width = [System.Windows.GridLength]::Auto
     $headerGrid.ColumnDefinitions.Add($hcol0)
     $headerGrid.ColumnDefinitions.Add($hcol1)
 
-    $chevron = New-Object System.Windows.Controls.TextBlock
-    $chevron.Text     = "-"
-    $chevron.FontSize = 13
-    $chevron.FontWeight = [System.Windows.FontWeights]::Bold
+    $chevron               = New-Object System.Windows.Controls.TextBlock
+    $chevron.Text          = "-"
+    $chevron.FontSize      = 11
     $chevron.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     $chevron.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-    $chevron.Margin   = [System.Windows.Thickness]::new(0, 0, 10, 0)
-    $chevron.Width    = 12
+    $chevron.Margin        = [System.Windows.Thickness]::new(0, 0, 8, 0)
+    $chevron.Width         = 10
 
-    $titleBlock = New-Object System.Windows.Controls.TextBlock
+    $titleBlock            = New-Object System.Windows.Controls.TextBlock
     $titleBlock.Text       = $GroupName
-    $titleBlock.FontSize   = 13
-    $titleBlock.FontWeight = [System.Windows.FontWeights]::SemiBold
-    $titleBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+    $titleBlock.FontSize   = 11
+    $titleBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     $titleBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
 
-    $titleStack = New-Object System.Windows.Controls.StackPanel
+    $titleStack             = New-Object System.Windows.Controls.StackPanel
     $titleStack.Orientation = [System.Windows.Controls.Orientation]::Horizontal
-    $titleStack.Children.Add($chevron) | Out-Null
+    $titleStack.Children.Add($chevron)    | Out-Null
     $titleStack.Children.Add($titleBlock) | Out-Null
     [System.Windows.Controls.Grid]::SetColumn($titleStack, 0)
 
-    $countBlock = New-Object System.Windows.Controls.TextBlock
-    $countBlock.Text     = "$Count"
-    $countBlock.FontSize = 11
+    $countBlock            = New-Object System.Windows.Controls.TextBlock
+    $countBlock.Text       = "$Count"
+    $countBlock.FontSize   = 11
     $countBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     $countBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
     [System.Windows.Controls.Grid]::SetColumn($countBlock, 1)
 
     $headerGrid.Children.Add($titleStack) | Out-Null
-    $headerGrid.Children.Add($countBlock)  | Out-Null
+    $headerGrid.Children.Add($countBlock) | Out-Null
     $headerBorder.Child = $headerGrid
 
     return @{ Border = $headerBorder; Chevron = $chevron; TitleBlock = $titleBlock; CountBlock = $countBlock }
@@ -314,41 +304,64 @@ function Rebuild-TweaksPanel {
     foreach ($gName in $sortedKeys) {
         $rows = $groups[$gName]
 
-        # Group container
-        $groupContainer = New-Object System.Windows.Controls.StackPanel
-        $groupContainer.Margin = [System.Windows.Thickness]::new(0, 0, 0, 12)
+        # Group card (one card per group, matching shortcuts style)
+        $groupCard              = New-Object System.Windows.Controls.Border
+        $groupCard.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty,  "Surface2Brush")
+        $groupCard.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+        $groupCard.CornerRadius    = [System.Windows.CornerRadius]::new(6)
+        $groupCard.BorderThickness = [System.Windows.Thickness]::new(1)
+        $groupCard.Padding         = [System.Windows.Thickness]::new(14, 12, 14, 12)
+        $groupCard.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 8)
 
-        # Header
+        $cardStack = New-Object System.Windows.Controls.StackPanel
+        $groupCard.Child = $cardStack
+
+        # Header embedded at top of card
         $header = Build-GroupHeader -GroupName $gName -Count $rows.Count
+        $cardStack.Children.Add($header.Border) | Out-Null
 
-        $groupContainer.Children.Add($header.Border) | Out-Null
+        # Separator between header and items
+        $headerSep = New-Object System.Windows.Shapes.Rectangle
+        $headerSep.Height = 1
+        $headerSep.Margin = [System.Windows.Thickness]::new(0, 0, 0, 0)
+        $headerSep.SetResourceReference([System.Windows.Shapes.Rectangle]::FillProperty, "BorderBrush")
+        $cardStack.Children.Add($headerSep) | Out-Null
 
         # Items panel
         $itemsPanel = New-Object System.Windows.Controls.StackPanel
-        $itemsPanel.Margin = [System.Windows.Thickness]::new(12, 0, 0, 0)
 
+        $isFirstRow = $true
         foreach ($row in $rows) {
+            if (-not $isFirstRow) {
+                $sep = New-Object System.Windows.Shapes.Rectangle
+                $sep.Height = 1
+                $sep.SetResourceReference([System.Windows.Shapes.Rectangle]::FillProperty, "BorderBrush")
+                $itemsPanel.Children.Add($sep) | Out-Null
+            }
+            $isFirstRow = $false
             $itemsPanel.Children.Add($row.Border) | Out-Null
         }
 
-        $groupContainer.Children.Add($itemsPanel) | Out-Null
+        $cardStack.Children.Add($itemsPanel) | Out-Null
 
         # Toggle collapse on header click
-        $header.Border.Tag = [PSCustomObject]@{ ItemsPanel = $itemsPanel; Chevron = $header.Chevron }
+        $header.Border.Tag = [PSCustomObject]@{ ItemsPanel = $itemsPanel; HeaderSep = $headerSep; Chevron = $header.Chevron }
         $header.Border.Add_MouseLeftButtonUp({
             param($s, $e)
             $tag = $s.Tag
             if ($tag.ItemsPanel.Visibility -eq "Visible") {
                 $tag.ItemsPanel.Visibility = "Collapsed"
-                $tag.Chevron.Text = "+"
+                $tag.HeaderSep.Visibility  = "Collapsed"
+                $tag.Chevron.Text          = "+"
             } else {
                 $tag.ItemsPanel.Visibility = "Visible"
-                $tag.Chevron.Text = "-"
+                $tag.HeaderSep.Visibility  = "Visible"
+                $tag.Chevron.Text          = "-"
             }
         })
 
-        $groupPanel.Children.Add($groupContainer) | Out-Null
-        $script:tweakGroupPanels[$gName] = @{ Container = $groupContainer; ItemsPanel = $itemsPanel; Rows = $rows; Header = $header }
+        $groupPanel.Children.Add($groupCard) | Out-Null
+        $script:tweakGroupPanels[$gName] = @{ Container = $groupCard; ItemsPanel = $itemsPanel; HeaderSep = $headerSep; Rows = $rows; Header = $header }
     }
 
     # Refresh global search index if available
@@ -368,8 +381,8 @@ Rebuild-TweaksPanel
     (Find "TweakSearchClear").Visibility = if ($query) { "Visible" } else { "Collapsed" }
 
     foreach ($gName in $script:tweakGroupPanels.Keys) {
-        $gData    = $script:tweakGroupPanels[$gName]
-        $visible  = 0
+        $gData   = $script:tweakGroupPanels[$gName]
+        $visible = 0
 
         foreach ($row in $gData.Rows) {
             $matchName = $row.DisplayName.ToLower().Contains($query)
@@ -383,11 +396,22 @@ Rebuild-TweaksPanel
             }
         }
 
+        # Update separator visibility to match their adjacent row
+        $prevRow = $null
+        foreach ($child in $gData.ItemsPanel.Children) {
+            if ($child -is [System.Windows.Controls.Border]) {
+                $prevRow = $child
+            } elseif ($child -is [System.Windows.Shapes.Rectangle]) {
+                $child.Visibility = if ($prevRow -and $prevRow.Visibility -eq "Visible") { "Visible" } else { "Collapsed" }
+            }
+        }
+
         # Hide entire group if no matches; show and expand if matches
         if ($query) {
             if ($visible -gt 0) {
                 $gData.Container.Visibility   = "Visible"
                 $gData.ItemsPanel.Visibility  = "Visible"
+                $gData.HeaderSep.Visibility   = "Visible"
                 $gData.Header.Chevron.Text    = "-"
                 $gData.Header.CountBlock.Text = "$visible"
             } else {
@@ -396,6 +420,7 @@ Rebuild-TweaksPanel
         } else {
             $gData.Container.Visibility   = "Visible"
             $gData.ItemsPanel.Visibility  = "Visible"
+            $gData.HeaderSep.Visibility   = "Visible"
             $gData.Header.Chevron.Text    = "-"
             $gData.Header.CountBlock.Text = "$($gData.Rows.Count)"
         }
