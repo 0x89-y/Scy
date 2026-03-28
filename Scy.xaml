@@ -934,7 +934,7 @@
                                             <Button x:Name="BtnEditQuickInstalls" Grid.Column="4"
                                                     Content="Edit" Style="{StaticResource ActionButton}"/>
                                         </Grid>
-                                        <WrapPanel x:Name="QuickInstallsPanel"/>
+                                        <StackPanel x:Name="QuickInstallsPanel"/>
                                     </StackPanel>
                                 </Border>
                                 </Border>
