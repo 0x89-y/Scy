@@ -221,6 +221,23 @@ Update-RecycleBinSize
     $confirm = Show-ThemedDialog "This will free approximately $(Format-Size $selectedBytes). Proceed?" "Confirm cleanup" "YesNo" "Question"
     if ($confirm -ne "Yes") { return }
 
+    # Warn if Windows.old is selected — deletion is irreversible
+    $winOldCb = $script:cleanCheckboxes["Windows.old"]
+    if (($null -eq $winOldCb -or $winOldCb.IsChecked) -and (Test-Path "C:\Windows.old")) {
+        $warnOld = Show-ThemedDialog "Deleting Windows.old is permanent — you will no longer be able to roll back to your previous Windows installation. Are you sure?" "Warning: Irreversible" "YesNo" "Warning"
+        if ($warnOld -ne "Yes") { return }
+    }
+
+    # Warn if Windows Update cache is selected and an update is in progress
+    $wuCb = $script:cleanCheckboxes["Windows Update"]
+    if ($null -eq $wuCb -or $wuCb.IsChecked) {
+        $wuService = Get-Service -Name wuauserv -ErrorAction SilentlyContinue
+        if ($wuService -and $wuService.Status -eq 'Running') {
+            $warnWu = Show-ThemedDialog "Windows Update is currently running. Deleting its cache now may corrupt the active download. Proceed anyway?" "Warning" "YesNo" "Warning"
+            if ($warnWu -ne "Yes") { return }
+        }
+    }
+
     $statusIndicator.Text = "● Cleaning..."
     $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#fdcb6e")
     $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
