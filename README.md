@@ -20,20 +20,3 @@ irm https://raw.githubusercontent.com/0x89-y/Scy/main/install.ps1 | iex
 
 Downloads Scy to `%LOCALAPPDATA%\Scy` and launches it. Preserves settings on re-run.
 
-## Running it
-
-```
-start_Scy.bat
-```
-
-or
-
-```
-Scy.vbs
-```
-
-or
-
-```powershell
-powershell -ExecutionPolicy Bypass -File Scy.ps1
-```
