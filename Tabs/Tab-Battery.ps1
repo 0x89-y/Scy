@@ -227,32 +227,29 @@ function Populate-BatteryInfo {
                 $label.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
                 $_healthPanel.Children.Add($label) | Out-Null
 
-                # Progress bar
-                $barBorder = New-Object System.Windows.Controls.Border
-                $barBorder.Height = 8; $barBorder.CornerRadius = [System.Windows.CornerRadius]::new(4)
-                $barBorder.Margin = [System.Windows.Thickness]::new(0, 10, 0, 4)
-                $barBorder.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+                # Progress bar — Star columns avoid any deferred Width setting
+                $barOuter = New-Object System.Windows.Controls.Border
+                $barOuter.Height = 8; $barOuter.CornerRadius = [System.Windows.CornerRadius]::new(4)
+                $barOuter.Margin = [System.Windows.Thickness]::new(0, 10, 0, 4)
+                $barOuter.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
 
                 $barGrid = New-Object System.Windows.Controls.Grid
+                $filled = [math]::Max(0, [math]::Min(100, $healthPct))
+                $cFill  = New-Object System.Windows.Controls.ColumnDefinition
+                $cFill.Width  = New-Object System.Windows.GridLength($filled, [System.Windows.GridUnitType]::Star)
+                $cEmpty = New-Object System.Windows.Controls.ColumnDefinition
+                $cEmpty.Width = New-Object System.Windows.GridLength((100 - $filled), [System.Windows.GridUnitType]::Star)
+                $barGrid.ColumnDefinitions.Add($cFill)
+                $barGrid.ColumnDefinitions.Add($cEmpty)
+
                 $fillBorder = New-Object System.Windows.Controls.Border
                 $fillBorder.Height = 8; $fillBorder.CornerRadius = [System.Windows.CornerRadius]::new(4)
-                $fillBorder.HorizontalAlignment = "Left"
-                $fillBorder.Width = 0
                 $fillBorder.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $healthColor)
+                [System.Windows.Controls.Grid]::SetColumn($fillBorder, 0)
                 $barGrid.Children.Add($fillBorder) | Out-Null
-                $barBorder.Child = $barGrid
+                $barOuter.Child = $barGrid
 
-                $_healthPanel.Children.Add($barBorder) | Out-Null
-
-                # Update bar width after render (need actual width)
-                $_win.Dispatcher.BeginInvoke([action]{
-                    $parentWidth = $barBorder.ActualWidth
-                    if ($parentWidth -gt 0) {
-                        $fillBorder.Width = [math]::Min($parentWidth, $parentWidth * ($healthPct / 100))
-                    } else {
-                        $fillBorder.Width = 200 * ($healthPct / 100)
-                    }
-                }, [System.Windows.Threading.DispatcherPriority]::Loaded)
+                $_healthPanel.Children.Add($barOuter) | Out-Null
 
                 # Rating text
                 $ratingText = if ($healthPct -ge 90) { "Excellent" }
