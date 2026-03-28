@@ -725,8 +725,9 @@ $btnInstallSelfUpdate.Add_Click({
         # Copy files, preserving settings.json
         Get-ChildItem -Path $sourceDir -Recurse -File | ForEach-Object {
             $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
-            # Skip settings.json to preserve user settings
+            # Skip settings.json and notes.txt to preserve user data
             if ($relativePath -eq "settings.json") { return }
+            if ($relativePath -eq "notes.txt") { return }
             $destFile = Join-Path $targetDir $relativePath
             $destDir  = Split-Path $destFile -Parent
             if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }

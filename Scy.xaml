@@ -332,6 +332,32 @@
             <Setter Property="Padding"  Value="10,5"/>
         </Style>
 
+        <!-- Shortcut list row -->
+        <Style x:Key="ShortcutRowButton" TargetType="Button">
+            <Setter Property="Background"                Value="Transparent"/>
+            <Setter Property="Foreground"                Value="{DynamicResource FgBrush}"/>
+            <Setter Property="FontSize"                  Value="12"/>
+            <Setter Property="BorderThickness"           Value="0"/>
+            <Setter Property="Padding"                   Value="0,7"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor"                    Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource HoverSurfaceBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Scrollbar -->
         <Style TargetType="ScrollBar">
             <Setter Property="Background"      Value="Transparent"/>
@@ -1963,6 +1989,14 @@
                                     </Grid>
                                 </Border>
 
+                                <!-- Requires admin -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                    <CheckBox x:Name="ShortcutAdminCheck" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Requires admin" FontSize="12"
+                                               Foreground="{DynamicResource MutedText}"
+                                               VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                </StackPanel>
+
                                 <!-- Create/Cancel -->
                                 <StackPanel Orientation="Horizontal">
                                     <Button x:Name="BtnCreateShortcut" Content="Create shortcut"
@@ -1999,7 +2033,15 @@
                                     </Grid>
                                 </Border>
 
-                                <StackPanel x:Name="ShortcutGroupsPanel"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel x:Name="ShortcutGroupsPanel_Left"  Grid.Column="0" VerticalAlignment="Top"/>
+                                    <StackPanel x:Name="ShortcutGroupsPanel_Right" Grid.Column="2" VerticalAlignment="Top"/>
+                                </Grid>
 
                                 </StackPanel>
                                 </Border>

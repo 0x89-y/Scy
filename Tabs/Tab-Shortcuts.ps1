@@ -33,32 +33,32 @@
 
   # ── Default Shortcuts Definition ───────────────────────────────
   $script:defaultShortcuts = @(
-      @{ Name = "Advanced system";      Command = "sysdm.cpl";                        Arguments = @(); Section = "System" },
-      @{ Name = "Environment variables"; Command = "SystemPropertiesAdvanced.exe";     Arguments = @(); Section = "System" },
-      @{ Name = "Performance options";   Command = "SystemPropertiesPerformance.exe";  Arguments = @(); Section = "System" },
-      @{ Name = "Device manager";        Command = "devmgmt.msc";                     Arguments = @(); Section = "System" },
-      @{ Name = "System configuration";  Command = "msconfig";                         Arguments = @(); Section = "System" },
-      @{ Name = "Disk management";       Command = "diskmgmt.msc";                     Arguments = @(); Section = "Disk" },
-      @{ Name = "Disk cleanup";          Command = "cleanmgr";                         Arguments = @(); Section = "Disk" },
-      @{ Name = "Optional features";    Command = "optionalfeatures";                 Arguments = @(); Section = "Disk" },
-      @{ Name = "Network connections";   Command = "ncpa.cpl";                         Arguments = @(); Section = "Network" },
-      @{ Name = "Network & sharing center"; Command = "control.exe"; Arguments = @("/name", "Microsoft.NetworkAndSharingCenter"); Section = "Network" },
-      @{ Name = "Hosts file";           Command = "HostsFileSpecial";                  Arguments = @(); Section = "Network" },
-      @{ Name = "Internet options";     Command = "inetcpl.cpl";                      Arguments = @(); Section = "Network" },
-      @{ Name = "Flush DNS cache";       Command = "FlushDNSSpecial";                  Arguments = @(); Section = "Network" },
-      @{ Name = "Credential manager";    Command = "control.exe"; Arguments = @("/name", "Microsoft.CredentialManager"); Section = "Security" },
-      @{ Name = "Local security policy"; Command = "secpol.msc";                       Arguments = @(); Section = "Security" },
-      @{ Name = "Group policy editor";   Command = "gpedit.msc";                       Arguments = @(); Section = "Security" },
-      @{ Name = "Startup apps";          Command = "ms-settings:startupapps";          Arguments = @(); Section = "Startup" },
-      @{ Name = "Services";              Command = "services.msc";                     Arguments = @(); Section = "Startup" },
-      @{ Name = "Task scheduler";        Command = "taskschd.msc";                     Arguments = @(); Section = "Startup" },
-      @{ Name = "Sound settings";        Command = "mmsys.cpl";                        Arguments = @(); Section = "Sound" },
-      @{ Name = "Color calibration";     Command = "dccw.exe";                         Arguments = @(); Section = "Sound" },
-      @{ Name = "DirectX diagnostic";    Command = "dxdiag";                           Arguments = @(); Section = "Diagnostics" },
-      @{ Name = "Event viewer";          Command = "eventvwr.msc";                     Arguments = @(); Section = "Diagnostics" },
-      @{ Name = "Resource monitor";      Command = "resmon";                           Arguments = @(); Section = "Diagnostics" },
-      @{ Name = "Memory diagnostic";     Command = "mdsched";                          Arguments = @(); Section = "Diagnostics" },
-    @{ Name = "Steps Recorder";        Command = "psr.exe";                          Arguments = @(); Section = "Diagnostics" }
+      @{ Name = "Advanced system";         Command = "sysdm.cpl";                        Arguments = @(); Section = "System";      RequiresAdmin = $false },
+      @{ Name = "Environment variables";   Command = "SystemPropertiesAdvanced.exe";     Arguments = @(); Section = "System";      RequiresAdmin = $false },
+      @{ Name = "Performance options";     Command = "SystemPropertiesPerformance.exe";  Arguments = @(); Section = "System";      RequiresAdmin = $false },
+      @{ Name = "Device manager";          Command = "devmgmt.msc";                      Arguments = @(); Section = "System";      RequiresAdmin = $false },
+      @{ Name = "System configuration";    Command = "msconfig";                         Arguments = @(); Section = "System";      RequiresAdmin = $true  },
+      @{ Name = "Disk management";         Command = "diskmgmt.msc";                     Arguments = @(); Section = "Disk";        RequiresAdmin = $true  },
+      @{ Name = "Disk cleanup";            Command = "cleanmgr";                         Arguments = @(); Section = "Disk";        RequiresAdmin = $false },
+      @{ Name = "Optional features";       Command = "optionalfeatures";                 Arguments = @(); Section = "Disk";        RequiresAdmin = $true  },
+      @{ Name = "Network connections";     Command = "ncpa.cpl";                         Arguments = @(); Section = "Network";     RequiresAdmin = $false },
+      @{ Name = "Network & sharing center"; Command = "control.exe"; Arguments = @("/name", "Microsoft.NetworkAndSharingCenter"); Section = "Network"; RequiresAdmin = $false },
+      @{ Name = "Hosts file";              Command = "HostsFileSpecial";                 Arguments = @(); Section = "Network";     RequiresAdmin = $true  },
+      @{ Name = "Internet options";        Command = "inetcpl.cpl";                      Arguments = @(); Section = "Network";     RequiresAdmin = $false },
+      @{ Name = "Flush DNS cache";         Command = "FlushDNSSpecial";                  Arguments = @(); Section = "Network";     RequiresAdmin = $false },
+      @{ Name = "Credential manager";      Command = "control.exe"; Arguments = @("/name", "Microsoft.CredentialManager"); Section = "Security"; RequiresAdmin = $false },
+      @{ Name = "Local security policy";   Command = "secpol.msc";                       Arguments = @(); Section = "Security";    RequiresAdmin = $true  },
+      @{ Name = "Group policy editor";     Command = "gpedit.msc";                       Arguments = @(); Section = "Security";    RequiresAdmin = $true  },
+      @{ Name = "Startup apps";            Command = "ms-settings:startupapps";          Arguments = @(); Section = "Startup";     RequiresAdmin = $false },
+      @{ Name = "Services";               Command = "services.msc";                     Arguments = @(); Section = "Startup";     RequiresAdmin = $false },
+      @{ Name = "Task scheduler";          Command = "taskschd.msc";                     Arguments = @(); Section = "Startup";     RequiresAdmin = $false },
+      @{ Name = "Sound settings";          Command = "mmsys.cpl";                        Arguments = @(); Section = "Sound";       RequiresAdmin = $false },
+      @{ Name = "Color calibration";       Command = "dccw.exe";                         Arguments = @(); Section = "Sound";       RequiresAdmin = $false },
+      @{ Name = "DirectX diagnostic";      Command = "dxdiag";                           Arguments = @(); Section = "Diagnostics"; RequiresAdmin = $false },
+      @{ Name = "Event viewer";            Command = "eventvwr.msc";                     Arguments = @(); Section = "Diagnostics"; RequiresAdmin = $false },
+      @{ Name = "Resource monitor";        Command = "resmon";                           Arguments = @(); Section = "Diagnostics"; RequiresAdmin = $false },
+      @{ Name = "Memory diagnostic";       Command = "mdsched";                          Arguments = @(); Section = "Diagnostics"; RequiresAdmin = $true  },
+      @{ Name = "Steps Recorder";          Command = "psr.exe";                          Arguments = @(); Section = "Diagnostics"; RequiresAdmin = $false }
   )
 
   # ── Groups ────────────────────────────────────────────────────
@@ -96,13 +96,22 @@
 
       # Load saved shortcuts (both defaults and custom)
       foreach ($saved in $savedShortcuts) {
+          $isDefault = [bool]$saved.IsDefault
+          # Always derive RequiresAdmin from the definition for defaults so updates take effect
+          $requiresAdmin = if ($isDefault) {
+              $defn = $script:defaultShortcuts | Where-Object { $_.Name -eq $saved.Name } | Select-Object -First 1
+              if ($defn) { [bool]$defn.RequiresAdmin } else { [bool]$saved.RequiresAdmin }
+          } else {
+              [bool]$saved.RequiresAdmin
+          }
           $shortcut = @{
               Name = $saved.Name
               Command = $saved.Command
               Arguments = @($saved.Arguments)
-              IsDefault = [bool]$saved.IsDefault
+              IsDefault = $isDefault
               IsHidden = [bool]$saved.IsHidden
               Section = if ($saved.Section) { $saved.Section } else { "Custom" }
+              RequiresAdmin = $requiresAdmin
           }
           $script:shortcuts.Add($shortcut)
           $loadedNames[$shortcut.Name] = $true
@@ -118,6 +127,7 @@
                   IsDefault = $true
                   IsHidden = $false
                   Section = $default.Section
+                  RequiresAdmin = [bool]$default.RequiresAdmin
               }
               $script:shortcuts.Add($shortcut)
           }
@@ -142,8 +152,10 @@
   }
 
   function Render-Shortcuts {
-      $parentPanel = Find "ShortcutGroupsPanel"
-      $parentPanel.Children.Clear()
+      $leftPanel  = Find "ShortcutGroupsPanel_Left"
+      $rightPanel = Find "ShortcutGroupsPanel_Right"
+      $leftPanel.Children.Clear()
+      $rightPanel.Children.Clear()
       $script:shortcutSectionElements = @{}
 
       $allGroups = Get-AllShortcutGroups
@@ -159,6 +171,7 @@
           }
       }
 
+      $colIdx = 0
       foreach ($sectionName in $sections.Keys) {
           $displayName = if ($script:sectionDisplayNames.ContainsKey($sectionName)) {
               $script:sectionDisplayNames[$sectionName]
@@ -181,22 +194,82 @@
           $header.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 8)
           $stack.Children.Add($header) | Out-Null
 
-          $wrap = New-Object System.Windows.Controls.WrapPanel
-          $stack.Children.Add($wrap) | Out-Null
+          $itemsPanel = New-Object System.Windows.Controls.StackPanel
+          $stack.Children.Add($itemsPanel) | Out-Null
           $border.Child = $stack
 
           if ($sections[$sectionName].Count -eq 0) {
               $border.Visibility = [System.Windows.Visibility]::Collapsed
+              $leftPanel.Children.Add($border) | Out-Null
+          } else {
+              if ($colIdx % 2 -eq 0) { $leftPanel.Children.Add($border)  | Out-Null }
+              else                   { $rightPanel.Children.Add($border) | Out-Null }
+              $colIdx++
           }
 
           # Store references for search
-          $script:shortcutSectionElements[$sectionName] = @{ Border = $border; Panel = $wrap }
+          $script:shortcutSectionElements[$sectionName] = @{ Border = $border; Panel = $itemsPanel }
 
+          $isFirst = $true
           foreach ($shortcut in $sections[$sectionName]) {
+              if (-not $isFirst) {
+                  $sep = New-Object System.Windows.Controls.Rectangle
+                  $sep.Height = 1
+                  $sep.SetResourceReference([System.Windows.Controls.Rectangle]::FillProperty, "BorderBrush")
+                  $itemsPanel.Children.Add($sep) | Out-Null
+              }
+              $isFirst = $false
+
               $btn = New-Object System.Windows.Controls.Button
-              $btn.Content = $shortcut.Name
-              $btn.Style = $window.FindResource("QuickAppButton")
-              $btn.Margin = "0,0,6,6"
+              $btn.Style = $window.FindResource("ShortcutRowButton")
+
+              $cmdDisplay = switch ($shortcut.Command) {
+                  "HostsFileSpecial" { "hosts file (admin)" }
+                  "FlushDNSSpecial"  { "ipconfig /flushdns" }
+                  default            { $shortcut.Command }
+              }
+
+              $rowGrid = New-Object System.Windows.Controls.Grid
+              $starCol = New-Object System.Windows.Controls.ColumnDefinition
+              $starCol.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+              $autoCol = New-Object System.Windows.Controls.ColumnDefinition
+              $autoCol.Width = [System.Windows.GridLength]::Auto
+              $rowGrid.ColumnDefinitions.Add($starCol)
+              $rowGrid.ColumnDefinitions.Add($autoCol)
+
+              $nameRow = New-Object System.Windows.Controls.StackPanel
+              $nameRow.Orientation = "Horizontal"
+              $nameRow.VerticalAlignment = "Center"
+              [System.Windows.Controls.Grid]::SetColumn($nameRow, 0)
+
+              $nameBlock = New-Object System.Windows.Controls.TextBlock
+              $nameBlock.Text = $shortcut.Name
+              $nameBlock.FontSize = 12
+              $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+              $nameBlock.VerticalAlignment = "Center"
+              $nameRow.Children.Add($nameBlock) | Out-Null
+
+              if ($shortcut.RequiresAdmin) {
+                  $adminBadge              = New-Object System.Windows.Controls.TextBlock
+                  $adminBadge.Text         = "Admin"
+                  $adminBadge.FontSize     = 10
+                  $adminBadge.Margin       = [System.Windows.Thickness]::new(8, 0, 0, 0)
+                  $adminBadge.Padding      = [System.Windows.Thickness]::new(6, 1, 6, 1)
+                  $adminBadge.VerticalAlignment = "Center"
+                  $adminBadge.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
+                  $nameRow.Children.Add($adminBadge) | Out-Null
+              }
+
+              $cmdBlock = New-Object System.Windows.Controls.TextBlock
+              $cmdBlock.Text = $cmdDisplay
+              $cmdBlock.FontSize = 11
+              $cmdBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+              $cmdBlock.VerticalAlignment = "Center"
+              [System.Windows.Controls.Grid]::SetColumn($cmdBlock, 1)
+
+              $rowGrid.Children.Add($nameRow)  | Out-Null
+              $rowGrid.Children.Add($cmdBlock) | Out-Null
+              $btn.Content = $rowGrid
 
               $btn.Tag = @{
                   Name = $shortcut.Name
@@ -321,10 +394,8 @@
                   $menu.IsOpen = $true
               }.GetNewClosure())
 
-              $wrap.Children.Add($btn) | Out-Null
+              $itemsPanel.Children.Add($btn) | Out-Null
           }
-
-          $parentPanel.Children.Add($border) | Out-Null
       }
 
       Refresh-ShortcutGroupBox
@@ -339,6 +410,7 @@
               IsDefault = $_.IsDefault
               IsHidden = $_.IsHidden
               Section = $_.Section
+              RequiresAdmin = $_.RequiresAdmin
           }
       })
       Save-Settings
@@ -399,6 +471,7 @@ Refresh-ShortcutGroupBox
     (Find "ShortcutNameBox").Text = ""
     (Find "ShortcutCommandBox").Text = ""
     (Find "ShortcutArgsBox").Text = ""
+    (Find "ShortcutAdminCheck").IsChecked = $false
     $allGroups = Get-AllShortcutGroups
     $idx = $allGroups.IndexOf("Custom")
     (Find "ShortcutGroupBox").SelectedIndex = if ($idx -ge 0) { $idx } else { 0 }
@@ -445,6 +518,7 @@ Refresh-ShortcutGroupBox
         IsDefault = $false
         IsHidden = $false
         Section = $selectedGroup
+        RequiresAdmin = ((Find "ShortcutAdminCheck").IsChecked -eq $true)
     }
 
     $script:shortcuts.Add($newShortcut)
@@ -455,6 +529,7 @@ Refresh-ShortcutGroupBox
     (Find "ShortcutNameBox").Text = ""
     (Find "ShortcutCommandBox").Text = ""
     (Find "ShortcutArgsBox").Text = ""
+    (Find "ShortcutAdminCheck").IsChecked = $false
     $allGroups = Get-AllShortcutGroups
     $idx = $allGroups.IndexOf("Custom")
     (Find "ShortcutGroupBox").SelectedIndex = if ($idx -ge 0) { $idx } else { 0 }
@@ -468,8 +543,8 @@ Refresh-ShortcutGroupBox
         foreach ($shortcut in $script:shortcuts) {
             if ($shortcut.IsDefault) {
                 $shortcut.IsHidden = $false
-                $orig = $script:defaultShortcuts | Where-Object { $_.Name -eq $shortcut.Name }
-                if ($orig) { $shortcut.Section = $orig.Section }
+                $orig = $script:defaultShortcuts | Where-Object { $_.Name -eq $shortcut.Name } | Select-Object -First 1
+                if ($orig) { $shortcut.Section = $orig.Section; $shortcut.RequiresAdmin = [bool]$orig.RequiresAdmin }
             }
         }
         Save-ShortcutsToSettings
@@ -490,8 +565,8 @@ Refresh-ShortcutGroupBox
         # Unhide all defaults and restore original sections
         foreach ($shortcut in $script:shortcuts) {
             $shortcut.IsHidden = $false
-            $orig = $script:defaultShortcuts | Where-Object { $_.Name -eq $shortcut.Name }
-            if ($orig) { $shortcut.Section = $orig.Section }
+            $orig = $script:defaultShortcuts | Where-Object { $_.Name -eq $shortcut.Name } | Select-Object -First 1
+            if ($orig) { $shortcut.Section = $orig.Section; $shortcut.RequiresAdmin = [bool]$orig.RequiresAdmin }
         }
 
         Save-ShortcutsToSettings
@@ -521,10 +596,21 @@ $script:shortcutSearchClear = Find "ShortcutSearchClear"
     foreach ($secName in $script:shortcutSectionElements.Keys) {
         $el = $script:shortcutSectionElements[$secName]
         $anyVisible = $false
-        foreach ($btn in $el.Panel.Children) {
-            $visible = ($query -eq "") -or ($btn.Content -like "*$query*")
-            $btn.Visibility = if ($visible) { "Visible" } else { "Collapsed" }
-            if ($visible) { $anyVisible = $true }
+        foreach ($child in $el.Panel.Children) {
+            if ($child -is [System.Windows.Controls.Button]) {
+                $visible = ($query -eq "") -or ($child.Tag.Name -like "*$query*")
+                $child.Visibility = if ($visible) { "Visible" } else { "Collapsed" }
+                if ($visible) { $anyVisible = $true }
+            }
+        }
+        # hide separators whose preceding button is hidden
+        $prevBtn = $null
+        foreach ($child in $el.Panel.Children) {
+            if ($child -is [System.Windows.Controls.Button]) {
+                $prevBtn = $child
+            } elseif ($child -is [System.Windows.Controls.Rectangle]) {
+                $child.Visibility = if ($prevBtn -and $prevBtn.Visibility -eq "Visible") { "Visible" } else { "Collapsed" }
+            }
         }
         $el.Border.Visibility = if ($anyVisible) { "Visible" } else { "Collapsed" }
     }
