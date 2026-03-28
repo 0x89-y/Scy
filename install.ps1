@@ -60,26 +60,52 @@ Write-Host "  Creating icon..." -ForegroundColor Yellow
 $icoPath = Join-Path $installDir "Scy.ico"
 try {
     Add-Type -AssemblyName System.Drawing
-    $sizes = @(32, 16)
+    $sizes = @(256, 48, 32, 16)
     $streams = @()
     foreach ($sz in $sizes) {
         $bmp = New-Object System.Drawing.Bitmap $sz, $sz
         $g = [System.Drawing.Graphics]::FromImage($bmp)
-        $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-        $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
-        $g.Clear([System.Drawing.ColorTranslator]::FromHtml("#0a0a0f"))
-        $brush = New-Object System.Drawing.SolidBrush ([System.Drawing.ColorTranslator]::FromHtml("#004080"))
-        $fontSize = [math]::Floor($sz * 0.65)
-        $font = New-Object System.Drawing.Font("Segoe UI", $fontSize, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-        $sf = New-Object System.Drawing.StringFormat
-        $sf.Alignment = [System.Drawing.StringAlignment]::Center
+        $g.SmoothingMode        = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+        $g.TextRenderingHint    = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
+        $g.InterpolationMode    = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $g.CompositingQuality   = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+        $g.Clear([System.Drawing.Color]::Transparent)
+
+        # Rounded-rectangle background path
+        $radius = [math]::Max(2, [math]::Floor($sz * 0.20))
+        $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+        $path.AddArc(0,           0,           $radius*2, $radius*2, 180, 90)
+        $path.AddArc($sz-$radius*2, 0,           $radius*2, $radius*2, 270, 90)
+        $path.AddArc($sz-$radius*2, $sz-$radius*2, $radius*2, $radius*2, 0,   90)
+        $path.AddArc(0,           $sz-$radius*2, $radius*2, $radius*2, 90,  90)
+        $path.CloseFigure()
+
+        # Diagonal gradient: deep purple -> light purple (matches app AccentBrush #6c5ce7)
+        $bgRect = New-Object System.Drawing.Rectangle(0, 0, $sz, $sz)
+        $gradBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+            $bgRect,
+            [System.Drawing.ColorTranslator]::FromHtml("#4834d4"),
+            [System.Drawing.ColorTranslator]::FromHtml("#a29bfe"),
+            135
+        )
+        $g.FillPath($gradBrush, $path)
+        $gradBrush.Dispose()
+        $path.Dispose()
+
+        # White "S" centered
+        $fontSize = [math]::Floor($sz * 0.60)
+        $font   = New-Object System.Drawing.Font("Segoe UI", $fontSize, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
+        $sf     = New-Object System.Drawing.StringFormat
+        $sf.Alignment     = [System.Drawing.StringAlignment]::Center
         $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
-        $rect = New-Object System.Drawing.RectangleF(0, 0, $sz, $sz)
+        $brush  = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
+        $rect   = New-Object System.Drawing.RectangleF(0, 0, $sz, $sz)
         $g.DrawString("S", $font, $brush, $rect, $sf)
         $g.Dispose()
         $font.Dispose()
         $brush.Dispose()
         $sf.Dispose()
+
         $ms = New-Object System.IO.MemoryStream
         $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
         $streams += @{ Size = $sz; Data = $ms.ToArray() }
@@ -87,6 +113,7 @@ try {
         $bmp.Dispose()
     }
     # Build .ico file (ICONDIR + ICONDIRENTRY[] + PNG data)
+    # Per ICO spec: width/height byte of 0 means 256
     $fs = [System.IO.File]::Create($icoPath)
     $bw = New-Object System.IO.BinaryWriter($fs)
     $bw.Write([UInt16]0)
@@ -94,8 +121,8 @@ try {
     $bw.Write([UInt16]$streams.Count)
     $offset = 6 + ($streams.Count * 16)
     foreach ($entry in $streams) {
-        $bw.Write([byte]$entry.Size)
-        $bw.Write([byte]$entry.Size)
+        $bw.Write([byte]($entry.Size -band 0xFF))
+        $bw.Write([byte]($entry.Size -band 0xFF))
         $bw.Write([byte]0)
         $bw.Write([byte]0)
         $bw.Write([UInt16]1)
