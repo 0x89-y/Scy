@@ -213,9 +213,9 @@
           $isFirst = $true
           foreach ($shortcut in $sections[$sectionName]) {
               if (-not $isFirst) {
-                  $sep = New-Object System.Windows.Controls.Rectangle
+                  $sep = New-Object System.Windows.Shapes.Rectangle
                   $sep.Height = 1
-                  $sep.SetResourceReference([System.Windows.Controls.Rectangle]::FillProperty, "BorderBrush")
+                  $sep.SetResourceReference([System.Windows.Shapes.Rectangle]::FillProperty, "BorderBrush")
                   $itemsPanel.Children.Add($sep) | Out-Null
               }
               $isFirst = $false
@@ -608,7 +608,7 @@ $script:shortcutSearchClear = Find "ShortcutSearchClear"
         foreach ($child in $el.Panel.Children) {
             if ($child -is [System.Windows.Controls.Button]) {
                 $prevBtn = $child
-            } elseif ($child -is [System.Windows.Controls.Rectangle]) {
+            } elseif ($child -is [System.Windows.Shapes.Rectangle]) {
                 $child.Visibility = if ($prevBtn -and $prevBtn.Visibility -eq "Visible") { "Visible" } else { "Collapsed" }
             }
         }
