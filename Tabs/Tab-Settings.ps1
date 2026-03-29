@@ -38,7 +38,7 @@ $settingsNavGroups.Add_Click({     Set-SettingsSubNav 2 })
 $settingsNavBackup.Add_Click({     Set-SettingsSubNav 3 })
 
 # ── Collapsible settings cards ──────────────────────────────────
-foreach ($section in @("Updates", "General", "LocalInstallers", "Credits")) {
+foreach ($section in @("Updates", "General", "LocalInstallers", "Credits", "Uninstall")) {
     $header  = Find "SettingsHeader_$section"
     $header.Tag = $section
     $header.Add_MouseLeftButtonUp({
@@ -1278,6 +1278,50 @@ function Render-GroupSettings {
 # ── Credits ────────────────────────────────────────────────────────
 (Find "BtnCreditsGitHub").Add_Click({
     Start-Process "https://github.com/0x89-y/Scy"
+})
+
+# ── Uninstall ───────────────────────────────────────────────────────
+(Find "BtnUninstallScy").Add_Click({
+    $confirm = Show-ThemedDialog "Remove Scy from your system? This cannot be undone." "Remove Scy" "YesNo" "Warning"
+    if ($confirm -ne "Yes") { return }
+
+    $keepData = Show-ThemedDialog "Keep your settings and notes?" "Remove Scy" "YesNo" "Question"
+
+    $installDir = Join-Path $env:LOCALAPPDATA "Scy"
+    $shortcut   = Join-Path $env:USERPROFILE "Desktop\Scy.lnk"
+
+    # Back up settings and notes before wiping if the user wants to keep them
+    $settingsBackup = $null
+    $notesBackup    = $null
+    if ($keepData -eq "Yes") {
+        $sf = Join-Path $installDir "settings.json"
+        $nf = Join-Path $installDir "notes.txt"
+        if (Test-Path $sf) { $settingsBackup = Get-Content $sf -Raw -Encoding UTF8 }
+        if (Test-Path $nf) { $notesBackup    = Get-Content $nf -Raw -Encoding UTF8 }
+    }
+
+    # Remove install folder
+    if (Test-Path $installDir) {
+        Remove-Item $installDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    # Restore settings and notes if requested
+    if ($keepData -eq "Yes") {
+        New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+        if ($null -ne $settingsBackup) {
+            [System.IO.File]::WriteAllText((Join-Path $installDir "settings.json"), $settingsBackup, [System.Text.Encoding]::UTF8)
+        }
+        if ($null -ne $notesBackup) {
+            [System.IO.File]::WriteAllText((Join-Path $installDir "notes.txt"), $notesBackup, [System.Text.Encoding]::UTF8)
+        }
+    }
+
+    # Remove desktop shortcut
+    if (Test-Path $shortcut) {
+        Remove-Item $shortcut -Force -ErrorAction SilentlyContinue
+    }
+
+    $window.Close()
 })
 
 Render-GroupSettings
