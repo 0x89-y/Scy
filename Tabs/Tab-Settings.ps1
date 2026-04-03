@@ -47,10 +47,10 @@ foreach ($section in @("Updates", "General", "LocalInstallers", "Credits")) {
         $chevron = Find "SettingsChevron_$name"
         if ($body.Visibility -eq "Visible") {
             $body.Visibility = "Collapsed"
-            $chevron.Text = "+"
+            $chevron.Text = [char]0x25B6
         } else {
             $body.Visibility = "Visible"
-            $chevron.Text = "-"
+            $chevron.Text = [char]0x25BC
         }
     })
 }

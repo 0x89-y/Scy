@@ -1156,6 +1156,15 @@
                                 Padding="16,14" Margin="0,0,0,12">
                             <StackPanel>
 
+                                <!-- Header -->
+                                <DockPanel Margin="0,0,0,10">
+                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                    <TextBlock Text="Create tweak" FontSize="14"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+
                                 <!-- Name -->
                                 <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
@@ -1268,12 +1277,16 @@
                             <StackPanel x:Name="TweaksGroupPanel"/>
                         </ScrollViewer>
 
-                        <StackPanel Grid.Row="3" Orientation="Horizontal">
-                            <Button x:Name="BtnApplyTweaks"  Content="Apply selected"
-                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                            <Button x:Name="BtnRevertTweaks" Content="Revert selected"
-                                    Style="{StaticResource SecondaryButton}"/>
-                        </StackPanel>
+                        <Border Grid.Row="3"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="BtnApplyTweaks"  Content="Apply selected"
+                                        Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                <Button x:Name="BtnRevertTweaks" Content="Revert selected"
+                                        Style="{StaticResource SecondaryButton}"/>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </Border>
             </TabItem>
@@ -1916,17 +1929,32 @@
 
                                 <!-- ─── Shortcuts section ─── -->
                                 <Border x:Name="BookmarksSection_Shortcuts">
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="16,14" Margin="0,0,0,12">
                                 <StackPanel>
 
-                        <!-- Action buttons -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                            <Button x:Name="BtnAddShortcut" Content="+ Add shortcut"
-                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                            <Button x:Name="BtnRestoreDefaults" Content="Restore defaults"
-                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                            <Button x:Name="BtnResetShortcuts" Content="Reset shortcuts"
+                        <!-- Card header: title + action buttons -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <DockPanel VerticalAlignment="Center">
+                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                <TextBlock Text="Shortcuts" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <Button x:Name="BtnAddShortcut" Grid.Column="1" Content="+ Add shortcut"
+                                    Style="{StaticResource ActionButton}" Margin="0,0,6,0"/>
+                            <Button x:Name="BtnRestoreDefaults" Grid.Column="2" Content="Restore defaults"
+                                    Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
+                            <Button x:Name="BtnResetShortcuts" Grid.Column="3" Content="Reset shortcuts"
                                     Style="{StaticResource DangerButton}"/>
-                        </StackPanel>
+                        </Grid>
 
                         <!-- Add shortcut form (collapsed by default) -->
                         <Border x:Name="AddShortcutPanel" Visibility="Collapsed"
@@ -2005,12 +2033,16 @@
                                 </Border>
 
                                 <!-- Requires admin -->
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                                    <CheckBox x:Name="ShortcutAdminCheck" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Requires admin" FontSize="12"
-                                               Foreground="{DynamicResource MutedText}"
-                                               VerticalAlignment="Center" Margin="8,0,0,0"/>
-                                </StackPanel>
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Requires admin" FontSize="12"
+                                               Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="ShortcutAdminCheck" Grid.Column="1"
+                                              Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                </Grid>
 
                                 <!-- Create/Cancel -->
                                 <StackPanel Orientation="Horizontal">
@@ -2060,18 +2092,33 @@
 
                                 </StackPanel>
                                 </Border>
+                                </Border>
 
                                 <!-- ─── Registry section ─── -->
                                 <Border x:Name="BookmarksSection_Registry" Visibility="Collapsed">
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="16,14" Margin="0,0,0,12">
                                 <StackPanel>
 
-                        <!-- Action buttons -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                            <Button x:Name="BtnAddRegBookmark" Content="+ Add bookmark"
-                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                            <Button x:Name="BtnResetRegBookmarks" Content="Clear all bookmarks"
+                        <!-- Card header: title + action buttons -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <DockPanel VerticalAlignment="Center">
+                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                <TextBlock Text="Registry bookmarks" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <Button x:Name="BtnAddRegBookmark" Grid.Column="1" Content="+ Add bookmark"
+                                    Style="{StaticResource ActionButton}" Margin="0,0,6,0"/>
+                            <Button x:Name="BtnResetRegBookmarks" Grid.Column="2" Content="Clear all bookmarks"
                                     Style="{StaticResource DangerButton}"/>
-                        </StackPanel>
+                        </Grid>
 
                         <!-- Add bookmark form (collapsed by default) -->
                         <Border x:Name="AddRegBookmarkPanel" Visibility="Collapsed"
@@ -2165,6 +2212,7 @@
                                 <StackPanel x:Name="RegBookmarkGroupsPanel"/>
 
                                 </StackPanel>
+                                </Border>
                                 </Border>
 
                             </StackPanel>
@@ -2473,7 +2521,9 @@
                                                    Margin="0,0,0,10" TextWrapping="Wrap"/>
                                         <StackPanel x:Name="NetWifiPanel">
                                             <TextBlock Text="Click 'Wi-Fi passwords' to view saved networks."
-                                                       FontSize="11" Foreground="{DynamicResource MutedText}"/>
+                                                       FontSize="12" Foreground="{DynamicResource MutedText}"
+                                                       HorizontalAlignment="Center" TextAlignment="Center"
+                                                       Margin="0,24,0,0"/>
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
@@ -2551,7 +2601,7 @@
 
                                                     <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
                                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                            Padding="8,0" Margin="0,0,8,0">
+                                                            Padding="10,0" Margin="0,0,8,0">
                                                         <Grid>
                                                             <TextBlock x:Name="HostsNewIPPlaceholder" Text="IP address"
                                                                        Foreground="{DynamicResource MutedText}" FontSize="12"
@@ -2565,7 +2615,7 @@
 
                                                     <Border Grid.Column="1" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
                                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                            Padding="8,0" Margin="0,0,8,0">
+                                                            Padding="10,0" Margin="0,0,8,0">
                                                         <Grid>
                                                             <TextBlock x:Name="HostsNewHostPlaceholder" Text="Hostname"
                                                                        Foreground="{DynamicResource MutedText}" FontSize="12"
@@ -2579,7 +2629,7 @@
 
                                                     <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
                                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                            Padding="8,0" Margin="0,0,8,0">
+                                                            Padding="10,0" Margin="0,0,8,0">
                                                         <Grid>
                                                             <TextBlock x:Name="HostsNewCommentPlaceholder" Text="Comment (optional)"
                                                                        Foreground="{DynamicResource MutedText}" FontSize="12"
@@ -3158,7 +3208,8 @@
                                 <StackPanel x:Name="ExportResultsPanel">
                                     <TextBlock Text="Click 'Scan installed software' to begin."
                                                Foreground="{DynamicResource MutedText}" FontSize="12"
-                                               Margin="0,2"/>
+                                               HorizontalAlignment="Center" TextAlignment="Center"
+                                               Margin="0,24,0,0"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -3831,7 +3882,7 @@
                                     <DockPanel x:Name="SettingsHeader_Updates" Cursor="Hand">
                                         <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                 Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                        <TextBlock x:Name="SettingsChevron_Updates" Text="-" FontSize="12"
+                                        <TextBlock x:Name="SettingsChevron_Updates" Text="&#x25BC;" FontSize="10"
                                                    Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
                                                    Margin="0,0,6,0"/>
                                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
@@ -3878,7 +3929,7 @@
                                     <DockPanel x:Name="SettingsHeader_General" Cursor="Hand">
                                         <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                 Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                        <TextBlock x:Name="SettingsChevron_General" Text="-" FontSize="12"
+                                        <TextBlock x:Name="SettingsChevron_General" Text="&#x25BC;" FontSize="10"
                                                    Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
                                                    Margin="0,0,6,0"/>
                                         <TextBlock Text="General" FontSize="14" FontWeight="SemiBold"
@@ -3939,7 +3990,7 @@
                                     <DockPanel x:Name="SettingsHeader_LocalInstallers" Cursor="Hand">
                                         <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                 Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                        <TextBlock x:Name="SettingsChevron_LocalInstallers" Text="-" FontSize="12"
+                                        <TextBlock x:Name="SettingsChevron_LocalInstallers" Text="&#x25BC;" FontSize="10"
                                                    Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
                                                    Margin="0,0,6,0"/>
                                         <TextBlock Text="Local installers" FontSize="14" FontWeight="SemiBold"
@@ -4030,7 +4081,7 @@
                                     <DockPanel x:Name="SettingsHeader_Credits" Cursor="Hand">
                                         <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                 Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                        <TextBlock x:Name="SettingsChevron_Credits" Text="-" FontSize="12"
+                                        <TextBlock x:Name="SettingsChevron_Credits" Text="&#x25BC;" FontSize="10"
                                                    Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
                                                    Margin="0,0,6,0"/>
                                         <TextBlock Text="Credits" FontSize="14" FontWeight="SemiBold"
