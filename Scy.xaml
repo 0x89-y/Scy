@@ -746,6 +746,21 @@
                                             </StackPanel>
                                         </Border>
 
+                                        <Border x:Name="UpdateProgressBorder"
+                                                Background="{DynamicResource Surface2Brush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="14,10" Margin="0,0,0,8" Visibility="Collapsed">
+                                            <StackPanel>
+                                                <TextBlock x:Name="UpdateProgressLabel"
+                                                           FontSize="12" Foreground="{DynamicResource SubTextBrush}"
+                                                           Margin="0,0,0,6"/>
+                                                <ProgressBar x:Name="UpdateProgressBar" Height="6"
+                                                             Minimum="0" Maximum="100" Value="0"
+                                                             Foreground="{DynamicResource AccentBrush}"
+                                                             Background="{DynamicResource Surface3Brush}"/>
+                                            </StackPanel>
+                                        </Border>
+
                                         <Border x:Name="OutBorderUpdates"
                                                 Background="{DynamicResource InputBgBrush}" CornerRadius="4"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"

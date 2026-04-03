@@ -8,6 +8,9 @@ $updateBadgeHint   = Find "UpdateBadgeHint"
 $updatePkgList     = Find "UpdatePkgListBorder"
 $updatePkgPanel    = Find "UpdatePkgStackPanel"
 $updatePkgCount    = Find "UpdatePkgCountLabel"
+$updateProgressBorder = Find "UpdateProgressBorder"
+$updateProgressBar    = Find "UpdateProgressBar"
+$updateProgressLabel  = Find "UpdateProgressLabel"
 
 function New-ColorBrush([string]$hex) {
     New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($hex))
@@ -291,10 +294,6 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
     # Collect selected package IDs before entering the runspace
     $pkgIds = @($selected | ForEach-Object { $_.Tag })
 
-    # Show output panel
-    $outBorder = Find "OutBorderUpdates"
-    $outBorder.Visibility = "Visible"
-    (Find "BtnToggleUpdates").Content = "Hide output"
 
     Write-Output-Box $outputUpdates "`r`n▶ Installing $($pkgIds.Count) selected update(s)...`r`n$('─' * 60)" -Clear
 
@@ -319,10 +318,13 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
     $rs.SessionStateProxy.SetVariable("_statusBadge", $updateStatusBadge)
     $rs.SessionStateProxy.SetVariable("_pkgList",     $updatePkgList)
     $rs.SessionStateProxy.SetVariable("_pkgPanel",    $updatePkgPanel)
-    $rs.SessionStateProxy.SetVariable("_uCheck",      $script:_uCheck)
-    $rs.SessionStateProxy.SetVariable("_uCross",      $script:_uCross)
-    $rs.SessionStateProxy.SetVariable("_uBullet",     $script:_uBullet)
-    $rs.SessionStateProxy.SetVariable("_uBarPat",     $script:_uBarPat)
+    $rs.SessionStateProxy.SetVariable("_uCheck",          $script:_uCheck)
+    $rs.SessionStateProxy.SetVariable("_uCross",          $script:_uCross)
+    $rs.SessionStateProxy.SetVariable("_uBullet",         $script:_uBullet)
+    $rs.SessionStateProxy.SetVariable("_uBarPat",         $script:_uBarPat)
+    $rs.SessionStateProxy.SetVariable("_progressBorder",  $updateProgressBorder)
+    $rs.SessionStateProxy.SetVariable("_progressBar",     $updateProgressBar)
+    $rs.SessionStateProxy.SetVariable("_progressLabel",   $updateProgressLabel)
 
     $ps = [powershell]::Create()
     $ps.Runspace = $rs
@@ -335,11 +337,23 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
             New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($hex))
         }
 
+        $total = $_pkgIds.Count
+        $i = 0
+        Ui {
+            $_progressBar.IsIndeterminate = $false
+            $_progressBar.Maximum         = $total
+            $_progressBar.Value           = 0
+            $_progressLabel.Text          = "Installing 1 of $total..."
+            $_progressBorder.Visibility   = "Visible"
+        }
+
         foreach ($pkgId in $_pkgIds) {
+            $i++
             Ui {
-                $_si.Text       = "$_uBullet Installing $pkgId..."
-                $_si.Foreground = _NewColorBrush "#fdcb6e"
-                $_fs.Text       = "Scy - Installing $pkgId..."
+                $_si.Text             = "$_uBullet Installing $pkgId..."
+                $_si.Foreground       = _NewColorBrush "#fdcb6e"
+                $_fs.Text             = "Scy - Installing $pkgId..."
+                $_progressLabel.Text  = "Installing $i of ${total}: $pkgId"
             }
 
             try {
@@ -371,12 +385,14 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
                 Ui {
                     $_box.AppendText("$_uCheck $pkgId done.`r`n")
                     $_box.ScrollToEnd()
+                    $_progressBar.Value = $i
                 }
             } catch {
                 $errMsg = $_.ToString()
                 Ui {
                     $_box.AppendText("$_uCross ${pkgId}: $errMsg`r`n")
                     $_box.ScrollToEnd()
+                    $_progressBar.Value = $i
                 }
             }
         }
@@ -384,6 +400,8 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
         Ui {
             $_box.AppendText("`r`n$_uCheck All done.`r`n")
             $_box.ScrollToEnd()
+
+            $_progressBorder.Visibility = "Collapsed"
 
             $_si.Text       = "$_uBullet Ready"
             $_si.Foreground = _NewColorBrush "#00b894"
@@ -424,8 +442,11 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
     $rs.SessionStateProxy.SetVariable("_statusBadge", $updateStatusBadge)
     $rs.SessionStateProxy.SetVariable("_pkgList",     $updatePkgList)
     $rs.SessionStateProxy.SetVariable("_pkgPanel",    $updatePkgPanel)
-    $rs.SessionStateProxy.SetVariable("_uDone",       $script:_uDone)
-    $rs.SessionStateProxy.SetVariable("_uBullet",     $script:_uBullet)
+    $rs.SessionStateProxy.SetVariable("_uDone",          $script:_uDone)
+    $rs.SessionStateProxy.SetVariable("_uBullet",        $script:_uBullet)
+    $rs.SessionStateProxy.SetVariable("_progressBorder", $updateProgressBorder)
+    $rs.SessionStateProxy.SetVariable("_progressBar",    $updateProgressBar)
+    $rs.SessionStateProxy.SetVariable("_progressLabel",  $updateProgressLabel)
 
     $ps = [powershell]::Create()
     $ps.Runspace = $rs
@@ -438,12 +459,21 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
             New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($hex))
         }
 
+        Ui {
+            $_progressBar.IsIndeterminate = $true
+            $_progressLabel.Text          = "Updating all packages..."
+            $_progressBorder.Visibility   = "Visible"
+        }
+
         $result = & winget upgrade --all --include-unknown --accept-package-agreements --accept-source-agreements 2>&1 | Out-String
 
         Ui {
             $_box.AppendText($result + "`r`n")
             $_box.AppendText($_uDone)
             $_box.ScrollToEnd()
+
+            $_progressBorder.Visibility = "Collapsed"
+            $_progressBar.IsIndeterminate = $false
 
             $_si.Text       = "$_uBullet Ready"
             $_si.Foreground = _NewColorBrush "#00b894"
