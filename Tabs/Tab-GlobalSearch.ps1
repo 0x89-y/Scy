@@ -100,6 +100,20 @@ function Build-GlobalSearchIndex {
         }
     }
 
+    # Filter out entries that belong to hidden tabs
+    if ($script:hiddenTabs -and $script:hiddenTabs.Count -gt 0 -and $mainTabControl) {
+        $filtered = [System.Collections.Generic.List[hashtable]]::new()
+        foreach ($it in $items) {
+            $idx = $it.TabIndex
+            if ($null -ne $idx -and $idx -ge 0 -and $idx -lt $mainTabControl.Items.Count) {
+                $tabHeader = [string]$mainTabControl.Items[$idx].Header
+                if ($tabHeader -ne "Settings" -and ($script:hiddenTabs -contains $tabHeader)) { continue }
+            }
+            $filtered.Add($it) | Out-Null
+        }
+        return $filtered
+    }
+
     return $items
 }
 

@@ -38,7 +38,7 @@ $settingsNavGroups.Add_Click({     Set-SettingsSubNav 2 })
 $settingsNavBackup.Add_Click({     Set-SettingsSubNav 3 })
 
 # ── Collapsible settings cards ──────────────────────────────────
-foreach ($section in @("Updates", "General", "LocalInstallers", "Credits")) {
+foreach ($section in @("Updates", "General", "VisibleTabs", "LocalInstallers", "Credits")) {
     $header  = Find "SettingsHeader_$section"
     $header.Tag = $section
     $header.Add_MouseLeftButtonUp({
@@ -62,6 +62,7 @@ $script:customInstallCategories = [System.Collections.Generic.List[string]]::new
 $script:hiddenDefaultShortcutGroups    = [System.Collections.Generic.List[string]]::new()
 $script:hiddenDefaultInstallCategories = [System.Collections.Generic.List[string]]::new()
 $script:customRegBookmarkGroups        = [System.Collections.Generic.List[string]]::new()
+$script:hiddenTabs                     = [System.Collections.Generic.List[string]]::new()
 
 # ── Theme definitions ─────────────────────────────────────────────
 $script:themes = [ordered]@{
@@ -306,6 +307,7 @@ function Save-Settings {
             CustomInstallCategories = @($script:customInstallCategories)
             HiddenDefaultShortcutGroups    = @($script:hiddenDefaultShortcutGroups)
             HiddenDefaultInstallCategories = @($script:hiddenDefaultInstallCategories)
+            HiddenTabs                     = @($script:hiddenTabs)
             RememberCleanTargets           = $script:rememberCleanTargets
             AutoScanLocalInstallers        = $script:autoScanLocalInstallers
             RememberLocalInstallers        = $script:rememberLocalInstallers
@@ -408,6 +410,10 @@ if (Test-Path $script:settingsFile) {
             $script:hiddenDefaultInstallCategories.Clear()
             foreach ($g in $saved.HiddenDefaultInstallCategories) { $script:hiddenDefaultInstallCategories.Add([string]$g) }
         }
+        if ($null -ne $saved.HiddenTabs) {
+            $script:hiddenTabs.Clear()
+            foreach ($h in $saved.HiddenTabs) { $script:hiddenTabs.Add([string]$h) }
+        }
         if ($null -ne $saved.RememberCleanTargets) { $script:rememberCleanTargets = [bool]$saved.RememberCleanTargets }
         if ($null -ne $saved.AutoScanLocalInstallers) { $script:autoScanLocalInstallers = [bool]$saved.AutoScanLocalInstallers }
         if ($null -ne $saved.RememberLocalInstallers) { $script:rememberLocalInstallers = [bool]$saved.RememberLocalInstallers }
@@ -441,6 +447,79 @@ foreach ($staleKey in @("AccentHover","SubText","WinCtrlFg","ScrollThumb","Input
     $script:themes["Custom"].Remove($staleKey)
 }
 
+# ── Tab visibility ────────────────────────────────────────────────
+function Apply-TabVisibility {
+    $tc = Find "MainTabControl"
+    if (-not $tc) { return }
+    $firstVisible = $null
+    foreach ($item in $tc.Items) {
+        $header = [string]$item.Header
+        $hidden = ($header -ne "Settings") -and ($script:hiddenTabs -contains $header)
+        $item.Visibility = if ($hidden) { "Collapsed" } else { "Visible" }
+        if (-not $hidden -and $null -eq $firstVisible) { $firstVisible = $item }
+    }
+    if ($tc.SelectedItem -and $tc.SelectedItem.Visibility -eq "Collapsed" -and $firstVisible) {
+        $tc.SelectedItem = $firstVisible
+    }
+}
+
+function Build-TabVisibilityList {
+    $list = Find "TabVisibilityList"
+    $tc   = Find "MainTabControl"
+    if (-not $list -or -not $tc) { return }
+    $list.Children.Clear()
+
+    foreach ($item in $tc.Items) {
+        $header = [string]$item.Header
+        if ($header -eq "Settings") { continue }
+
+        $row = New-Object System.Windows.Controls.Grid
+        $row.Margin = [System.Windows.Thickness]::new(0, 10, 0, 0)
+        $c1 = New-Object System.Windows.Controls.ColumnDefinition
+        $c1.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+        $c2 = New-Object System.Windows.Controls.ColumnDefinition
+        $c2.Width = [System.Windows.GridLength]::Auto
+        $row.ColumnDefinitions.Add($c1) | Out-Null
+        $row.ColumnDefinitions.Add($c2) | Out-Null
+
+        $label = New-Object System.Windows.Controls.TextBlock
+        $label.Text = $header
+        $label.FontSize = 12
+        $label.FontWeight = "SemiBold"
+        $label.VerticalAlignment = "Center"
+        $label.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+        [System.Windows.Controls.Grid]::SetColumn($label, 0)
+
+        $toggle = New-Object System.Windows.Controls.CheckBox
+        $toggle.Style = $window.FindResource("TweakToggle")
+        $toggle.VerticalAlignment = "Center"
+        $toggle.IsChecked = (-not ($script:hiddenTabs -contains $header))
+        $toggle.Tag = $header
+        [System.Windows.Controls.Grid]::SetColumn($toggle, 1)
+
+        $toggle.Add_Checked({
+            param($s, $e)
+            $h = [string]$s.Tag
+            if ($script:hiddenTabs -contains $h) { $script:hiddenTabs.Remove($h) | Out-Null }
+            Save-Settings
+            Apply-TabVisibility
+            if (Get-Command Update-GlobalSearchIndex -ErrorAction SilentlyContinue) { Update-GlobalSearchIndex }
+        })
+        $toggle.Add_Unchecked({
+            param($s, $e)
+            $h = [string]$s.Tag
+            if (-not ($script:hiddenTabs -contains $h)) { $script:hiddenTabs.Add($h) | Out-Null }
+            Save-Settings
+            Apply-TabVisibility
+            if (Get-Command Update-GlobalSearchIndex -ErrorAction SilentlyContinue) { Update-GlobalSearchIndex }
+        })
+
+        $row.Children.Add($label)  | Out-Null
+        $row.Children.Add($toggle) | Out-Null
+        $list.Children.Add($row)   | Out-Null
+    }
+}
+
 (Find "SettingsLocalFolder").Text = $script:localInstallFolder
 (Find "ToggleAutoCheckUpdates").IsChecked = $script:autoCheckUpdates
 (Find "ToggleAutoCheckSelfUpdate").IsChecked = $script:autoCheckSelfUpdate
@@ -448,6 +527,8 @@ foreach ($staleKey in @("AccentHover","SubText","WinCtrlFg","ScrollThumb","Input
 (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
 (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
 (Find "ToggleRememberLocalInstallers").IsChecked = $script:rememberLocalInstallers
+Build-TabVisibilityList
+Apply-TabVisibility
 $window.Dispatcher.BeginInvoke([action]{ Update-QuickInstalls }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
 # Apply the saved/default theme on startup
