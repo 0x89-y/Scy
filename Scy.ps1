@@ -219,6 +219,35 @@ function Start-ScyJob {
     }
 }
 
+# ── Progress bar helpers ──────────────────────────────────────────
+# Show or update a Border+ProgressBar+Label triplet. Pass $Value = $null
+# for indeterminate mode.
+function Show-ScyProgress {
+    param(
+        [Parameter(Mandatory)]$Border,
+        [Parameter(Mandatory)]$Bar,
+        [Parameter(Mandatory)]$Label,
+        [string]$Text = "",
+        $Value = $null,
+        [int]$Max = 100
+    )
+    $Border.Visibility = "Visible"
+    $Label.Text        = $Text
+    $Bar.Maximum       = $Max
+    if ($null -eq $Value) {
+        $Bar.IsIndeterminate = $true
+    } else {
+        $Bar.IsIndeterminate = $false
+        $Bar.Value           = [double]$Value
+    }
+}
+
+function Hide-ScyProgress {
+    param($Border, $Bar)
+    if ($Border) { $Border.Visibility   = "Collapsed" }
+    if ($Bar)    { $Bar.IsIndeterminate = $false; $Bar.Value = 0 }
+}
+
 # ── Helper: run a user scriptblock off the UI thread, stream output ───
 function Run-Command {
     param(

@@ -7,6 +7,9 @@ $recycleBinStatus = Find "RecycleBinStatus"
 $recycleBinResult = Find "RecycleBinResult"
 $recycleBinSize   = Find "RecycleBinSize"
 $btnClean         = Find "BtnClean"
+$cleanupProgressBorder = Find "CleanupProgressBorder"
+$cleanupProgressBar    = Find "CleanupProgressBar"
+$cleanupProgressLabel  = Find "CleanupProgressLabel"
 
 $script:cleanScanData    = $null
 $script:cleanCheckboxes  = @{}
@@ -173,15 +176,14 @@ $btnScan.Add_Click({
     $btnScan.IsEnabled = $false
 
     $targets = Get-CleanTargets
-
-    $onLine = {
-        param($line)
-        $cleanTempStatus.Text = $line
-    }
+    $totalTargets = $targets.Keys.Count
+    Show-ScyProgress -Border $cleanupProgressBorder -Bar $cleanupProgressBar -Label $cleanupProgressLabel `
+                     -Text "Starting scan..." -Value 0 -Max $totalTargets
 
     $onDone = {
         param($scanData, $err)
         $btnScan.IsEnabled = $true
+        Hide-ScyProgress $cleanupProgressBorder $cleanupProgressBar
 
         if ($err) {
             $cleanTempStatus.Text       = "Scan failed: $err"
@@ -219,8 +221,20 @@ $btnScan.Add_Click({
         $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
     }
 
+    $onLineCtx = {
+        param($line, $ctx)
+        if ($line -is [hashtable]) {
+            $cleanupProgressBar.Value  = [double]$line.Index
+            $cleanupProgressLabel.Text = "Scanning " + [string]$line.Index + " of " + [string]$ctx.Total + " - " + [string]$line.Label
+            $cleanTempStatus.Text      = "Scanning " + [string]$line.Label + "..."
+        } else {
+            $cleanTempStatus.Text = [string]$line
+        }
+    }
+
     Start-ScyJob `
         -Variables @{ targets = $targets } `
+        -Context   @{ Total = $totalTargets } `
         -Work {
             param($emit)
             function Get-DirSize {
@@ -232,8 +246,10 @@ $btnScan.Add_Click({
                 return [long]$sum
             }
             $scanData = [ordered]@{}
+            $i = 0
             foreach ($label in $targets.Keys) {
-                & $emit "Scanning $label..."
+                $i++
+                & $emit @{ Index = $i; Label = $label }
                 $t    = $targets[$label]
                 $size = 0L
                 foreach ($p in $t.Paths) { $size += Get-DirSize $p }
@@ -241,7 +257,7 @@ $btnScan.Add_Click({
             }
             return $scanData
         } `
-        -OnLine     $onLine `
+        -OnLine     $onLineCtx `
         -OnComplete $onDone | Out-Null
 })
 
@@ -300,14 +316,25 @@ $btnClean.Add_Click({
 
     $cleanTempRows.Children.Clear()
 
+    $toCleanCount = @($worklist | Where-Object { -not $_.Skip }).Count
+    Show-ScyProgress -Border $cleanupProgressBorder -Bar $cleanupProgressBar -Label $cleanupProgressLabel `
+                     -Text "Starting cleanup..." -Value 0 -Max ([Math]::Max($toCleanCount, 1))
+
     $onLine = {
-        param($line)
-        $cleanTempStatus.Text = $line
+        param($line, $ctx)
+        if ($line -is [hashtable]) {
+            $cleanupProgressBar.Value  = [double]$line.Index
+            $cleanupProgressLabel.Text = "Cleaning " + [string]$line.Index + " of " + [string]$ctx.Total + " - " + [string]$line.Label
+            $cleanTempStatus.Text      = "Cleaning " + [string]$line.Label + "..."
+        } else {
+            $cleanTempStatus.Text = [string]$line
+        }
     }
 
     $onDone = {
         param($result, $err)
         $btnScan.IsEnabled = $true
+        Hide-ScyProgress $cleanupProgressBorder $cleanupProgressBar
 
         if ($err) {
             $cleanTempStatus.Text       = "Cleanup failed: $err"
@@ -343,11 +370,14 @@ $btnClean.Add_Click({
 
     Start-ScyJob `
         -Variables @{ worklist = $worklist } `
+        -Context   @{ Total = $toCleanCount } `
         -Work {
             param($emit)
+            $i = 0
             foreach ($item in $worklist) {
                 if ($item.Skip) { continue }
-                & $emit "Cleaning $($item.Label)..."
+                $i++
+                & $emit @{ Index = $i; Label = $item.Label }
                 foreach ($p in $item.Paths) {
                     if (Test-Path $p) {
                         if ($item.DeleteSelf) {

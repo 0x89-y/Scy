@@ -18,6 +18,9 @@ $installedCountLabel       = Find "InstalledCountLabel"
 $installedFilterBox        = Find "InstalledFilterBox"
 $installedFilterPlaceholder = Find "InstalledFilterPlaceholder"
 $installedFilterClear      = Find "InstalledFilterClear"
+$installsProgressBorder    = Find "InstallsProgressBorder"
+$installsProgressBar       = Find "InstallsProgressBar"
+$installsProgressLabel     = Find "InstallsProgressLabel"
 
 # Tracks search result rows for checkbox harvesting
 $script:searchItems    = [System.Collections.Generic.List[hashtable]]::new()
@@ -345,28 +348,41 @@ function Search-WingetPackages {
 
     $script:installInProgress     = $true
     $btnInstallSelected.IsEnabled = $false
-    Set-BusyStatus ("Installing " + [string]$toInstall.Count + " package(s)...")
+    $total = $toInstall.Count
+    Set-BusyStatus ("Installing " + [string]$total + " package(s)...")
+    Show-ScyProgress -Border $installsProgressBorder -Bar $installsProgressBar -Label $installsProgressLabel `
+                     -Text ("Starting install of " + [string]$total + " package(s)...") -Value 0 -Max $total
 
     Start-ScyJob `
         -Variables @{ pkgs = $toInstall } `
+        -Context   @{ Total = $total } `
         -Work {
             param($emit)
             $failed = @()
+            $i = 0
             foreach ($pkg in $pkgs) {
-                & $emit $pkg
+                $i++
+                & $emit @{ Index = $i; Name = $pkg }
                 & winget install --id $pkg --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
                 if ($LASTEXITCODE -ne 0) { $failed += $pkg }
             }
             return @{ Failed = $failed; Total = $pkgs.Count }
         } `
         -OnLine {
-            param($line)
-            $footerStatus.Text = "Scy - Installing: " + $line
+            param($line, $ctx)
+            if ($line -is [hashtable]) {
+                $installsProgressBar.Value   = [double]$line.Index
+                $installsProgressLabel.Text  = "Installing " + [string]$line.Index + " of " + [string]$ctx.Total + " - " + [string]$line.Name
+                $footerStatus.Text           = "Scy - Installing: " + [string]$line.Name
+            } else {
+                $footerStatus.Text = "Scy - Installing: " + [string]$line
+            }
         } `
         -OnComplete {
             param($result, $err, $ctx)
             $script:installInProgress     = $false
             $btnInstallSelected.IsEnabled = $true
+            Hide-ScyProgress $installsProgressBorder $installsProgressBar
             Set-ReadyStatus
             if ($err) {
                 Show-ThemedDialog ("Install error: " + $err.Exception.Message) "Error" "OK" "Error"
@@ -565,26 +581,38 @@ function Show-QuickInstallConfirmDialog {
 
         $script:installInProgress = $true
         Set-BusyStatus ("Installing " + [string]$total + " package(s)...")
+        Show-ScyProgress -Border $installsProgressBorder -Bar $installsProgressBar -Label $installsProgressLabel `
+                         -Text ("Starting install of " + [string]$total + " package(s)...") -Value 0 -Max $total
 
         Start-ScyJob `
             -Variables @{ pkgs = $pkgIds } `
+            -Context   @{ Total = $total } `
             -Work {
                 param($emit)
                 $failed = @()
+                $i = 0
                 foreach ($pkg in $pkgs) {
-                    & $emit $pkg
+                    $i++
+                    & $emit @{ Index = $i; Name = $pkg }
                     & winget install --id $pkg --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
                     if ($LASTEXITCODE -ne 0) { $failed += $pkg }
                 }
                 return @{ Failed = $failed; Total = $pkgs.Count }
             } `
             -OnLine {
-                param($line)
-                $footerStatus.Text = "Scy - Installing: " + $line
+                param($line, $ctx)
+                if ($line -is [hashtable]) {
+                    $installsProgressBar.Value   = [double]$line.Index
+                    $installsProgressLabel.Text  = "Installing " + [string]$line.Index + " of " + [string]$ctx.Total + " - " + [string]$line.Name
+                    $footerStatus.Text           = "Scy - Installing: " + [string]$line.Name
+                } else {
+                    $footerStatus.Text = "Scy - Installing: " + [string]$line
+                }
             } `
             -OnComplete {
                 param($result, $err, $ctx)
                 $script:installInProgress = $false
+                Hide-ScyProgress $installsProgressBorder $installsProgressBar
                 Set-ReadyStatus
                 $script:selectedQuickItems.Clear()
                 Update-QuickInstalls
