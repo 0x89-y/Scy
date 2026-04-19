@@ -59,131 +59,119 @@ $btnExportScan.Add_Click({
     $btnExportCSV.IsEnabled  = $false; $btnExportCSV.Opacity  = 0.4
     $btnExportCopy.IsEnabled = $false; $btnExportCopy.Opacity = 0.4
 
-    $rs = [runspacefactory]::CreateRunspace()
-    $rs.ApartmentState = "STA"
-    $rs.ThreadOptions  = "ReuseThread"
-    $rs.Open()
+    Start-ScyJob `
+        -Work {
+            param($emit)
+            $allSoftware = @{}
 
-    $rs.SessionStateProxy.SetVariable("_win",      $window)
-    $rs.SessionStateProxy.SetVariable("_panel",    $exportResultsPanel)
-    $rs.SessionStateProxy.SetVariable("_status",   $exportStatus)
-    $rs.SessionStateProxy.SetVariable("_summary",  $exportSummary)
-    $rs.SessionStateProxy.SetVariable("_btnJSON",  $btnExportJSON)
-    $rs.SessionStateProxy.SetVariable("_btnCSV",   $btnExportCSV)
-    $rs.SessionStateProxy.SetVariable("_btnCopy",  $btnExportCopy)
-    $rs.SessionStateProxy.SetVariable("_si",       (Find "StatusIndicator"))
-    $rs.SessionStateProxy.SetVariable("_fs",       (Find "FooterStatus"))
+            # ── Winget list ──────────────────────────────────────
+            try {
+                $wingetOut = & winget list --accept-source-agreements 2>$null
+                if ($wingetOut) {
+                    $lines = @($wingetOut | ForEach-Object { ($_ -replace '\x1B\[[0-9;]*[mK]', '') -replace '\r', '' })
 
-    $ps = [powershell]::Create()
-    $ps.Runspace = $rs
-
-    $ps.AddScript({
-        $allSoftware = @{}
-
-        # ── Winget list ──────────────────────────────────────
-        try {
-            $wingetOut = & winget list --accept-source-agreements 2>$null
-            if ($wingetOut) {
-                # Strip ANSI escape codes and carriage returns
-                $lines = @($wingetOut | ForEach-Object { ($_ -replace '\x1B\[[0-9;]*[mK]', '') -replace '\r', '' })
-
-                # Find the separator line (continuous dashes, at least 10 wide)
-                $sepIdx = -1
-                for ($i = 0; $i -lt $lines.Count; $i++) {
-                    if ($lines[$i] -match '^-{10,}\s*$') { $sepIdx = $i; break }
-                }
-
-                if ($sepIdx -gt 0) {
-                    # Derive column positions from the header line above the separator
-                    $header    = $lines[$sepIdx - 1]
-                    $colStarts = @(0)
-                    for ($i = 1; $i -lt $header.Length; $i++) {
-                        if ($header[$i] -ne ' ' -and $header[$i - 1] -eq ' ') { $colStarts += $i }
+                    $sepIdx = -1
+                    for ($i = 0; $i -lt $lines.Count; $i++) {
+                        if ($lines[$i] -match '^-{10,}\s*$') { $sepIdx = $i; break }
                     }
 
-                    for ($r = $sepIdx + 1; $r -lt $lines.Count; $r++) {
-                        $line = $lines[$r]
-                        if ($line.Trim().Length -lt 2) { continue }
-
-                        # Slice row at column positions
-                        $vals = @()
-                        for ($ci = 0; $ci -lt $colStarts.Count; $ci++) {
-                            $cs = $colStarts[$ci]
-                            if ($cs -ge $line.Length) { $vals += ''; continue }
-                            $ce = if ($ci + 1 -lt $colStarts.Count) { $colStarts[$ci + 1] } else { $line.Length }
-                            $ce = [Math]::Min($ce, $line.Length)
-                            $vals += $line.Substring($cs, $ce - $cs).TrimEnd()
+                    if ($sepIdx -gt 0) {
+                        $header    = $lines[$sepIdx - 1]
+                        $colStarts = @(0)
+                        for ($i = 1; $i -lt $header.Length; $i++) {
+                            if ($header[$i] -ne ' ' -and $header[$i - 1] -eq ' ') { $colStarts += $i }
                         }
 
-                        $name    = if ($vals.Count -ge 1) { $vals[0].Trim() } else { "" }
-                        $id      = if ($vals.Count -ge 2) { $vals[1].Trim() } else { "" }
-                        $version = if ($vals.Count -ge 3) { $vals[2].Trim() } else { "" }
+                        for ($r = $sepIdx + 1; $r -lt $lines.Count; $r++) {
+                            $line = $lines[$r]
+                            if ($line.Trim().Length -lt 2) { continue }
 
-                        if ($name -and $name -ne "Name" -and $name -notmatch '^-+$') {
-                            $key = $name.ToLower()
-                            if (-not $allSoftware.ContainsKey($key)) {
-                                $allSoftware[$key] = [PSCustomObject]@{
-                                    Name    = $name
-                                    Id      = $id
-                                    Version = $version
-                                    Source  = "Winget"
+                            $vals = @()
+                            for ($ci = 0; $ci -lt $colStarts.Count; $ci++) {
+                                $cs = $colStarts[$ci]
+                                if ($cs -ge $line.Length) { $vals += ''; continue }
+                                $ce = if ($ci + 1 -lt $colStarts.Count) { $colStarts[$ci + 1] } else { $line.Length }
+                                $ce = [Math]::Min($ce, $line.Length)
+                                $vals += $line.Substring($cs, $ce - $cs).TrimEnd()
+                            }
+
+                            $name    = if ($vals.Count -ge 1) { $vals[0].Trim() } else { "" }
+                            $id      = if ($vals.Count -ge 2) { $vals[1].Trim() } else { "" }
+                            $version = if ($vals.Count -ge 3) { $vals[2].Trim() } else { "" }
+
+                            if ($name -and $name -ne "Name" -and $name -notmatch '^-+$') {
+                                $key = $name.ToLower()
+                                if (-not $allSoftware.ContainsKey($key)) {
+                                    $allSoftware[$key] = [PSCustomObject]@{
+                                        Name    = $name
+                                        Id      = $id
+                                        Version = $version
+                                        Source  = "Winget"
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-        } catch { }
+            } catch { }
 
-        # ── Registry (traditional installs) ──────────────────
-        $regPaths = @(
-            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
-            "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
-        )
-        foreach ($path in $regPaths) {
-            try {
-                $items = Get-ItemProperty $path -ErrorAction SilentlyContinue |
-                         Where-Object { $_.DisplayName -and $_.DisplayName.Trim() -ne "" }
-                foreach ($item in $items) {
-                    $name    = $item.DisplayName.Trim()
-                    $version = if ($item.DisplayVersion) { $item.DisplayVersion.Trim() } else { "" }
-                    $pub     = if ($item.Publisher) { $item.Publisher.Trim() } else { "" }
-                    $key     = $name.ToLower()
+            # ── Registry (traditional installs) ──────────────────
+            $regPaths = @(
+                "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+            )
+            foreach ($path in $regPaths) {
+                try {
+                    $items = Get-ItemProperty $path -ErrorAction SilentlyContinue |
+                             Where-Object { $_.DisplayName -and $_.DisplayName.Trim() -ne "" }
+                    foreach ($item in $items) {
+                        $name    = $item.DisplayName.Trim()
+                        $version = if ($item.DisplayVersion) { $item.DisplayVersion.Trim() } else { "" }
+                        $pub     = if ($item.Publisher) { $item.Publisher.Trim() } else { "" }
+                        $key     = $name.ToLower()
 
-                    if (-not $allSoftware.ContainsKey($key)) {
-                        $allSoftware[$key] = [PSCustomObject]@{
-                            Name      = $name
-                            Id        = ""
-                            Version   = $version
-                            Source    = "Registry"
-                            Publisher = $pub
-                            InstallDate     = if ($item.InstallDate) { $item.InstallDate } else { "" }
-                            InstallLocation = if ($item.InstallLocation) { $item.InstallLocation } else { "" }
-                        }
-                    } else {
-                        $existing = $allSoftware[$key]
-                        if (-not $existing.Publisher -and $pub) {
-                            $existing | Add-Member -NotePropertyName "Publisher" -NotePropertyValue $pub -Force
-                        }
-                        if (-not $existing.InstallDate -and $item.InstallDate) {
-                            $existing | Add-Member -NotePropertyName "InstallDate" -NotePropertyValue $item.InstallDate -Force
-                        }
-                        if (-not $existing.InstallLocation -and $item.InstallLocation) {
-                            $existing | Add-Member -NotePropertyName "InstallLocation" -NotePropertyValue $item.InstallLocation -Force
+                        if (-not $allSoftware.ContainsKey($key)) {
+                            $allSoftware[$key] = [PSCustomObject]@{
+                                Name      = $name
+                                Id        = ""
+                                Version   = $version
+                                Source    = "Registry"
+                                Publisher = $pub
+                                InstallDate     = if ($item.InstallDate) { $item.InstallDate } else { "" }
+                                InstallLocation = if ($item.InstallLocation) { $item.InstallLocation } else { "" }
+                            }
+                        } else {
+                            $existing = $allSoftware[$key]
+                            if (-not $existing.Publisher -and $pub) {
+                                $existing | Add-Member -NotePropertyName "Publisher" -NotePropertyValue $pub -Force
+                            }
+                            if (-not $existing.InstallDate -and $item.InstallDate) {
+                                $existing | Add-Member -NotePropertyName "InstallDate" -NotePropertyValue $item.InstallDate -Force
+                            }
+                            if (-not $existing.InstallLocation -and $item.InstallLocation) {
+                                $existing | Add-Member -NotePropertyName "InstallLocation" -NotePropertyValue $item.InstallLocation -Force
+                            }
                         }
                     }
-                }
-            } catch { }
-        }
+                } catch { }
+            }
 
-        $sorted = @($allSoftware.Values | Sort-Object Name)
-        $wingetCount = @($sorted | Where-Object { $_.Source -eq "Winget" }).Count
-        $regCount    = @($sorted | Where-Object { $_.Source -eq "Registry" }).Count
+            $sorted      = @($allSoftware.Values | Sort-Object Name)
+            $wingetCount = @($sorted | Where-Object { $_.Source -eq "Winget" }).Count
+            $regCount    = @($sorted | Where-Object { $_.Source -eq "Registry" }).Count
 
-        # ── Marshal to UI ────────────────────────────────────
-        $_win.Dispatcher.Invoke([action]{
-            $_panel.Children.Clear()
+            return @{ Sorted = $sorted; WingetCount = $wingetCount; RegCount = $regCount }
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            if ($err) {
+                $exportStatus.Text = "Scan failed: $($err.Exception.Message)"
+                Set-ReadyStatus
+                return
+            }
+
+            $exportResultsPanel.Children.Clear()
 
             # Header row
             $hdr = New-Object System.Windows.Controls.Border
@@ -210,14 +198,14 @@ $btnExportScan.Add_Click({
                 $hGrid.Children.Add($h) | Out-Null
             }
             $hdr.Child = $hGrid
-            $_panel.Children.Add($hdr) | Out-Null
+            $exportResultsPanel.Children.Add($hdr) | Out-Null
 
-            $alt = $false
+            $alt        = $false
             $rowTracker = [System.Collections.ArrayList]::new()
 
-            foreach ($app in $sorted) {
+            foreach ($app in $result.Sorted) {
                 $border = New-Object System.Windows.Controls.Border
-                $border.Background  = if ($alt) { $_win.Resources["SurfaceBrush"] } else { $_win.Resources["InputBgBrush"] }
+                $border.Background   = if ($alt) { $window.Resources["SurfaceBrush"] } else { $window.Resources["InputBgBrush"] }
                 $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
                 $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
                 $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
@@ -256,30 +244,26 @@ $btnExportScan.Add_Click({
                 [System.Windows.Controls.Grid]::SetColumn($tSrc, 3)
 
                 $rGrid.Children.Add($tName) | Out-Null; $rGrid.Children.Add($tPub) | Out-Null
-                $rGrid.Children.Add($tVer) | Out-Null; $rGrid.Children.Add($tSrc) | Out-Null
+                $rGrid.Children.Add($tVer)  | Out-Null; $rGrid.Children.Add($tSrc) | Out-Null
                 $border.Child = $rGrid
-                $_panel.Children.Add($border) | Out-Null
+                $exportResultsPanel.Children.Add($border) | Out-Null
 
                 $searchTag = "$($app.Name) $pub $($app.Version) $($app.Source)"
                 $rowTracker.Add(@{ Border = $border; Tag = $searchTag }) | Out-Null
                 $alt = -not $alt
             }
 
-            # Store results on the panel Tag so the main script can access them
-            $_panel.Tag = @{ Software = $sorted; Rows = $rowTracker }
+            $exportResultsPanel.Tag = @{ Software = $result.Sorted; Rows = $rowTracker }
 
-            $_summary.Text = "$($sorted.Count) programs found  ($wingetCount Winget, $regCount Registry-only)"
-            $_status.Text  = "Done"
+            $exportSummary.Text = "$($result.Sorted.Count) programs found  ($($result.WingetCount) Winget, $($result.RegCount) Registry-only)"
+            $exportStatus.Text  = "Done"
 
-            $_btnJSON.IsEnabled = $true;  $_btnJSON.Opacity = 1
-            $_btnCSV.IsEnabled  = $true;  $_btnCSV.Opacity  = 1
-            $_btnCopy.IsEnabled = $true;  $_btnCopy.Opacity = 1
+            $btnExportJSON.IsEnabled = $true; $btnExportJSON.Opacity = 1
+            $btnExportCSV.IsEnabled  = $true; $btnExportCSV.Opacity  = 1
+            $btnExportCopy.IsEnabled = $true; $btnExportCopy.Opacity = 1
 
-            $_si.Text = "Ready"; $_si.Foreground = $_win.Resources["SuccessBrush"]; $_fs.Text = "Ready"
-        }, [System.Windows.Threading.DispatcherPriority]::Normal)
-    }) | Out-Null
-
-    $ps.BeginInvoke() | Out-Null
+            Set-ReadyStatus
+        } | Out-Null
 })
 
 # ── Helper: build export data from panel Tag ─────────────────────

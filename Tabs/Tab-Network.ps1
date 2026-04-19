@@ -122,8 +122,8 @@ function Set-NetReady {
 }
 
 # -- Live-streaming process runner -------------------------------------------
-# Spawns a background runspace; output lines are appended via Dispatcher.Invoke
-# so the UI stays fully responsive during long-running commands.
+# Streams stdout lines back to the UI via $emit; Stop-button cancellation kills
+# the external process via the shared $script:netProcHolder ArrayList.
 function Start-NetLiveExe {
     param(
         [string]$Exe,
@@ -135,64 +135,44 @@ function Start-NetLiveExe {
     Set-NetBusy $StatusText
     $OutputBox.Text = "> $Exe $Arguments`r`n$('-' * 60)`r`n"
 
-    $rs = [runspacefactory]::CreateRunspace()
-    $rs.ApartmentState = "STA"
-    $rs.ThreadOptions  = "ReuseThread"
-    $rs.Open()
+    Start-ScyJob `
+        -Variables @{
+            exe        = $Exe
+            argStr     = $Arguments
+            procHolder = $script:netProcHolder
+        } `
+        -Context @{ Box = $OutputBox } `
+        -Work {
+            param($emit)
+            $psi = [System.Diagnostics.ProcessStartInfo]::new()
+            $psi.FileName               = $exe
+            $psi.Arguments              = $argStr
+            $psi.UseShellExecute        = $false
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError  = $true
+            $psi.CreateNoWindow         = $true
 
-    $rs.SessionStateProxy.SetVariable("_exe",        $Exe)
-    $rs.SessionStateProxy.SetVariable("_args",       $Arguments)
-    $rs.SessionStateProxy.SetVariable("_box",        $OutputBox)
-    $rs.SessionStateProxy.SetVariable("_win",        $window)
-    $rs.SessionStateProxy.SetVariable("_si",         $statusIndicator)
-    $rs.SessionStateProxy.SetVariable("_fs",         $footerStatus)
-    $rs.SessionStateProxy.SetVariable("_pingBtn",    $btnNetPing)
-    $rs.SessionStateProxy.SetVariable("_traceBtn",   $btnNetTrace)
-    $rs.SessionStateProxy.SetVariable("_speedBtn",   $btnNetSpeed)
-    $rs.SessionStateProxy.SetVariable("_stopBtn",    $btnNetStop)
-    $rs.SessionStateProxy.SetVariable("_procHolder", $script:netProcHolder)
+            $p = [System.Diagnostics.Process]::new()
+            $p.StartInfo = $psi
+            $p.Start() | Out-Null
+            $procHolder.Clear()
+            $procHolder.Add($p) | Out-Null
 
-    $ps = [powershell]::Create()
-    $ps.Runspace = $rs
-
-    $ps.AddScript({
-        $psi = [System.Diagnostics.ProcessStartInfo]::new()
-        $psi.FileName               = $_exe
-        $psi.Arguments              = $_args
-        $psi.UseShellExecute        = $false
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError  = $true
-        $psi.CreateNoWindow         = $true
-
-        $p = [System.Diagnostics.Process]::new()
-        $p.StartInfo = $psi
-        $p.Start() | Out-Null
-        $_procHolder.Clear()
-        $_procHolder.Add($p) | Out-Null
-
-        while (-not $p.StandardOutput.EndOfStream) {
-            $line = $p.StandardOutput.ReadLine()
-            $_win.Dispatcher.Invoke([action]{
-                $_box.AppendText("$line`r`n")
-                $_box.ScrollToEnd()
-            }, [System.Windows.Threading.DispatcherPriority]::Normal)
-        }
-        $p.WaitForExit()
-
-        $_win.Dispatcher.Invoke([action]{
-            $_si.Text            = "* Ready"
-            $_si.Foreground      = $_win.Resources["SuccessBrush"]
-            $_fs.Text            = "Ready"
-            $_pingBtn.IsEnabled  = $true
-            $_traceBtn.IsEnabled = $true
-            $_speedBtn.IsEnabled = $true
-            $_stopBtn.IsEnabled  = $false
-            $_stopBtn.Opacity    = 0.4
-            $_procHolder.Clear()
-        }, [System.Windows.Threading.DispatcherPriority]::Normal)
-    }) | Out-Null
-
-    $ps.BeginInvoke() | Out-Null
+            while (-not $p.StandardOutput.EndOfStream) {
+                $line = $p.StandardOutput.ReadLine()
+                & $emit $line
+            }
+            $p.WaitForExit()
+        } `
+        -OnLine {
+            param($line, $ctx)
+            $ctx.Box.AppendText("$line`r`n")
+            $ctx.Box.ScrollToEnd()
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            Set-NetReady
+        } | Out-Null
 }
 
 # -- Ping --------------------------------------------------------------------
@@ -246,51 +226,21 @@ $btnNetSpeed.Add_Click({
     $btnNetStop.IsEnabled = $false
     $btnNetStop.Opacity   = 0.4
 
-    $rs = [runspacefactory]::CreateRunspace()
-    $rs.ApartmentState = "STA"
-    $rs.ThreadOptions  = "ReuseThread"
-    $rs.Open()
-
-    $rs.SessionStateProxy.SetVariable("_win",          $window)
-    $rs.SessionStateProxy.SetVariable("_si",           $statusIndicator)
-    $rs.SessionStateProxy.SetVariable("_fs",           $footerStatus)
-    $rs.SessionStateProxy.SetVariable("_speedBtn",     $btnNetSpeed)
-    $rs.SessionStateProxy.SetVariable("_pingBtn",      $btnNetPing)
-    $rs.SessionStateProxy.SetVariable("_traceBtn",     $btnNetTrace)
-    $rs.SessionStateProxy.SetVariable("_stopBtn",      $btnNetStop)
-    $rs.SessionStateProxy.SetVariable("_serverUrl",    $serverUrl)
-    $rs.SessionStateProxy.SetVariable("_statusTxt",    $netSpeedStatus)
-    $rs.SessionStateProxy.SetVariable("_resultPanel",  $netSpeedResultPanel)
-    $rs.SessionStateProxy.SetVariable("_speedVal",     $netSpeedValue)
-    $rs.SessionStateProxy.SetVariable("_speedLbl",     $netSpeedLabel)
-    $rs.SessionStateProxy.SetVariable("_detailsGrid",  $netSpeedDetailsGrid)
-    $rs.SessionStateProxy.SetVariable("_streamsTxt",   $netSpeedStreams)
-    $rs.SessionStateProxy.SetVariable("_sampledTxt",   $netSpeedSampled)
-    $rs.SessionStateProxy.SetVariable("_durationTxt",  $netSpeedDuration)
-    $rs.SessionStateProxy.SetVariable("_selectedSrv",  $selectedServer)
-
-    $ps = [powershell]::Create()
-    $ps.Runspace = $rs
-
-    $ps.AddScript({
-        function UiStatus([string]$t) {
-            $_win.Dispatcher.Invoke([action]{
-                $_statusTxt.Text = $t
-            }, [System.Windows.Threading.DispatcherPriority]::Normal)
-        }
-
-        try {
-            $url      = $_serverUrl
+    Start-ScyJob `
+        -Variables @{ url = $serverUrl } `
+        -Context   @{ Server = $selectedServer } `
+        -Work {
+            param($emit)
             $numConns = 8
             $total    = [long[]]::new(1)
             $phase    = [int[]]::new(1)
             $lk       = [object]::new()
 
             $workerScript = {
-                param($url, $phase, $total, $lk)
+                param($u, $phase, $total, $lk)
                 $localBytes = [long]0
                 try {
-                    $req           = [System.Net.HttpWebRequest]::Create($url)
+                    $req           = [System.Net.HttpWebRequest]::Create($u)
                     $req.UserAgent = "Mozilla/5.0"
                     $req.Timeout   = 20000
                     $resp          = $req.GetResponse()
@@ -312,7 +262,7 @@ $btnNetSpeed.Add_Click({
             $pool = [runspacefactory]::CreateRunspacePool($numConns, $numConns)
             $pool.Open()
 
-            UiStatus "Connecting ($numConns parallel streams)..."
+            & $emit "Connecting ($numConns parallel streams)..."
             $jobs = 1..$numConns | ForEach-Object {
                 $ps = [powershell]::Create()
                 $ps.RunspacePool = $pool
@@ -324,11 +274,11 @@ $btnNetSpeed.Add_Click({
                 @{ PS = $ps; Handle = $ps.BeginInvoke() }
             }
 
-            UiStatus "Warming up..."
+            & $emit "Warming up..."
             $phase[0] = 0
             Start-Sleep -Milliseconds 1500
 
-            UiStatus "Measuring download speed..."
+            & $emit "Measuring download speed..."
             $phase[0] = 1
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             Start-Sleep -Milliseconds 3000
@@ -342,41 +292,29 @@ $btnNetSpeed.Add_Click({
             $sizeMB  = [math]::Round($total[0] / 1MB, 2)
             $mbps    = [math]::Round(($total[0] * 8) / $sw.Elapsed.TotalSeconds / 1000000, 2)
 
-            $_win.Dispatcher.Invoke([action]{
-                $_speedVal.Text      = "$mbps"
-                $_speedLbl.Text      = "Download  via $_selectedSrv"
-                $_streamsTxt.Text    = "$numConns"
-                $_sampledTxt.Text    = "$sizeMB MB"
-                $_durationTxt.Text   = "${seconds}s"
-                $_resultPanel.Visibility  = "Visible"
-                $_detailsGrid.Visibility  = "Visible"
-                $_statusTxt.Text     = "Completed"
-
-                $_si.Text            = "* Ready"
-                $_si.Foreground      = $_win.Resources["SuccessBrush"]
-                $_fs.Text            = "Ready"
-                $_speedBtn.IsEnabled = $true
-                $_pingBtn.IsEnabled  = $true
-                $_traceBtn.IsEnabled = $true
-                $_stopBtn.IsEnabled  = $false
-                $_stopBtn.Opacity    = 0.4
-            }, [System.Windows.Threading.DispatcherPriority]::Normal)
-        } catch {
-            $_win.Dispatcher.Invoke([action]{
-                $_statusTxt.Text     = "Error: $_"
-                $_si.Text            = "* Ready"
-                $_si.Foreground      = $_win.Resources["SuccessBrush"]
-                $_fs.Text            = "Ready"
-                $_speedBtn.IsEnabled = $true
-                $_pingBtn.IsEnabled  = $true
-                $_traceBtn.IsEnabled = $true
-                $_stopBtn.IsEnabled  = $false
-                $_stopBtn.Opacity    = 0.4
-            }, [System.Windows.Threading.DispatcherPriority]::Normal)
-        }
-    }) | Out-Null
-
-    $ps.BeginInvoke() | Out-Null
+            return @{ Mbps = $mbps; SizeMB = $sizeMB; Seconds = $seconds; NumConns = $numConns }
+        } `
+        -OnLine {
+            param($line, $ctx)
+            $netSpeedStatus.Text = $line
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            if ($err) {
+                $netSpeedStatus.Text = "Error: $($err.Exception.Message)"
+                Set-NetReady
+                return
+            }
+            $netSpeedValue.Text    = "$($result.Mbps)"
+            $netSpeedLabel.Text    = "Download  via $($ctx.Server)"
+            $netSpeedStreams.Text  = "$($result.NumConns)"
+            $netSpeedSampled.Text  = "$($result.SizeMB) MB"
+            $netSpeedDuration.Text = "$($result.Seconds)s"
+            $netSpeedResultPanel.Visibility = "Visible"
+            $netSpeedDetailsGrid.Visibility = "Visible"
+            $netSpeedStatus.Text   = "Completed"
+            Set-NetReady
+        } | Out-Null
 })
 
 # -- NSLookup -----------------------------------------------------------------

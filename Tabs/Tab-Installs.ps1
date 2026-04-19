@@ -23,6 +23,9 @@ $installedFilterClear      = Find "InstalledFilterClear"
 $script:searchItems    = [System.Collections.Generic.List[hashtable]]::new()
 # Tracks installed rows for live filter
 $script:installedItems = [System.Collections.Generic.List[hashtable]]::new()
+# Re-entry guards for async winget operations
+$script:searchInProgress  = $false
+$script:installInProgress = $false
 
 # -- Search box placeholder behaviour -----------------------------------------
 $installSearchClear = Find "InstallSearchClear"
@@ -282,61 +285,99 @@ function New-InstalledRow {
 
 # -- Search winget packages ---------------------------------------------------
 function Search-WingetPackages {
+    if ($script:searchInProgress) { return }
     $query = $installSearchBox.Text.Trim()
     if ([string]::IsNullOrWhiteSpace($query)) { return }
 
-    $searchStatus.Text              = "Searching for '" + $query + "'..."
-    $searchResultsBorder.Visibility = "Collapsed"
+    $script:searchInProgress         = $true
+    $searchStatus.Text               = "Searching for '" + $query + "'..."
+    $searchResultsBorder.Visibility  = "Collapsed"
     $searchResultsPanel.Children.Clear()
     $script:searchItems.Clear()
-    $btnInstallSelected.IsEnabled   = $false
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+    $btnInstallSelected.IsEnabled    = $false
+    $btnAddToQuickInstalls.IsEnabled = $false
+    $btnAddToBundle.IsEnabled        = $false
 
-    try {
-        $raw   = & winget search $query --accept-source-agreements 2>&1
-        $lines = @($raw | ForEach-Object { [string]$_ })
-        $rows  = @(Get-WingetRows $lines)
+    Start-ScyJob `
+        -Variables @{ q = $query } `
+        -Context   @{ Query = $query } `
+        -Work {
+            param($emit)
+            $raw = & winget search $q --accept-source-agreements 2>&1
+            return @{ Lines = @($raw | ForEach-Object { [string]$_ }) }
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $script:searchInProgress = $false
+            if ($err) {
+                $searchStatus.Text = "Search failed: " + $err.Exception.Message
+                return
+            }
+            $rows = @(Get-WingetRows $result.Lines)
+            if ($rows.Count -eq 0) {
+                $searchStatus.Text = "No results found for '" + $ctx.Query + "'."
+                return
+            }
+            $alt = $false
+            foreach ($row in $rows) {
+                $name    = if ($row.Count -gt 0) { $row[0] } else { "" }
+                $id      = if ($row.Count -gt 1) { $row[1] } else { "" }
+                $version = if ($row.Count -gt 2) { $row[2] } else { "" }
+                if ([string]::IsNullOrWhiteSpace($id)) { continue }
 
-        if ($rows.Count -eq 0) {
-            $searchStatus.Text = "No results found for '" + $query + "'."
-            return
-        }
-
-        $alt = $false
-        foreach ($row in $rows) {
-            $name    = if ($row.Count -gt 0) { $row[0] } else { "" }
-            $id      = if ($row.Count -gt 1) { $row[1] } else { "" }
-            $version = if ($row.Count -gt 2) { $row[2] } else { "" }
-            if ([string]::IsNullOrWhiteSpace($id)) { continue }
-
-            $item = New-SearchRow $name $id $version $alt
-            $searchResultsPanel.Children.Add($item.Border) | Out-Null
-            $script:searchItems.Add($item)
-            $alt = -not $alt
-        }
-
-        $count = $script:searchItems.Count
-        $searchResultsLabel.Text        = [string]$count + " packages found"
-        $searchResultsBorder.Visibility = "Visible"
-        $searchStatus.Text              = ""
-    } catch {
-        $searchStatus.Text = "Search failed: " + $_.Exception.Message
-    }
+                $item = New-SearchRow $name $id $version $alt
+                $searchResultsPanel.Children.Add($item.Border) | Out-Null
+                $script:searchItems.Add($item)
+                $alt = -not $alt
+            }
+            $count = $script:searchItems.Count
+            $searchResultsLabel.Text        = [string]$count + " packages found"
+            $searchResultsBorder.Visibility = "Visible"
+            $searchStatus.Text              = ""
+        } | Out-Null
 }
 
 # -- Install selected from search results -------------------------------------
 (Find "BtnInstallSelected").Add_Click({
+    if ($script:installInProgress) { return }
     $toInstall = @($script:searchItems | Where-Object { $_.CheckBox.IsChecked } | ForEach-Object { $_.Id })
     if ($toInstall.Count -eq 0) { return }
 
+    $script:installInProgress     = $true
+    $btnInstallSelected.IsEnabled = $false
     Set-BusyStatus ("Installing " + [string]$toInstall.Count + " package(s)...")
-    foreach ($pkg in $toInstall) {
-        $footerStatus.Text = "Scy - Installing: " + $pkg
-        $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-        & winget install --id $pkg --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
-    }
-    Set-ReadyStatus
-    Show-ThemedDialog ("Installed " + [string]$toInstall.Count + " package(s) successfully.") "Done" "OK" "Information"
+
+    Start-ScyJob `
+        -Variables @{ pkgs = $toInstall } `
+        -Work {
+            param($emit)
+            $failed = @()
+            foreach ($pkg in $pkgs) {
+                & $emit $pkg
+                & winget install --id $pkg --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) { $failed += $pkg }
+            }
+            return @{ Failed = $failed; Total = $pkgs.Count }
+        } `
+        -OnLine {
+            param($line)
+            $footerStatus.Text = "Scy - Installing: " + $line
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $script:installInProgress     = $false
+            $btnInstallSelected.IsEnabled = $true
+            Set-ReadyStatus
+            if ($err) {
+                Show-ThemedDialog ("Install error: " + $err.Exception.Message) "Error" "OK" "Error"
+                return
+            }
+            if ($result.Failed.Count -gt 0) {
+                Show-ThemedDialog ("Done. Failed packages:`n" + ($result.Failed -join "`n")) "Result" "OK" "Warning"
+            } else {
+                Show-ThemedDialog ("Installed " + [string]$result.Total + " package(s) successfully.") "Done" "OK" "Information"
+            }
+        } | Out-Null
 })
 
 # -- Search button click ------------------------------------------------------
@@ -512,28 +553,53 @@ function Show-QuickInstallConfirmDialog {
     ($dlg.FindName("DlgTotal")).Text = [string]$allPackages.Count + " unique package(s) to install"
     ($dlg.FindName("DlgCancelBtn")).Add_Click({ $dlg.Close() })
 
-    $capturedDlg      = $dlg
-    $capturedPackages = $allPackages
-    ($dlg.FindName("DlgInstallBtn")).Add_Click(({
-        $capturedDlg.Close()
-        Set-BusyStatus ("Installing " + [string]$capturedPackages.Count + " package(s)...")
-        $failed = @()
-        foreach ($pkg in $capturedPackages) {
-            $footerStatus.Text = "Scy - Installing: " + $pkg.Id
-            $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-            & winget install --id $pkg.Id --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
-            if ($LASTEXITCODE -ne 0) { $failed += $pkg.Id }
-        }
-        Set-ReadyStatus
-        $script:selectedQuickItems.Clear()
-        Update-QuickInstalls
-        Update-QuickInstallSelectedState
-        if ($failed.Count -gt 0) {
-            Show-ThemedDialog ("Done. Failed packages:`n" + ($failed -join "`n")) "Result" "OK" "Warning"
-        } else {
-            Show-ThemedDialog ("Installed " + [string]$capturedPackages.Count + " package(s) successfully.") "Done" "OK" "Information"
-        }
-    }.GetNewClosure()))
+    $installBtn     = $dlg.FindName("DlgInstallBtn")
+    $installBtn.Tag = @{ Dlg = $dlg; Packages = $allPackages }
+    $installBtn.Add_Click({
+        param($s, $e)
+        if ($script:installInProgress) { return }
+        $info   = $s.Tag
+        $pkgIds = @($info.Packages | ForEach-Object { $_.Id })
+        $total  = $info.Packages.Count
+        $info.Dlg.Close()
+
+        $script:installInProgress = $true
+        Set-BusyStatus ("Installing " + [string]$total + " package(s)...")
+
+        Start-ScyJob `
+            -Variables @{ pkgs = $pkgIds } `
+            -Work {
+                param($emit)
+                $failed = @()
+                foreach ($pkg in $pkgs) {
+                    & $emit $pkg
+                    & winget install --id $pkg --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+                    if ($LASTEXITCODE -ne 0) { $failed += $pkg }
+                }
+                return @{ Failed = $failed; Total = $pkgs.Count }
+            } `
+            -OnLine {
+                param($line)
+                $footerStatus.Text = "Scy - Installing: " + $line
+            } `
+            -OnComplete {
+                param($result, $err, $ctx)
+                $script:installInProgress = $false
+                Set-ReadyStatus
+                $script:selectedQuickItems.Clear()
+                Update-QuickInstalls
+                Update-QuickInstallSelectedState
+                if ($err) {
+                    Show-ThemedDialog ("Install error: " + $err.Exception.Message) "Error" "OK" "Error"
+                    return
+                }
+                if ($result.Failed.Count -gt 0) {
+                    Show-ThemedDialog ("Done. Failed packages:`n" + ($result.Failed -join "`n")) "Result" "OK" "Warning"
+                } else {
+                    Show-ThemedDialog ("Installed " + [string]$result.Total + " package(s) successfully.") "Done" "OK" "Information"
+                }
+            } | Out-Null
+    })
 
     $dlg.ShowDialog() | Out-Null
 }

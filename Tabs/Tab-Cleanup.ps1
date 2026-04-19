@@ -164,52 +164,88 @@ function Save-CleanTargetSelection {
 
 Update-RecycleBinSize
 
-(Find "BtnScan").Add_Click({
-    $statusIndicator.Text = "● Scanning..."
+$btnScan = Find "BtnScan"
+$btnScan.Add_Click({
+    $statusIndicator.Text       = "● Scanning..."
     $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#fdcb6e")
     $cleanTempStatus.Text       = "Scanning..."
     $cleanTempStatus.Foreground = $window.Resources["MutedText"]
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+    $btnScan.IsEnabled = $false
 
-    $targets  = Get-CleanTargets
-    $scanData = [ordered]@{}
-    foreach ($label in $targets.Keys) {
-        $t    = $targets[$label]
-        $size = 0L
-        foreach ($p in $t.Paths) { $size += Get-DirSize $p }
-        $scanData[$label] = @{ Paths = $t.Paths; SizeBytes = $size; DeleteSelf = $t.DeleteSelf }
+    $targets = Get-CleanTargets
+
+    $onLine = {
+        param($line)
+        $cleanTempStatus.Text = $line
     }
 
-    $script:cleanScanData   = $scanData
-    $script:cleanCheckboxes = @{}
+    $onDone = {
+        param($scanData, $err)
+        $btnScan.IsEnabled = $true
 
-    $cleanTempRows.Children.Clear()
-    $i = 0
-    foreach ($label in $scanData.Keys) {
-        $cleanTempRows.Children.Add((New-PathRow $label $scanData[$label].SizeBytes ($i % 2 -eq 0) $true $true)) | Out-Null
-        $i++
-    }
+        if ($err) {
+            $cleanTempStatus.Text       = "Scan failed: $err"
+            $cleanTempStatus.Foreground = $window.Resources["DangerBrush"]
+            $statusIndicator.Text       = "● Ready"
+            $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+            return
+        }
 
-    # Restore saved checkbox states if remember is enabled
-    if ($script:rememberCleanTargets -and $script:cleanTargetSelection.Count -gt 0) {
-        foreach ($label in $script:cleanCheckboxes.Keys) {
-            if ($script:cleanTargetSelection.ContainsKey($label)) {
-                $script:cleanCheckboxes[$label].IsChecked = $script:cleanTargetSelection[$label]
+        $script:cleanScanData   = $scanData
+        $script:cleanCheckboxes = @{}
+
+        $cleanTempRows.Children.Clear()
+        $i = 0
+        foreach ($label in $scanData.Keys) {
+            $cleanTempRows.Children.Add((New-PathRow $label $scanData[$label].SizeBytes ($i % 2 -eq 0) $true $true)) | Out-Null
+            $i++
+        }
+
+        if ($script:rememberCleanTargets -and $script:cleanTargetSelection.Count -gt 0) {
+            foreach ($label in $script:cleanCheckboxes.Keys) {
+                if ($script:cleanTargetSelection.ContainsKey($label)) {
+                    $script:cleanCheckboxes[$label].IsChecked = $script:cleanTargetSelection[$label]
+                }
             }
         }
+
+        $cleanTempTotal.Visibility = "Visible"
+        Update-CleanTotal
+
+        $btnClean.IsEnabled = $true
+        $btnClean.Opacity   = 1.0
+
+        $statusIndicator.Text       = "● Ready"
+        $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
     }
 
-    $cleanTempTotal.Visibility = "Visible"
-    Update-CleanTotal
-
-    $btnClean.IsEnabled = $true
-    $btnClean.Opacity   = 1.0
-
-    $statusIndicator.Text = "● Ready"
-    $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+    Start-ScyJob `
+        -Variables @{ targets = $targets } `
+        -Work {
+            param($emit)
+            function Get-DirSize {
+                param([string]$Path)
+                if (-not (Test-Path $Path)) { return 0L }
+                $sum = (Get-ChildItem $Path -Recurse -Force -ErrorAction SilentlyContinue |
+                         Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                if ($null -eq $sum) { return 0L }
+                return [long]$sum
+            }
+            $scanData = [ordered]@{}
+            foreach ($label in $targets.Keys) {
+                & $emit "Scanning $label..."
+                $t    = $targets[$label]
+                $size = 0L
+                foreach ($p in $t.Paths) { $size += Get-DirSize $p }
+                $scanData[$label] = @{ Paths = $t.Paths; SizeBytes = $size; DeleteSelf = $t.DeleteSelf }
+            }
+            return $scanData
+        } `
+        -OnLine     $onLine `
+        -OnComplete $onDone | Out-Null
 })
 
-(Find "BtnClean").Add_Click({
+$btnClean.Add_Click({
     if ($null -eq $script:cleanScanData) { return }
 
     $selectedBytes = 0L
@@ -238,84 +274,141 @@ Update-RecycleBinSize
         }
     }
 
-    $statusIndicator.Text = "● Cleaning..."
+    $statusIndicator.Text       = "● Cleaning..."
     $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#fdcb6e")
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+    $cleanTempStatus.Text       = "Cleaning..."
+    $cleanTempStatus.Foreground = $window.Resources["MutedText"]
+    $btnClean.IsEnabled = $false
+    $btnScan.IsEnabled  = $false
 
-    $cleanTempRows.Children.Clear()
-    $totalFreed = 0L
+    # Build worklist on UI thread (reads checkbox state, which is UI-bound)
+    $worklist = @()
     $i = 0
-
     foreach ($label in $script:cleanScanData.Keys) {
         $cb    = $script:cleanCheckboxes[$label]
         $entry = $script:cleanScanData[$label]
-
-        if ($cb -and -not $cb.IsChecked) {
-            # Skipped — show row as skipped (muted, no size)
-            $cleanTempRows.Children.Add((New-PathRow $label 0L ($i % 2 -eq 0) $false $false)) | Out-Null
-            $i++
-            continue
+        $worklist += @{
+            Label      = $label
+            Paths      = $entry.Paths
+            DeleteSelf = $entry.DeleteSelf
+            SizeBytes  = $entry.SizeBytes
+            Alternate  = ($i % 2 -eq 0)
+            Skip       = ($cb -and -not $cb.IsChecked)
         }
-
-        foreach ($p in $entry.Paths) {
-            if (Test-Path $p) {
-                if ($entry.DeleteSelf) {
-                    Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue
-                } else {
-                    Remove-Item "$p\*" -Recurse -Force -ErrorAction SilentlyContinue
-                }
-            }
-        }
-        $totalFreed += $entry.SizeBytes
-        $cleanTempRows.Children.Add((New-PathRow $label $entry.SizeBytes ($i % 2 -eq 0) $false $false)) | Out-Null
         $i++
     }
 
-    $cleanTempTotal.Text        = Format-Size $totalFreed
-    $cleanTempTotal.Visibility  = "Visible"
-    $cleanTempStatus.Text       = "Freed $(Format-Size $totalFreed)"
-    $cleanTempStatus.Foreground = $window.Resources["SuccessBrush"]
+    $cleanTempRows.Children.Clear()
 
-    $btnClean.IsEnabled = $false
-    $btnClean.Opacity   = 0.4
-    $script:cleanScanData   = $null
-    $script:cleanCheckboxes = @{}
+    $onLine = {
+        param($line)
+        $cleanTempStatus.Text = $line
+    }
 
-    $statusIndicator.Text = "● Ready"
-    $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+    $onDone = {
+        param($result, $err)
+        $btnScan.IsEnabled = $true
+
+        if ($err) {
+            $cleanTempStatus.Text       = "Cleanup failed: $err"
+            $cleanTempStatus.Foreground = $window.Resources["DangerBrush"]
+            $statusIndicator.Text       = "● Ready"
+            $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+            return
+        }
+
+        $totalFreed = 0L
+        foreach ($item in $result) {
+            if ($item.Skip) {
+                $cleanTempRows.Children.Add((New-PathRow $item.Label 0L $item.Alternate $false $false)) | Out-Null
+            } else {
+                $totalFreed += $item.SizeBytes
+                $cleanTempRows.Children.Add((New-PathRow $item.Label $item.SizeBytes $item.Alternate $false $false)) | Out-Null
+            }
+        }
+
+        $cleanTempTotal.Text        = Format-Size $totalFreed
+        $cleanTempTotal.Visibility  = "Visible"
+        $cleanTempStatus.Text       = "Freed $(Format-Size $totalFreed)"
+        $cleanTempStatus.Foreground = $window.Resources["SuccessBrush"]
+
+        $btnClean.IsEnabled     = $false
+        $btnClean.Opacity       = 0.4
+        $script:cleanScanData   = $null
+        $script:cleanCheckboxes = @{}
+
+        $statusIndicator.Text       = "● Ready"
+        $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+    }
+
+    Start-ScyJob `
+        -Variables @{ worklist = $worklist } `
+        -Work {
+            param($emit)
+            foreach ($item in $worklist) {
+                if ($item.Skip) { continue }
+                & $emit "Cleaning $($item.Label)..."
+                foreach ($p in $item.Paths) {
+                    if (Test-Path $p) {
+                        if ($item.DeleteSelf) {
+                            Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue
+                        } else {
+                            Remove-Item "$p\*" -Recurse -Force -ErrorAction SilentlyContinue
+                        }
+                    }
+                }
+            }
+            return $worklist
+        } `
+        -OnLine     $onLine `
+        -OnComplete $onDone | Out-Null
 })
 
-(Find "BtnEmptyRecycleBin").Add_Click({
+$btnEmptyRecycleBin = Find "BtnEmptyRecycleBin"
+$btnEmptyRecycleBin.Add_Click({
     $confirm = Show-ThemedDialog "Empty the Recycle Bin?" "Confirm" "YesNo" "Question"
     if ($confirm -ne "Yes") { return }
 
-    $statusIndicator.Text = "● Emptying..."
+    $statusIndicator.Text       = "● Emptying..."
     $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#fdcb6e")
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+    $recycleBinStatus.Text      = "Emptying..."
+    $recycleBinStatus.Foreground = $window.Resources["MutedText"]
+    $btnEmptyRecycleBin.IsEnabled = $false
 
-    try {
-        Clear-RecycleBin -Force -ErrorAction Stop
-        $recycleBinStatus.Text       = "Emptied successfully"
-        $recycleBinStatus.Foreground = $window.Resources["SuccessBrush"]
-        $recycleBinResult.Text       = [char]0x2714
-        $recycleBinResult.Foreground = $window.Resources["SuccessBrush"]
-        $recycleBinSize.Text         = "0 B"
-    } catch {
-        if ($_.Exception.Message -like "*cannot find the path*") {
-            $recycleBinStatus.Text       = "Already empty"
+    $onDone = {
+        param($result, $err)
+        $btnEmptyRecycleBin.IsEnabled = $true
+
+        if ($err) {
+            if ($err.Exception.Message -like "*cannot find the path*") {
+                $recycleBinStatus.Text       = "Already empty"
+                $recycleBinStatus.Foreground = $window.Resources["SuccessBrush"]
+                $recycleBinResult.Text       = [char]0x2714
+                $recycleBinResult.Foreground = $window.Resources["SuccessBrush"]
+                $recycleBinSize.Text         = "0 B"
+            } else {
+                $recycleBinStatus.Text       = "Failed: $err"
+                $recycleBinStatus.Foreground = $window.Resources["DangerBrush"]
+                $recycleBinResult.Text       = [char]0x2716
+                $recycleBinResult.Foreground = $window.Resources["DangerBrush"]
+            }
+        } else {
+            $recycleBinStatus.Text       = "Emptied successfully"
             $recycleBinStatus.Foreground = $window.Resources["SuccessBrush"]
             $recycleBinResult.Text       = [char]0x2714
             $recycleBinResult.Foreground = $window.Resources["SuccessBrush"]
             $recycleBinSize.Text         = "0 B"
-        } else {
-            $recycleBinStatus.Text       = "Failed: $_"
-            $recycleBinStatus.Foreground = $window.Resources["DangerBrush"]
-            $recycleBinResult.Text       = [char]0x2716
-            $recycleBinResult.Foreground = $window.Resources["DangerBrush"]
         }
-    }
-    $recycleBinResult.Visibility = "Visible"
+        $recycleBinResult.Visibility = "Visible"
 
-    $statusIndicator.Text = "● Ready"
-    $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+        $statusIndicator.Text       = "● Ready"
+        $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+    }
+
+    Start-ScyJob `
+        -Work {
+            param($emit)
+            Clear-RecycleBin -Force -ErrorAction Stop
+        } `
+        -OnComplete $onDone | Out-Null
 })

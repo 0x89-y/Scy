@@ -149,7 +149,77 @@ function Write-Output-Box {
     $Box.ScrollToEnd()
 }
 
-# ── Helper: run a command async-ish (keeps UI responsive-ish) ───
+# ── Helper: run work on a background runspace, marshal results to UI ───
+# Work runs on a worker thread. OnLine/OnComplete run on the UI thread via
+# Dispatcher.Invoke.
+#
+# Callbacks can reference any script-scope variable directly. Do NOT use
+# .GetNewClosure() — it creates a new module scope that remaps $script:
+# lookups to the closure's scope, breaking shared state. For values that
+# are only local to the caller, pass them via -Context and read them as
+# the final callback argument.
+#
+# Inside Work, call `& $emit "line"` to push output to the UI.
+# Variables hashtable entries become variables in the worker runspace.
+function Start-ScyJob {
+    param(
+        [Parameter(Mandatory)][scriptblock]$Work,
+        [scriptblock]$OnLine,
+        [scriptblock]$OnComplete,
+        [hashtable]$Variables = @{},
+        [hashtable]$Context   = @{},
+        [switch]$ReturnHandle
+    )
+
+    $rs = [runspacefactory]::CreateRunspace()
+    $rs.ApartmentState = 'STA'
+    $rs.ThreadOptions  = 'ReuseThread'
+    $rs.Open()
+
+    $rs.SessionStateProxy.SetVariable('__win',     $window)
+    $rs.SessionStateProxy.SetVariable('__onLine',  $OnLine)
+    $rs.SessionStateProxy.SetVariable('__onDone',  $OnComplete)
+    $rs.SessionStateProxy.SetVariable('__ctx',     $Context)
+    $rs.SessionStateProxy.SetVariable('__workTxt', $Work.ToString())
+
+    foreach ($k in $Variables.Keys) {
+        $rs.SessionStateProxy.SetVariable($k, $Variables[$k])
+    }
+
+    $ps = [powershell]::Create()
+    $ps.Runspace = $rs
+    $ps.AddScript({
+        $__result = $null
+        $__err    = $null
+
+        $emit = {
+            param($line)
+            if ($__onLine) {
+                $__win.Dispatcher.Invoke(
+                    [action]{ & $__onLine $line $__ctx },
+                    [System.Windows.Threading.DispatcherPriority]::Normal)
+            }
+        }
+
+        try {
+            $sb = [scriptblock]::Create($__workTxt)
+            $__result = & $sb $emit
+        } catch { $__err = $_ }
+
+        if ($__onDone) {
+            $__win.Dispatcher.Invoke(
+                [action]{ & $__onDone $__result $__err $__ctx },
+                [System.Windows.Threading.DispatcherPriority]::Normal)
+        }
+    }) | Out-Null
+
+    $handle = $ps.BeginInvoke()
+    if ($ReturnHandle) {
+        return [pscustomobject]@{ PS = $ps; RS = $rs; Handle = $handle }
+    }
+}
+
+# ── Helper: run a user scriptblock off the UI thread, stream output ───
 function Run-Command {
     param(
         [System.Windows.Controls.TextBox]$OutputBox,
@@ -157,23 +227,39 @@ function Run-Command {
         [string]$Label,
         [string]$StatusText = "Running..."
     )
-    $statusIndicator.Text = "● $StatusText"
+
+    $statusIndicator.Text       = "● $StatusText"
     $statusIndicator.Foreground = $window.Resources["WarningBrush"]
-    $footerStatus.Text = "Scy - $StatusText"
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+    $footerStatus.Text          = "Scy - $StatusText"
 
     Write-Output-Box $OutputBox "`r`n▶ Running: $Label`r`n$('─' * 60)" -Clear
-    try {
-        $result = & $ScriptBlock 2>&1 | Out-String
-        Write-Output-Box $OutputBox $result
-        Write-Output-Box $OutputBox "`r`n✔ Done."
-    } catch {
-        Write-Output-Box $OutputBox "`r`n✖ Error: $_"
-    }
 
-    $statusIndicator.Text = "● Ready"
-    $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
-    $footerStatus.Text = "Ready"
+    Start-ScyJob `
+        -Variables @{ userCode = $ScriptBlock.ToString() } `
+        -Context   @{ Box = $OutputBox } `
+        -Work {
+            param($emit)
+            $sb  = [scriptblock]::Create($userCode)
+            $out = & $sb 2>&1 | Out-String
+            & $emit $out
+        } `
+        -OnLine {
+            param($line, $ctx)
+            $ctx.Box.AppendText($line)
+            $ctx.Box.ScrollToEnd()
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            if ($err) {
+                $ctx.Box.AppendText("`r`n✖ Error: $err`r`n")
+            } else {
+                $ctx.Box.AppendText("`r`n✔ Done.`r`n")
+            }
+            $ctx.Box.ScrollToEnd()
+            $statusIndicator.Text       = "● Ready"
+            $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
+            $footerStatus.Text          = "Ready"
+        } | Out-Null
 }
 
 # ── Helper: toggle output panel visibility ───────────────────────

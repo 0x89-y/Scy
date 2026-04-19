@@ -218,186 +218,121 @@ function Populate-NetInfo {
     }
 }
 
-# ── Refresh All (background runspace) ─────────────────────────────
+# ── Refresh All (background job) ──────────────────────────────────
 function Populate-SysInfo {
     Set-BusyStatus "Gathering system info..."
 
-    $rs = [runspacefactory]::CreateRunspace()
-    $rs.ApartmentState = "STA"
-    $rs.ThreadOptions  = "ReuseThread"
-    $rs.Open()
+    Start-ScyJob `
+        -Work {
+            param($emit)
+            $os  = Get-CimInstance Win32_OperatingSystem
+            $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
+            $gpu = (Get-CimInstance Win32_VideoController | Select-Object -First 1).Name
 
-    $rs.SessionStateProxy.SetVariable("_win",       $window)
-    $rs.SessionStateProxy.SetVariable("_sysOS",     $sysOS)
-    $rs.SessionStateProxy.SetVariable("_sysBuild",  $sysBuild)
-    $rs.SessionStateProxy.SetVariable("_sysComp",   $sysComputer)
-    $rs.SessionStateProxy.SetVariable("_sysUser",   $sysUser)
-    $rs.SessionStateProxy.SetVariable("_sysUptime", $sysUptime)
-    $rs.SessionStateProxy.SetVariable("_hwCPU",     $hwCPU)
-    $rs.SessionStateProxy.SetVariable("_hwCores",   $hwCores)
-    $rs.SessionStateProxy.SetVariable("_hwRAM",     $hwRAM)
-    $rs.SessionStateProxy.SetVariable("_hwGPU",     $hwGPU)
-    $rs.SessionStateProxy.SetVariable("_diskPanel", $diskPanel)
-    $rs.SessionStateProxy.SetVariable("_netPanel",  $netPanel)
-    $rs.SessionStateProxy.SetVariable("_si",        (Find "StatusIndicator"))
-    $rs.SessionStateProxy.SetVariable("_fs",        (Find "FooterStatus"))
+            $uptime = (Get-Date) - $os.LastBootUpTime
+            $ram    = [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)
+            $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $null -ne $_.Used }
 
-    $ps = [powershell]::Create()
-    $ps.Runspace = $rs
+            $adapters  = Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' }
+            $addresses = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                         Where-Object { $_.IPAddress -ne '127.0.0.1' -and $_.PrefixOrigin -ne 'WellKnown' }
+            $routes    = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue
+            $dnsAll    = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
 
-    $ps.AddScript({
-        # ── Gather all data on background thread ──────────────
-        $os  = Get-CimInstance Win32_OperatingSystem
-        $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
-        $gpu = (Get-CimInstance Win32_VideoController | Select-Object -First 1).Name
+            $netData = @(foreach ($a in $adapters) {
+                $ipv4 = $addresses | Where-Object { $_.InterfaceIndex -eq $a.InterfaceIndex } | Select-Object -First 1
+                if (-not $ipv4) { continue }
+                [PSCustomObject]@{
+                    Alias   = $a.Name
+                    IP      = $ipv4.IPAddress + "/" + $ipv4.PrefixLength
+                    Gateway = $(($routes | Where-Object { $_.InterfaceIndex -eq $a.InterfaceIndex } | Select-Object -First 1).NextHop)
+                    DNS     = $(($dnsAll | Where-Object { $_.InterfaceIndex -eq $a.InterfaceIndex }).ServerAddresses -join ", ")
+                }
+            })
 
-        $uptime    = (Get-Date) - $os.LastBootUpTime
-        $ram       = [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)
-        $drives    = Get-PSDrive -PSProvider FileSystem | Where-Object { $null -ne $_.Used }
+            $driveData = @(foreach ($d in $drives) {
+                $total = $d.Used + $d.Free
+                $free  = [math]::Round($d.Free / 1GB, 1)
+                $tot   = [math]::Round($total / 1GB, 1)
+                $pct   = if ($total -gt 0) { $d.Free / $total } else { 1 }
+                [PSCustomObject]@{
+                    Name     = $d.Name + ":\"
+                    Label    = [string]$free + " GB free of " + [string]$tot + " GB"
+                    ColorKey = if ($pct -lt 0.10) { "DangerBrush" } elseif ($pct -lt 0.20) { "WarningBrush" } else { "FgBrush" }
+                }
+            })
 
-        $adapters  = Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' }
-        $addresses = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-                     Where-Object { $_.IPAddress -ne '127.0.0.1' -and $_.PrefixOrigin -ne 'WellKnown' }
-        $routes    = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue
-        $dnsAll    = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
-
-        $netData = @(foreach ($a in $adapters) {
-            $ipv4 = $addresses | Where-Object { $_.InterfaceIndex -eq $a.InterfaceIndex } | Select-Object -First 1
-            if (-not $ipv4) { continue }
-            [PSCustomObject]@{
-                Alias   = $a.Name
-                IP      = $ipv4.IPAddress + "/" + $ipv4.PrefixLength
-                Gateway = $(($routes | Where-Object { $_.InterfaceIndex -eq $a.InterfaceIndex } | Select-Object -First 1).NextHop)
-                DNS     = $(($dnsAll | Where-Object { $_.InterfaceIndex -eq $a.InterfaceIndex }).ServerAddresses -join ", ")
+            return @{
+                OsCaption    = $os.Caption
+                OsArch       = $os.OSArchitecture
+                OsBuild      = $os.BuildNumber
+                OsVersion    = $os.Version
+                Uptime       = $uptime
+                CpuName      = $cpu.Name.Trim()
+                CpuCores     = $cpu.NumberOfCores
+                CpuThreads   = $cpu.NumberOfLogicalProcessors
+                Ram          = $ram
+                GpuName      = $gpu.Trim()
+                DriveData    = $driveData
+                NetData      = $netData
             }
-        })
-
-        $driveData = @(foreach ($d in $drives) {
-            $total = $d.Used + $d.Free
-            $free  = [math]::Round($d.Free / 1GB, 1)
-            $tot   = [math]::Round($total / 1GB, 1)
-            $pct   = if ($total -gt 0) { $d.Free / $total } else { 1 }
-            [PSCustomObject]@{
-                Name     = $d.Name + ":\"
-                Label    = [string]$free + " GB free of " + [string]$tot + " GB"
-                ColorKey = if ($pct -lt 0.10) { "DangerBrush" } elseif ($pct -lt 0.20) { "WarningBrush" } else { "FgBrush" }
+        } `
+        -OnComplete {
+            param($d, $err, $ctx)
+            if ($err) {
+                Set-ReadyStatus
+                return
             }
-        })
 
-        # ── Marshal UI updates to dispatcher thread ───────────
-        $_win.Dispatcher.Invoke([action]{
             # OS card
-            $_sysOS.Text     = $os.Caption + " " + $os.OSArchitecture
-            $_sysBuild.Text  = $os.BuildNumber + "  (" + $os.Version + ")"
-            $_sysComp.Text   = $env:COMPUTERNAME
-            $_sysUser.Text   = $env:USERNAME
-            $_sysUptime.Text = [string]$uptime.Days + "d " + [string]$uptime.Hours + "h " + [string]$uptime.Minutes + "m"
+            $sysOS.Text       = $d.OsCaption + " " + $d.OsArch
+            $sysBuild.Text    = $d.OsBuild + "  (" + $d.OsVersion + ")"
+            $sysComputer.Text = $env:COMPUTERNAME
+            $sysUser.Text     = $env:USERNAME
+            $sysUptime.Text   = [string]$d.Uptime.Days + "d " + [string]$d.Uptime.Hours + "h " + [string]$d.Uptime.Minutes + "m"
 
             # Hardware card
-            $_hwCPU.Text   = $cpu.Name.Trim()
-            $_hwCores.Text = [string]$cpu.NumberOfCores + " cores / " + [string]$cpu.NumberOfLogicalProcessors + " threads"
-            $_hwRAM.Text   = [string]$ram + " GB"
-            $_hwGPU.Text   = $gpu.Trim()
+            $hwCPU.Text   = $d.CpuName
+            $hwCores.Text = [string]$d.CpuCores + " cores / " + [string]$d.CpuThreads + " threads"
+            $hwRAM.Text   = [string]$d.Ram + " GB"
+            $hwGPU.Text   = $d.GpuName
 
             # Drives card
-            $_diskPanel.Children.Clear()
+            $diskPanel.Children.Clear()
             $alt = $false
-            foreach ($dd in $driveData) {
-                $border = New-Object System.Windows.Controls.Border
-                $border.Background  = if ($alt) { $_win.Resources["SurfaceBrush"] } else { $_win.Resources["InputBgBrush"] }
-                $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-                $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
-                $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)
-
-                $grid = New-Object System.Windows.Controls.Grid
-                $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::Auto
-                $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
-                $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1)
-
-                $lbl = New-Object System.Windows.Controls.TextBlock
-                $lbl.Text = $dd.Name; $lbl.FontSize = 12; $lbl.MinWidth = 110
-                $lbl.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-                [System.Windows.Controls.Grid]::SetColumn($lbl, 0)
-
-                $val = New-Object System.Windows.Controls.TextBlock
-                $val.Text = $dd.Label; $val.FontSize = 12
-                $val.HorizontalAlignment = "Right"; $val.TextAlignment = "Right"; $val.TextWrapping = "Wrap"
-                $val.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $dd.ColorKey)
-                [System.Windows.Controls.Grid]::SetColumn($val, 1)
-
-                $grid.Children.Add($lbl) | Out-Null; $grid.Children.Add($val) | Out-Null
-                $border.Child = $grid
-                $_diskPanel.Children.Add($border) | Out-Null
+            foreach ($dd in $d.DriveData) {
+                $diskPanel.Children.Add((New-InfoRow $dd.Name $dd.Label $dd.ColorKey $alt)) | Out-Null
                 $alt = -not $alt
             }
 
             # Network card
-            $_netPanel.Children.Clear()
-            if ($netData.Count -eq 0) {
+            $netPanel.Children.Clear()
+            if ($d.NetData.Count -eq 0) {
                 $tb = New-Object System.Windows.Controls.TextBlock
-                $tb.Text = "No active network adapters found."; $tb.FontSize = 12
-                $tb.Margin = [System.Windows.Thickness]::new(4, 2, 0, 2)
+                $tb.Text     = "No active network adapters found."
+                $tb.FontSize = 12
+                $tb.Margin   = [System.Windows.Thickness]::new(4, 2, 0, 2)
                 $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-                $_netPanel.Children.Add($tb) | Out-Null
+                $netPanel.Children.Add($tb) | Out-Null
             } else {
                 $first = $true
-                foreach ($cfg in $netData) {
-                    if (-not $first) {
-                        $sep = New-Object System.Windows.Controls.Border
-                        $sep.Height = 1; $sep.Margin = [System.Windows.Thickness]::new(0, 4, 0, 4)
-                        $sep.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BorderBrush")
-                        $_netPanel.Children.Add($sep) | Out-Null
-                    }
+                foreach ($cfg in $d.NetData) {
+                    if (-not $first) { $netPanel.Children.Add((New-Separator)) | Out-Null }
                     $first = $false
 
-                    $hdr = New-Object System.Windows.Controls.TextBlock
-                    $hdr.Text = $cfg.Alias; $hdr.FontSize = 11; $hdr.FontWeight = "SemiBold"
-                    $hdr.Margin = [System.Windows.Thickness]::new(0, 8, 0, 4)
-                    $hdr.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "AccentBrush")
-                    $_netPanel.Children.Add($hdr) | Out-Null
+                    $netPanel.Children.Add((New-AdapterHeader $cfg.Alias)) | Out-Null
+                    $netPanel.Children.Add((New-InfoRow "IP Address" $cfg.IP "FgBrush" $false)) | Out-Null
 
-                    foreach ($rowDef in @(
-                        @{ L = "IP Address"; V = $cfg.IP;  Alt = $false },
-                        @{ L = "Gateway";    V = $(if ($cfg.Gateway) { $cfg.Gateway } else { "N/A" }); Alt = $true },
-                        @{ L = "DNS";        V = $(if ($cfg.DNS) { $cfg.DNS } else { "N/A" }); Alt = $false }
-                    )) {
-                        $border = New-Object System.Windows.Controls.Border
-                        $border.Background  = if ($rowDef.Alt) { $_win.Resources["SurfaceBrush"] } else { $_win.Resources["InputBgBrush"] }
-                        $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-                        $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
-                        $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)
+                    $gw = if ($cfg.Gateway) { $cfg.Gateway } else { "N/A" }
+                    $netPanel.Children.Add((New-InfoRow "Gateway" $gw "FgBrush" $true)) | Out-Null
 
-                        $grid = New-Object System.Windows.Controls.Grid
-                        $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::Auto
-                        $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
-                        $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1)
-
-                        $lbl = New-Object System.Windows.Controls.TextBlock
-                        $lbl.Text = $rowDef.L; $lbl.FontSize = 12; $lbl.MinWidth = 110
-                        $lbl.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-                        [System.Windows.Controls.Grid]::SetColumn($lbl, 0)
-
-                        $val = New-Object System.Windows.Controls.TextBlock
-                        $val.Text = $rowDef.V; $val.FontSize = 12
-                        $val.HorizontalAlignment = "Right"; $val.TextAlignment = "Right"; $val.TextWrapping = "Wrap"
-                        $val.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-                        [System.Windows.Controls.Grid]::SetColumn($val, 1)
-
-                        $grid.Children.Add($lbl) | Out-Null; $grid.Children.Add($val) | Out-Null
-                        $border.Child = $grid
-                        $_netPanel.Children.Add($border) | Out-Null
-                    }
+                    $dns = if ($cfg.DNS) { $cfg.DNS } else { "N/A" }
+                    $netPanel.Children.Add((New-InfoRow "DNS" $dns "FgBrush" $false)) | Out-Null
                 }
             }
 
-            # Ready
-            $_si.Text       = "Ready"
-            $_si.Foreground = $_win.Resources["SuccessBrush"]
-            $_fs.Text       = "Ready"
-        }, [System.Windows.Threading.DispatcherPriority]::Normal)
-    }) | Out-Null
-
-    $ps.BeginInvoke() | Out-Null
+            Set-ReadyStatus
+        } | Out-Null
 }
 
 (Find "BtnSysInfo").Add_Click({      Populate-SysInfo      })
