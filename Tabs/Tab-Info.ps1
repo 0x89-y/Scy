@@ -150,7 +150,20 @@ function Populate-HardwareInfo {
 function Populate-DriveInfo {
     $diskPanel.Children.Clear()
     $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $null -ne $_.Used }
-    $alt    = $false
+
+    $smartMap = @{}
+    try {
+        $partitions = Get-Partition -ErrorAction SilentlyContinue | Where-Object { $_.DriveLetter }
+        foreach ($p in $partitions) {
+            try {
+                $disk = $p | Get-Disk -ErrorAction Stop
+                $phys = Get-PhysicalDisk -DeviceNumber $disk.Number -ErrorAction Stop
+                $smartMap[[string]$p.DriveLetter] = $phys.HealthStatus
+            } catch { }
+        }
+    } catch { }
+
+    $alt = $false
     foreach ($d in $drives) {
         $total    = $d.Used + $d.Free
         $free     = [math]::Round($d.Free / 1GB, 1)
@@ -159,6 +172,17 @@ function Populate-DriveInfo {
         $colorKey = if ($pct -lt 0.10) { "DangerBrush" } elseif ($pct -lt 0.20) { "WarningBrush" } else { "FgBrush" }
         $row      = New-InfoRow ($d.Name + ":\") ([string]$free + " GB free of " + [string]$tot + " GB") $colorKey $alt
         $diskPanel.Children.Add($row) | Out-Null
+        $alt = -not $alt
+
+        $status = $smartMap[[string]$d.Name]
+        $smartColor = switch ([string]$status) {
+            'Healthy'   { 'SuccessBrush' }
+            'Warning'   { 'WarningBrush' }
+            'Unhealthy' { 'DangerBrush' }
+            default     { 'MutedText' }
+        }
+        $smartText = if ($status) { [string]$status } else { 'Unknown' }
+        $diskPanel.Children.Add((New-InfoRow "  SMART" $smartText $smartColor $alt)) | Out-Null
         $alt = -not $alt
     }
 }
@@ -233,6 +257,18 @@ function Populate-SysInfo {
             $ram    = [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)
             $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $null -ne $_.Used }
 
+            $smartMap = @{}
+            try {
+                $partitions = Get-Partition -ErrorAction SilentlyContinue | Where-Object { $_.DriveLetter }
+                foreach ($p in $partitions) {
+                    try {
+                        $disk = $p | Get-Disk -ErrorAction Stop
+                        $phys = Get-PhysicalDisk -DeviceNumber $disk.Number -ErrorAction Stop
+                        $smartMap[[string]$p.DriveLetter] = $phys.HealthStatus
+                    } catch { }
+                }
+            } catch { }
+
             $adapters  = Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' }
             $addresses = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
                          Where-Object { $_.IPAddress -ne '127.0.0.1' -and $_.PrefixOrigin -ne 'WellKnown' }
@@ -255,10 +291,22 @@ function Populate-SysInfo {
                 $free  = [math]::Round($d.Free / 1GB, 1)
                 $tot   = [math]::Round($total / 1GB, 1)
                 $pct   = if ($total -gt 0) { $d.Free / $total } else { 1 }
+
+                $status = $smartMap[[string]$d.Name]
+                $smartColor = switch ([string]$status) {
+                    'Healthy'   { 'SuccessBrush' }
+                    'Warning'   { 'WarningBrush' }
+                    'Unhealthy' { 'DangerBrush' }
+                    default     { 'MutedText' }
+                }
+                $smartText = if ($status) { [string]$status } else { 'Unknown' }
+
                 [PSCustomObject]@{
-                    Name     = $d.Name + ":\"
-                    Label    = [string]$free + " GB free of " + [string]$tot + " GB"
-                    ColorKey = if ($pct -lt 0.10) { "DangerBrush" } elseif ($pct -lt 0.20) { "WarningBrush" } else { "FgBrush" }
+                    Name          = $d.Name + ":\"
+                    Label         = [string]$free + " GB free of " + [string]$tot + " GB"
+                    ColorKey      = if ($pct -lt 0.10) { "DangerBrush" } elseif ($pct -lt 0.20) { "WarningBrush" } else { "FgBrush" }
+                    SmartStatus   = $smartText
+                    SmartColorKey = $smartColor
                 }
             })
 
@@ -302,6 +350,8 @@ function Populate-SysInfo {
             $alt = $false
             foreach ($dd in $d.DriveData) {
                 $diskPanel.Children.Add((New-InfoRow $dd.Name $dd.Label $dd.ColorKey $alt)) | Out-Null
+                $alt = -not $alt
+                $diskPanel.Children.Add((New-InfoRow "  SMART" $dd.SmartStatus $dd.SmartColorKey $alt)) | Out-Null
                 $alt = -not $alt
             }
 
