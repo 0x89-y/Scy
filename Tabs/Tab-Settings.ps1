@@ -61,6 +61,7 @@ $script:customShortcutGroups    = [System.Collections.Generic.List[string]]::new
 $script:customInstallCategories = [System.Collections.Generic.List[string]]::new()
 $script:hiddenDefaultShortcutGroups    = [System.Collections.Generic.List[string]]::new()
 $script:hiddenDefaultInstallCategories = [System.Collections.Generic.List[string]]::new()
+$script:hiddenCuratedApps              = [System.Collections.Generic.List[string]]::new()
 $script:customRegBookmarkGroups        = [System.Collections.Generic.List[string]]::new()
 $script:hiddenTabs                     = [System.Collections.Generic.List[string]]::new()
 
@@ -307,6 +308,7 @@ function Save-Settings {
             CustomInstallCategories = @($script:customInstallCategories)
             HiddenDefaultShortcutGroups    = @($script:hiddenDefaultShortcutGroups)
             HiddenDefaultInstallCategories = @($script:hiddenDefaultInstallCategories)
+            HiddenCuratedApps              = @($script:hiddenCuratedApps)
             HiddenTabs                     = @($script:hiddenTabs)
             RememberCleanTargets           = $script:rememberCleanTargets
             AutoScanLocalInstallers        = $script:autoScanLocalInstallers
@@ -409,6 +411,10 @@ if (Test-Path $script:settingsFile) {
         if ($null -ne $saved.HiddenDefaultInstallCategories) {
             $script:hiddenDefaultInstallCategories.Clear()
             foreach ($g in $saved.HiddenDefaultInstallCategories) { $script:hiddenDefaultInstallCategories.Add([string]$g) }
+        }
+        if ($null -ne $saved.HiddenCuratedApps) {
+            $script:hiddenCuratedApps.Clear()
+            foreach ($h in $saved.HiddenCuratedApps) { $script:hiddenCuratedApps.Add([string]$h) }
         }
         if ($null -ne $saved.HiddenTabs) {
             $script:hiddenTabs.Clear()
@@ -967,6 +973,10 @@ $btnInstallSelfUpdate.Add_Click({
             if ($null -ne $imported.HiddenDefaultInstallCategories) {
                 $script:hiddenDefaultInstallCategories.Clear()
                 foreach ($g in $imported.HiddenDefaultInstallCategories) { $script:hiddenDefaultInstallCategories.Add([string]$g) }
+            }
+            if ($null -ne $imported.HiddenCuratedApps) {
+                $script:hiddenCuratedApps.Clear()
+                foreach ($h in $imported.HiddenCuratedApps) { $script:hiddenCuratedApps.Add([string]$h) }
             }
             if ($null -ne $imported.RememberCleanTargets) { $script:rememberCleanTargets = [bool]$imported.RememberCleanTargets }
             if ($null -ne $imported.AutoScanLocalInstallers) { $script:autoScanLocalInstallers = [bool]$imported.AutoScanLocalInstallers }

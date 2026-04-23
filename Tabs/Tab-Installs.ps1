@@ -408,6 +408,51 @@ $script:quickInstallEditMode = $false
 
 $script:defaultQuickCategories = @("Development", "Communication", "Media", "Utilities", "Gaming", "Productivity", "Security", "Browsers")
 
+$script:curatedApps = @(
+    @{ Name = "Firefox";              Id = "Mozilla.Firefox";                   Category = "Browsers" }
+    @{ Name = "Brave";                Id = "Brave.Brave";                       Category = "Browsers" }
+    @{ Name = "Zen";                  Id = "Brave.Brave";                       Category = "Browsers" }
+    @{ Name = "Helium";               Id = "Brave.Brave";                       Category = "Browsers" }
+    @{ Name = "Discord";              Id = "Discord.Discord";                   Category = "Communication" }
+    @{ Name = "Element";              Id = "Element.Element";                   Category = "Communication" }
+    @{ Name = "Signal";               Id = "OpenWhisperSystems.Signal";         Category = "Communication" }
+    @{ Name = "VLC";                  Id = "VideoLAN.VLC";                      Category = "Media" }
+    @{ Name = "Spotify";              Id = "Spotify.Spotify";                   Category = "Media" }
+    @{ Name = "OBS Studio";           Id = "OBSProject.OBSStudio";              Category = "Media" }
+    @{ Name = "GIMP";                 Id = "GIMP.GIMP";                         Category = "Media" }
+    @{ Name = "7-Zip";                Id = "7zip.7zip";                         Category = "Utilities" }
+    @{ Name = "Notepad++";            Id = "Notepad++.Notepad++";               Category = "Utilities" }
+    @{ Name = "Everything";           Id = "voidtools.Everything";              Category = "Utilities" }
+    @{ Name = "PowerToys";            Id = "Microsoft.PowerToys";               Category = "Utilities" }
+    @{ Name = "ShareX";               Id = "ShareX.ShareX";                     Category = "Utilities" }
+    @{ Name = "Steam";                Id = "Valve.Steam";                       Category = "Gaming" }
+    @{ Name = "Epic Games Launcher";  Id = "EpicGames.EpicGamesLauncher";       Category = "Gaming" }
+    @{ Name = "GOG Galaxy";           Id = "GOG.Galaxy";                        Category = "Gaming" }
+    @{ Name = "Obsidian";             Id = "Obsidian.Obsidian";                 Category = "Productivity" }
+    @{ Name = "LibreOffice";          Id = "TheDocumentFoundation.LibreOffice"; Category = "Productivity" }
+    @{ Name = "Bitwarden";            Id = "Bitwarden.Bitwarden";               Category = "Security" }
+    @{ Name = "Malwarebytes";         Id = "Malwarebytes.Malwarebytes";         Category = "Security" }
+)
+
+function Get-MergedQuickInstalls {
+    $userIds = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($qi in $script:quickInstalls) { [void]$userIds.Add([string]$qi.Id) }
+
+    $merged = [System.Collections.Generic.List[hashtable]]::new()
+
+    foreach ($qi in $script:quickInstalls) {
+        $merged.Add(@{ Name = $qi.Name; Id = $qi.Id; Category = $qi.Category; IsCurated = $false })
+    }
+
+    foreach ($c in $script:curatedApps) {
+        if ($userIds.Contains([string]$c.Id)) { continue }
+        if ($c.Id -in $script:hiddenCuratedApps) { continue }
+        if ($c.Category -in $script:hiddenDefaultInstallCategories) { continue }
+        $merged.Add(@{ Name = $c.Name; Id = $c.Id; Category = $c.Category; IsCurated = $true })
+    }
+    return $merged
+}
+
 function Get-AllQuickCategories {
     $custom = @($script:quickInstalls | ForEach-Object { $_.Category } | Where-Object { $_ } | Select-Object -Unique)
     $all = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
@@ -641,7 +686,37 @@ function Update-QuickInstalls {
     if ($script:quickInstallEditMode) {
         $editBtn.Content   = "Done"
 
-        foreach ($qi in $script:quickInstalls) {
+        # Restore-hidden affordance — only shown when at least one curated app has been hidden
+        if ($script:hiddenCuratedApps.Count -gt 0) {
+            $restoreRow = New-Object System.Windows.Controls.Grid
+            $rc0 = New-Object System.Windows.Controls.ColumnDefinition; $rc0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
+            $rc1 = New-Object System.Windows.Controls.ColumnDefinition; $rc1.Width = [System.Windows.GridLength]::Auto
+            $restoreRow.ColumnDefinitions.Add($rc0); $restoreRow.ColumnDefinitions.Add($rc1)
+            $restoreRow.Margin = [System.Windows.Thickness]::new(0, 0, 0, 10)
+
+            $restoreLabel = New-Object System.Windows.Controls.TextBlock
+            $restoreLabel.Text              = "Curated hidden: " + [string]$script:hiddenCuratedApps.Count
+            $restoreLabel.Foreground        = $window.Resources["MutedText"]
+            $restoreLabel.FontSize          = 11
+            $restoreLabel.VerticalAlignment = "Center"
+            [System.Windows.Controls.Grid]::SetColumn($restoreLabel, 0)
+
+            $restoreBtn = New-Object System.Windows.Controls.Button
+            $restoreBtn.Content = "Restore all"
+            $restoreBtn.Style   = $window.Resources["SecondaryButton"]
+            $restoreBtn.Add_Click({
+                $script:hiddenCuratedApps.Clear()
+                Save-Settings
+                Update-QuickInstalls
+            })
+            [System.Windows.Controls.Grid]::SetColumn($restoreBtn, 1)
+
+            $restoreRow.Children.Add($restoreLabel) | Out-Null
+            $restoreRow.Children.Add($restoreBtn)   | Out-Null
+            $panel.Children.Add($restoreRow)        | Out-Null
+        }
+
+        foreach ($qi in (Get-MergedQuickInstalls)) {
             $name = $qi.Name
             $id   = $qi.Id
 
@@ -655,7 +730,7 @@ function Update-QuickInstalls {
             $row.Margin = [System.Windows.Thickness]::new(0, 0, 0, 4)
 
             $nameBlock = New-Object System.Windows.Controls.TextBlock
-            $nameBlock.Text              = $name
+            $nameBlock.Text              = if ($qi.IsCurated) { [char]0x2605 + "  " + $name } else { $name }
             $nameBlock.Foreground        = $window.Resources["FgBrush"]
             $nameBlock.FontSize          = 12
             $nameBlock.VerticalAlignment = "Center"
@@ -669,13 +744,51 @@ function Update-QuickInstalls {
             $idBlock.VerticalAlignment = "Center"
             [System.Windows.Controls.Grid]::SetColumn($idBlock, 1)
 
+            $row.Children.Add($nameBlock) | Out-Null
+            $row.Children.Add($idBlock)   | Out-Null
+
+            if ($qi.IsCurated) {
+                $curLabel = New-Object System.Windows.Controls.TextBlock
+                $curLabel.Text              = "Curated"
+                $curLabel.Foreground        = $window.Resources["MutedText"]
+                $curLabel.FontSize          = 11
+                $curLabel.VerticalAlignment = "Center"
+                $curLabel.Margin            = [System.Windows.Thickness]::new(0, 0, 10, 0)
+                [System.Windows.Controls.Grid]::SetColumn($curLabel, 2)
+
+                $hideBtn         = New-Object System.Windows.Controls.Button
+                $hideBtn.Content = "Hide"
+                $hideBtn.Style   = $window.Resources["SecondaryButton"]
+                $hideBtn.Tag     = $id
+                $hideBtn.Add_Click({
+                    param($s, $e)
+                    $idToHide = [string]$s.Tag
+                    if ($idToHide -notin $script:hiddenCuratedApps) {
+                        $script:hiddenCuratedApps.Add($idToHide)
+                        Save-Settings
+                        Update-QuickInstalls
+                    }
+                })
+                [System.Windows.Controls.Grid]::SetColumn($hideBtn, 3)
+
+                $row.Children.Add($curLabel) | Out-Null
+                $row.Children.Add($hideBtn)  | Out-Null
+                $panel.Children.Add($row)    | Out-Null
+                continue
+            }
+
             $catBox                   = New-Object System.Windows.Controls.ComboBox
             $catBox.IsEditable        = $true
             $catBox.FontSize          = 11
             $catBox.VerticalAlignment = "Center"
             $catBox.Margin            = [System.Windows.Thickness]::new(0, 0, 10, 0)
             $catBox.ToolTip           = "Category (select or type new)"
-            $catBox.Tag               = $qi
+            # Resolve back to the live $script:quickInstalls entry so edits persist
+            $liveQi = $null
+            foreach ($liveCandidate in $script:quickInstalls) {
+                if ($liveCandidate.Id -eq $qi.Id) { $liveQi = $liveCandidate; break }
+            }
+            $catBox.Tag               = $liveQi
             # Populate with all categories (defaults + custom)
             foreach ($cat in (Get-AllQuickCategories)) { $catBox.Items.Add($cat) | Out-Null }
             $catBox.Items.Add("+ New group...") | Out-Null
@@ -734,8 +847,6 @@ function Update-QuickInstalls {
             })
             [System.Windows.Controls.Grid]::SetColumn($removeBtn, 3)
 
-            $row.Children.Add($nameBlock) | Out-Null
-            $row.Children.Add($idBlock)   | Out-Null
             $row.Children.Add($catBox)    | Out-Null
             $row.Children.Add($removeBtn) | Out-Null
             $panel.Children.Add($row)     | Out-Null
@@ -908,7 +1019,7 @@ function Update-QuickInstalls {
 
         # Group by category; items with no category go to "Uncategorized"
         $groups = [ordered]@{}
-        foreach ($qi in $script:quickInstalls) {
+        foreach ($qi in (Get-MergedQuickInstalls)) {
             $cat = if ($qi.Category) { $qi.Category } else { "Uncategorized" }
             if (-not $groups.Contains($cat)) {
                 $groups[$cat] = [System.Collections.Generic.List[hashtable]]::new()
@@ -991,9 +1102,10 @@ function Update-QuickInstalls {
                 $rowGrid.ColumnDefinitions.Add($autoCol)
 
                 $nameBlock = New-Object System.Windows.Controls.TextBlock
-                $nameBlock.Text = $qiName
+                $nameBlock.Text = if ($qi.IsCurated) { [char]0x2605 + "  " + $qiName } else { $qiName }
                 $nameBlock.FontSize = 12
                 $nameBlock.VerticalAlignment = "Center"
+                if ($qi.IsCurated) { $nameBlock.ToolTip = "Curated — click to install, or use Edit to hide" }
                 [System.Windows.Controls.Grid]::SetColumn($nameBlock, 0)
 
                 $idBlock = New-Object System.Windows.Controls.TextBlock

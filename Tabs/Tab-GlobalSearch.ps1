@@ -74,6 +74,21 @@ function Build-GlobalSearchIndex {
     $items.Add(@{ Name = "Groups";              Description = "Manage quick install groups";          Category = "Settings"; TabIndex = 6; SubNavIndex = 2 })
     $items.Add(@{ Name = "Backup & Restore";    Description = "Backup and restore settings";         Category = "Settings"; TabIndex = 6; SubNavIndex = 3 })
 
+    # -- Curated Quick Install apps (visible only) --
+    if ($script:curatedApps) {
+        foreach ($c in $script:curatedApps) {
+            if ($c.Id -in $script:hiddenCuratedApps) { continue }
+            if ($c.Category -in $script:hiddenDefaultInstallCategories) { continue }
+            $items.Add(@{
+                Name        = $c.Name
+                Description = "Quick Install - " + $c.Category
+                Category    = "Quick Install"
+                TabIndex    = 0
+                SubNavIndex = 2
+            })
+        }
+    }
+
     # -- Tweaks from the Tweaks folder --
     $tweaksDir = Join-Path $PSScriptRoot "..\Tweaks"
     if (Test-Path $tweaksDir) {
