@@ -243,7 +243,7 @@ function Start-SfcDismRunner {
             $psi.RedirectStandardOutput = $true
             $psi.RedirectStandardError  = $true
             $psi.CreateNoWindow         = $true
-            # SFC outputs UTF-16 LE — set encoding so we get clean text
+            # SFC outputs UTF-16 LE; set encoding so we get clean text
             if ($isSfc) {
                 $psi.StandardOutputEncoding = [System.Text.Encoding]::Unicode
                 $psi.StandardErrorEncoding  = [System.Text.Encoding]::Unicode
@@ -294,7 +294,7 @@ function Start-SfcDismRunner {
                         # Only append distinct progress lines to the log
                         AppendLine "$label -- $pct% complete"
                     } elseif ($pct -lt 0) {
-                        # Non-progress line — always show
+                        # Non-progress line: always show
                         AppendLine $clean
                     }
                 } else {

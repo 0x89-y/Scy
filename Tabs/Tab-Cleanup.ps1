@@ -108,7 +108,7 @@ function New-PathRow {
     $pathBlock.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
     $pathBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
 
-    $sizeText  = if ($SizeBytes -gt 0) { Format-Size $SizeBytes } else { "—" }
+    $sizeText  = if ($SizeBytes -gt 0) { Format-Size $SizeBytes } else { "-" }
     $sizeColorKey = if ($SizeBytes -gt 0) {
         if ($IsPreview) { "AccentBrush" } else { "FgBrush" }
     } else { "MutedText" }
@@ -273,10 +273,10 @@ $btnClean.Add_Click({
     $confirm = Show-ThemedDialog "This will free approximately $(Format-Size $selectedBytes). Proceed?" "Confirm cleanup" "YesNo" "Question"
     if ($confirm -ne "Yes") { return }
 
-    # Warn if Windows.old is selected — deletion is irreversible
+    # Warn if Windows.old is selected; deletion is irreversible
     $winOldCb = $script:cleanCheckboxes["Windows.old"]
     if (($null -eq $winOldCb -or $winOldCb.IsChecked) -and (Test-Path "C:\Windows.old")) {
-        $warnOld = Show-ThemedDialog "Deleting Windows.old is permanent — you will no longer be able to roll back to your previous Windows installation. Are you sure?" "Warning: Irreversible" "YesNo" "Warning"
+        $warnOld = Show-ThemedDialog "Deleting Windows.old is permanent. You will no longer be able to roll back to your previous Windows installation. Are you sure?" "Warning: Irreversible" "YesNo" "Warning"
         if ($warnOld -ne "Yes") { return }
     }
 

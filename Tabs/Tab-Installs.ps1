@@ -603,14 +603,14 @@ function Show-QuickInstallConfirmDialog {
             $spacer.Height = 8
             $listPanel.Children.Add($spacer) | Out-Null
         }
-        Add-SectionHeader ($b.Name + " — bundle (" + [string]$b.Apps.Count + " apps)")
+        Add-SectionHeader ($b.Name + " - bundle (" + [string]$b.Apps.Count + " apps)")
         foreach ($app in $b.Apps) {
             Add-PkgRow $app.Name $app.Id 8
             if ($seenIds.Add($app.Id)) { $allPackages.Add(@{Name=$app.Name; Id=$app.Id}) }
         }
     }
 
-    ($dlg.FindName("DlgTitle")).Text = "Review — " + [string]$allPackages.Count + " package(s)"
+    ($dlg.FindName("DlgTitle")).Text = "Review - " + [string]$allPackages.Count + " package(s)"
     ($dlg.FindName("DlgTotal")).Text = [string]$allPackages.Count + " unique package(s) to install"
     ($dlg.FindName("DlgCancelBtn")).Add_Click({ $dlg.Close() })
 
@@ -686,7 +686,7 @@ function Update-QuickInstalls {
     if ($script:quickInstallEditMode) {
         $editBtn.Content   = "Done"
 
-        # Restore-hidden affordance — only shown when at least one curated app has been hidden
+        # Restore-hidden affordance: only shown when at least one curated app has been hidden
         if ($script:hiddenCuratedApps.Count -gt 0) {
             $restoreRow = New-Object System.Windows.Controls.Grid
             $rc0 = New-Object System.Windows.Controls.ColumnDefinition; $rc0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
@@ -1105,7 +1105,7 @@ function Update-QuickInstalls {
                 $nameBlock.Text = if ($qi.IsCurated) { [char]0x2605 + "  " + $qiName } else { $qiName }
                 $nameBlock.FontSize = 12
                 $nameBlock.VerticalAlignment = "Center"
-                if ($qi.IsCurated) { $nameBlock.ToolTip = "Curated — click to install, or use Edit to hide" }
+                if ($qi.IsCurated) { $nameBlock.ToolTip = "Curated: click to install, or use Edit to hide" }
                 [System.Windows.Controls.Grid]::SetColumn($nameBlock, 0)
 
                 $idBlock = New-Object System.Windows.Controls.TextBlock
@@ -1245,7 +1245,7 @@ function Update-QuickInstalls {
     Update-QuickInstallSelectedState
 })
 
-# -- Quick Install — confirm and install selected -----------------------------
+# -- Quick Install: confirm and install selected ------------------------------
 (Find "BtnQuickInstallSelected").Add_Click({
     if ($script:selectedQuickItems.Count -eq 0) { return }
     Show-QuickInstallConfirmDialog
@@ -1461,7 +1461,7 @@ function Update-LocalInstallers {
     }
 })
 
-# Deferred — settings are loaded by Tab-Settings.ps1 which is sourced after this file
+# Deferred: settings are loaded by Tab-Settings.ps1 which is sourced after this file
 $window.Dispatcher.BeginInvoke([action]{
     if ($script:rememberLocalInstallers -and $script:cachedLocalInstallers.Count -gt 0) {
         Render-LocalInstallerButtons $script:cachedLocalInstallers

@@ -1687,7 +1687,7 @@
                                                    VerticalAlignment="Center"/>
                                     </DockPanel>
                                     <StackPanel x:Name="BatteryCapacityPanel">
-                                        <TextBlock Text="—"
+                                        <TextBlock Text="-"
                                                    Foreground="{DynamicResource MutedText}" FontSize="12"
                                                    Margin="0,2"/>
                                     </StackPanel>
@@ -1708,7 +1708,7 @@
                                                    VerticalAlignment="Center"/>
                                     </DockPanel>
                                     <StackPanel x:Name="BatteryHealthPanel">
-                                        <TextBlock Text="—"
+                                        <TextBlock Text="-"
                                                    Foreground="{DynamicResource MutedText}" FontSize="12"
                                                    Margin="0,2"/>
                                     </StackPanel>
@@ -1730,7 +1730,7 @@
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
                                 <StackPanel x:Name="BatteryHistoryPanel">
-                                    <TextBlock Text="—"
+                                    <TextBlock Text="-"
                                                Foreground="{DynamicResource MutedText}" FontSize="12"
                                                Margin="0,2"/>
                                 </StackPanel>
@@ -1792,7 +1792,7 @@
                                                    VerticalAlignment="Center"/>
                                     </DockPanel>
                                     <StackPanel x:Name="FirmwareSecurityPanel">
-                                        <TextBlock Text="—"
+                                        <TextBlock Text="-"
                                                    Foreground="{DynamicResource MutedText}" FontSize="12"
                                                    Margin="0,2"/>
                                     </StackPanel>
@@ -1814,7 +1814,7 @@
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
                                 <StackPanel x:Name="FirmwareFeaturesPanel">
-                                    <TextBlock Text="—"
+                                    <TextBlock Text="-"
                                                Foreground="{DynamicResource MutedText}" FontSize="12"
                                                Margin="0,2"/>
                                 </StackPanel>
@@ -1835,7 +1835,7 @@
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
                                 <StackPanel x:Name="FirmwareMotherboardPanel">
-                                    <TextBlock Text="—"
+                                    <TextBlock Text="-"
                                                Foreground="{DynamicResource MutedText}" FontSize="12"
                                                Margin="0,2"/>
                                 </StackPanel>
@@ -2586,7 +2586,7 @@
                                                 <Button x:Name="BtnHostsSave"     Content="Save changes" Style="{StaticResource ActionButton}"    Margin="0,0,8,0"/>
                                                 <Button x:Name="BtnHostsAddEntry" Content="+ Add entry"  Style="{StaticResource SecondaryButton}"/>
                                             </StackPanel>
-                                            <TextBlock x:Name="HostsStatusText" Grid.Column="2" Text="—"
+                                            <TextBlock x:Name="HostsStatusText" Grid.Column="2" Text="-"
                                                        FontSize="11" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource MutedText}"/>
                                         </Grid>
@@ -2601,7 +2601,7 @@
                                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                 <TextBlock FontSize="12" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource FgBrush}">
-                                                    <Run Text="Not running as Administrator — "/>
+                                                    <Run Text="Not running as Administrator: "/>
                                                     <Run Text="changes cannot be saved." Foreground="{DynamicResource WarningBrush}"/>
                                                     <Run Text=" Restart Scy as Administrator to edit the hosts file."/>
                                                 </TextBlock>
@@ -2739,7 +2739,7 @@
                                                            Foreground="{DynamicResource FgBrush}"
                                                            VerticalAlignment="Center"/>
                                             </DockPanel>
-                                            <TextBlock x:Name="DnsStatusText" Grid.Column="2" Text="—"
+                                            <TextBlock x:Name="DnsStatusText" Grid.Column="2" Text="-"
                                                        FontSize="11" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource MutedText}"/>
                                         </Grid>
@@ -2754,7 +2754,7 @@
                                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                 <TextBlock FontSize="12" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource FgBrush}">
-                                                    <Run Text="Not running as Administrator — "/>
+                                                    <Run Text="Not running as Administrator: "/>
                                                     <Run Text="DNS changes require elevation." Foreground="{DynamicResource WarningBrush}"/>
                                                 </TextBlock>
                                             </StackPanel>
@@ -2792,7 +2792,7 @@
                                                 <TextBlock Text="Current DNS:" FontSize="12"
                                                            Foreground="{DynamicResource MutedText}"
                                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                <TextBlock x:Name="DnsCurrentDisplay" Text="—" FontSize="12"
+                                                <TextBlock x:Name="DnsCurrentDisplay" Text="-" FontSize="12"
                                                            FontFamily="Consolas"
                                                            Foreground="{DynamicResource AccentBrush}"
                                                            VerticalAlignment="Center"/>

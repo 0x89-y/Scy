@@ -153,11 +153,15 @@ function Write-Output-Box {
 # Work runs on a worker thread. OnLine/OnComplete run on the UI thread via
 # Dispatcher.Invoke.
 #
-# Callbacks can reference any script-scope variable directly. Do NOT use
-# .GetNewClosure() — it creates a new module scope that remaps $script:
-# lookups to the closure's scope, breaking shared state. For values that
-# are only local to the caller, pass them via -Context and read them as
-# the final callback argument.
+# Inside Start-ScyJob's OnLine/OnComplete bodies do NOT read $script:
+# state via .GetNewClosure(): the worker runspace remaps $script: lookups
+# to the closure's scope, breaking shared state. Use -Context (passed as
+# the final callback argument), or alias to a local before the closure.
+#
+# .GetNewClosure() on UI-thread Add_Click / Add_MouseLeftButtonUp handlers
+# is fine and idiomatic here, used to capture per-iteration locals (e.g.
+# the current $cb / $capturedItem inside a foreach loop). The trap above
+# is specific to Start-ScyJob callbacks that try to reach $script: state.
 #
 # Inside Work, call `& $emit "line"` to push output to the UI.
 # Variables hashtable entries become variables in the worker runspace.
@@ -570,9 +574,15 @@ if ($script:isAdmin) {
     )
 })
 
+} catch {
+    $errMsg = "Scy failed to start:`n`n$($_.Exception.Message)`n`n$($_.ScriptStackTrace)"
+    if ($splashTimer) { $splashTimer.Stop() }
+    if ($splash) { $splash.Close(); $splash = $null }
+    [System.Windows.MessageBox]::Show($errMsg, "Scy startup error", "OK", "Error") | Out-Null
+    throw
 } finally {
     # ── Close splash and show the window ──────────────────────────────
-    $splashTimer.Stop()
+    if ($splashTimer) { $splashTimer.Stop() }
     if ($splash) { $splash.Close(); $splash = $null }
 }
 

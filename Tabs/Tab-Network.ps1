@@ -969,7 +969,7 @@ function Register-DohServer {
                 -DohTemplate $DohTemplate -AllowFallbackToUdp $true -AutoUpgrade $true -ErrorAction Stop
         }
     } catch {
-        # Silently continue — registration may already exist via system policy
+        # Silently continue; registration may already exist via system policy
     }
 }
 

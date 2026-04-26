@@ -31,7 +31,7 @@ function Build-TweakRow {
     $description   = if ($tweakMeta -and $tweakMeta.description) { $tweakMeta.description } else { $null }
     $requiresAdmin = if ($tweakMeta -and $tweakMeta.requiresAdmin) { $true } else { $false }
 
-    # Row container (no card styling — lives inside the group card)
+    # Row container (no card styling; lives inside the group card)
     $border = New-Object System.Windows.Controls.Border
     $border.Background      = [System.Windows.Media.Brushes]::Transparent
     $border.BorderThickness = [System.Windows.Thickness]::new(0)
