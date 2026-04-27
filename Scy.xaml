@@ -497,6 +497,36 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Tab: vertical left-rail variant (experimental) -->
+        <Style x:Key="SidebarTabItem" TargetType="TabItem">
+            <Setter Property="Foreground" Value="{DynamicResource MutedText}"/>
+            <Setter Property="FontSize"   Value="13"/>
+            <Setter Property="Padding"    Value="14,10"/>
+            <Setter Property="MinWidth"   Value="150"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="tabBorder" Padding="{TemplateBinding Padding}"
+                                Background="Transparent" BorderThickness="2,0,0,0"
+                                BorderBrush="Transparent" Margin="0,0,0,2" Cursor="Hand"
+                                HorizontalAlignment="Stretch">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Left"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource FgBrush}"/>
+                                <Setter TargetName="tabBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="tabBorder" Property="Background"  Value="{DynamicResource HoverSurfaceBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource SubTextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <!-- Window chrome control buttons -->
         <Style x:Key="WinCtrlButton" TargetType="Button">
             <Setter Property="Background"        Value="Transparent"/>
@@ -592,8 +622,8 @@
 
         <!-- ═══ TABS ═══ -->
         <Grid Grid.Row="1">
-            <!-- Global Search - top right, aligned with tab row -->
-            <Border HorizontalAlignment="Right" VerticalAlignment="Top"
+            <!-- Global Search - top right by default; repositioned into rail when sidebar tabs are on -->
+            <Border x:Name="GlobalSearchContainer" HorizontalAlignment="Right" VerticalAlignment="Top"
                     Background="{DynamicResource InputBgBrush}" CornerRadius="4"
                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                     Padding="10,0" Width="260" Margin="0,14,20,0" Panel.ZIndex="10">
@@ -4032,6 +4062,22 @@
                                                    FontSize="11" Foreground="{DynamicResource MutedText}"
                                                    Margin="0,10,0,6"/>
                                         <StackPanel x:Name="TabVisibilityList"/>
+                                        <Border Background="{DynamicResource BorderBrush}" Height="1"
+                                                Margin="0,14,0,12" Opacity="0.6"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Sidebar tabs (experimental)" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                <TextBlock Text="Show navigation as a vertical rail on the left instead of the top."
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ToggleSidebarTabs" Grid.Column="1"
+                                                      Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                        </Grid>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>

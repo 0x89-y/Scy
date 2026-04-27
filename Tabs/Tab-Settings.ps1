@@ -299,6 +299,7 @@ function Save-Settings {
             AutoCheckUpdates   = $script:autoCheckUpdates
             AutoCheckSelfUpdate = $script:autoCheckSelfUpdate
             RememberWindowPosition = $script:rememberWindowPosition
+            ExperimentalSidebarTabs = $script:experimentalSidebarTabs
             SpeedTestServer    = $script:speedTestServer
             WindowGeometry     = $script:windowGeometry
             QuickInstalls      = @($script:quickInstalls | ForEach-Object { @{Name=$_.Name; Id=$_.Id; Category=$_.Category} })
@@ -337,6 +338,7 @@ $script:currentTheme       = "Aether"
 $script:autoCheckUpdates   = $false
 $script:autoCheckSelfUpdate = $false
 $script:rememberWindowPosition = $false
+$script:experimentalSidebarTabs = $false
 $script:rememberCleanTargets   = $false
 $script:autoScanLocalInstallers    = $false
 $script:rememberLocalInstallers    = $false
@@ -357,6 +359,7 @@ if (Test-Path $script:settingsFile) {
         if ($null -ne $saved.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$saved.AutoCheckUpdates }
         if ($null -ne $saved.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$saved.AutoCheckSelfUpdate }
         if ($null -ne $saved.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$saved.RememberWindowPosition }
+        if ($null -ne $saved.ExperimentalSidebarTabs) { $script:experimentalSidebarTabs = [bool]$saved.ExperimentalSidebarTabs }
         if ($saved.SpeedTestServer)              { $script:speedTestServer    = [string]$saved.SpeedTestServer }
         if ($saved.WindowGeometry) {
             $wg = $saved.WindowGeometry
@@ -453,6 +456,51 @@ foreach ($staleKey in @("AccentHover","SubText","WinCtrlFg","ScrollThumb","Input
     $script:themes["Custom"].Remove($staleKey)
 }
 
+# ── Sidebar tabs (experimental) ──────────────────────────────────
+function Apply-SidebarLayout {
+    $tc     = Find "MainTabControl"
+    $search = Find "GlobalSearchContainer"
+    if (-not $tc) { return }
+
+    $panelType  = [System.Windows.Controls.Primitives.TabPanel]
+    $panelStyle = New-Object System.Windows.Style($panelType)
+    $panelStyle.Setters.Add((New-Object System.Windows.Setter(
+        [System.Windows.FrameworkElement]::HorizontalAlignmentProperty,
+        [System.Windows.HorizontalAlignment]::Left)))
+
+    if ($script:experimentalSidebarTabs) {
+        $tc.TabStripPlacement  = [System.Windows.Controls.Dock]::Left
+        $tc.ItemContainerStyle = $window.FindResource("SidebarTabItem")
+        $tc.Margin  = [System.Windows.Thickness]::new(16, 8, 16, 8)
+        $tc.Padding = [System.Windows.Thickness]::new(8, 0, 0, 0)
+        # Push only the rail (TabPanel) down to clear the search box; content area stays anchored to the top
+        $panelStyle.Setters.Add((New-Object System.Windows.Setter(
+            [System.Windows.FrameworkElement]::MarginProperty,
+            [System.Windows.Thickness]::new(4, 48, 0, 8))))
+        if ($search) {
+            $search.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+            $search.Width  = 150
+            $search.Margin = [System.Windows.Thickness]::new(20, 14, 0, 0)
+        }
+    } else {
+        $tc.TabStripPlacement  = [System.Windows.Controls.Dock]::Top
+        $tc.ItemContainerStyle = $null
+        $tc.Margin  = [System.Windows.Thickness]::new(16, 8, 16, 8)
+        $tc.Padding = [System.Windows.Thickness]::new(0)
+        $panelStyle.Setters.Add((New-Object System.Windows.Setter(
+            [System.Windows.FrameworkElement]::MarginProperty,
+            [System.Windows.Thickness]::new(4, 4, 0, 8))))
+        if ($search) {
+            $search.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
+            $search.Width  = 260
+            $search.Margin = [System.Windows.Thickness]::new(0, 14, 20, 0)
+        }
+    }
+
+    # Cast strips the PSObject wrapper from New-Object's result so WPF can cast it to Style at template-expansion time
+    $tc.Resources[$panelType] = [System.Windows.Style]$panelStyle
+}
+
 # ── Tab visibility ────────────────────────────────────────────────
 function Apply-TabVisibility {
     $tc = Find "MainTabControl"
@@ -533,8 +581,10 @@ function Build-TabVisibilityList {
 (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
 (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
 (Find "ToggleRememberLocalInstallers").IsChecked = $script:rememberLocalInstallers
+(Find "ToggleSidebarTabs").IsChecked = $script:experimentalSidebarTabs
 Build-TabVisibilityList
 Apply-TabVisibility
+Apply-SidebarLayout
 $window.Dispatcher.BeginInvoke([action]{ Update-QuickInstalls }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
 # Apply the saved/default theme on startup
@@ -654,6 +704,10 @@ foreach ($colorKey in $script:customColorKeys) {
 # ── Remember window position toggle ──────────────────────────────
 (Find "ToggleRememberPosition").Add_Checked({   $script:rememberWindowPosition = $true;  Save-Settings })
 (Find "ToggleRememberPosition").Add_Unchecked({ $script:rememberWindowPosition = $false; Save-Settings })
+
+# ── Sidebar tabs (experimental) toggle ───────────────────────────
+(Find "ToggleSidebarTabs").Add_Checked({   $script:experimentalSidebarTabs = $true;  Save-Settings; Apply-SidebarLayout })
+(Find "ToggleSidebarTabs").Add_Unchecked({ $script:experimentalSidebarTabs = $false; Save-Settings; Apply-SidebarLayout })
 
 (Find "ToggleRememberCleanTargets").Add_Checked({   $script:rememberCleanTargets = $true;  Save-Settings })
 (Find "ToggleRememberCleanTargets").Add_Unchecked({ $script:rememberCleanTargets = $false; Save-Settings })
@@ -933,6 +987,7 @@ $btnInstallSelfUpdate.Add_Click({
             if ($null -ne $imported.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$imported.AutoCheckUpdates }
             if ($null -ne $imported.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$imported.AutoCheckSelfUpdate }
             if ($null -ne $imported.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$imported.RememberWindowPosition }
+            if ($null -ne $imported.ExperimentalSidebarTabs) { $script:experimentalSidebarTabs = [bool]$imported.ExperimentalSidebarTabs }
             if ($imported.SpeedTestServer)              { $script:speedTestServer    = [string]$imported.SpeedTestServer }
             if ($imported.CustomTheme) {
                 foreach ($prop in $imported.CustomTheme.PSObject.Properties) {
@@ -1004,7 +1059,9 @@ $btnInstallSelfUpdate.Add_Click({
             (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
             (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
             (Find "ToggleRememberLocalInstallers").IsChecked = $script:rememberLocalInstallers
+            (Find "ToggleSidebarTabs").IsChecked = $script:experimentalSidebarTabs
             (Find "ToggleUseWindowsAccent").IsChecked = $script:useWindowsAccent
+            Apply-SidebarLayout
             Apply-Theme $script:currentTheme
             Update-LocalInstallers
             Update-QuickInstalls
