@@ -3097,15 +3097,7 @@
                                             </DockPanel>
                                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button x:Name="BtnAdUserLookup"   Content="Lookup"
-                                                        Style="{StaticResource ActionButton}"   Margin="0,0,8,0"/>
-                                                <Button x:Name="BtnAdUserUnlock"   Content="Unlock"
-                                                        Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                                                <Button x:Name="BtnAdUserResetPwd" Content="Reset password"
-                                                        Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                                                <Button x:Name="BtnAdUserEnable"   Content="Enable"
-                                                        Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                                                <Button x:Name="BtnAdUserDisable"  Content="Disable"
-                                                        Style="{StaticResource SecondaryButton}"/>
+                                                        Style="{StaticResource ActionButton}"/>
                                             </StackPanel>
                                         </Grid>
 
@@ -3126,14 +3118,13 @@
                                             </Grid>
                                         </Border>
 
-                                        <TextBox x:Name="AdUserOutput"
-                                                 IsReadOnly="True" AcceptsReturn="True"
-                                                 TextWrapping="Wrap" Background="{DynamicResource InputBgBrush}"
-                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
-                                                 FontFamily="Consolas" FontSize="11"
-                                                 MinHeight="180" MaxHeight="360"
-                                                 VerticalScrollBarVisibility="Auto" Padding="8"
-                                                 Text="Enter a SAM, UPN, or name and click Lookup."/>
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="8" MinHeight="180">
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="360">
+                                                <StackPanel x:Name="AdUserPanel"/>
+                                            </ScrollViewer>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
                                 </StackPanel>
@@ -3184,14 +3175,13 @@
                                             </Grid>
                                         </Border>
 
-                                        <TextBox x:Name="AdGroupOutput"
-                                                 IsReadOnly="True" AcceptsReturn="True"
-                                                 TextWrapping="Wrap" Background="{DynamicResource InputBgBrush}"
-                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
-                                                 FontFamily="Consolas" FontSize="11"
-                                                 MinHeight="180" MaxHeight="360"
-                                                 VerticalScrollBarVisibility="Auto" Padding="8"
-                                                 Text="Enter a group name and click Lookup or List members."/>
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="8" MinHeight="180">
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="360">
+                                                <StackPanel x:Name="AdGroupPanel"/>
+                                            </ScrollViewer>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
                                 </StackPanel>
@@ -3219,11 +3209,7 @@
                                             </DockPanel>
                                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button x:Name="BtnAdComputerLookup"  Content="Lookup"
-                                                        Style="{StaticResource ActionButton}"   Margin="0,0,8,0"/>
-                                                <Button x:Name="BtnAdComputerEnable"  Content="Enable"
-                                                        Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                                                <Button x:Name="BtnAdComputerDisable" Content="Disable"
-                                                        Style="{StaticResource SecondaryButton}"/>
+                                                        Style="{StaticResource ActionButton}"/>
                                             </StackPanel>
                                         </Grid>
 
@@ -3244,14 +3230,13 @@
                                             </Grid>
                                         </Border>
 
-                                        <TextBox x:Name="AdComputerOutput"
-                                                 IsReadOnly="True" AcceptsReturn="True"
-                                                 TextWrapping="Wrap" Background="{DynamicResource InputBgBrush}"
-                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
-                                                 FontFamily="Consolas" FontSize="11"
-                                                 MinHeight="180" MaxHeight="360"
-                                                 VerticalScrollBarVisibility="Auto" Padding="8"
-                                                 Text="Enter a computer name and click Lookup."/>
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="8" MinHeight="180">
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="360">
+                                                <StackPanel x:Name="AdComputerPanel"/>
+                                            </ScrollViewer>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
                                 </StackPanel>
@@ -3287,15 +3272,19 @@
                                                    FontSize="11" Foreground="{DynamicResource MutedText}"
                                                    Margin="0,0,0,10" TextWrapping="Wrap"/>
 
-                                        <TextBox x:Name="AdOuOutput"
-                                                 IsReadOnly="True" AcceptsReturn="True"
-                                                 TextWrapping="NoWrap" Background="{DynamicResource InputBgBrush}"
-                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
-                                                 FontFamily="Consolas" FontSize="11"
-                                                 MinHeight="240" MaxHeight="480"
-                                                 HorizontalScrollBarVisibility="Auto"
-                                                 VerticalScrollBarVisibility="Auto" Padding="8"
-                                                 Text="Click Refresh to list organizational units."/>
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="0">
+                                            <TextBox x:Name="AdOuOutput"
+                                                     IsReadOnly="True" AcceptsReturn="True"
+                                                     TextWrapping="NoWrap" Background="Transparent"
+                                                     Foreground="{DynamicResource FgBrush}" BorderThickness="0"
+                                                     FontFamily="Consolas" FontSize="11"
+                                                     MinHeight="240" MaxHeight="480"
+                                                     HorizontalScrollBarVisibility="Auto"
+                                                     VerticalScrollBarVisibility="Auto" Padding="8"
+                                                     Text="Click Refresh to list organizational units."/>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
                                 </StackPanel>
@@ -3334,20 +3323,25 @@
                                                     Style="{StaticResource ActionButton}" Margin="0,0,8,8"/>
                                             <Button x:Name="BtnAdWhoami"     Content="whoami"
                                                     Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
-                                            <Button x:Name="BtnAdKlist"      Content="klist"
-                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
-                                            <Button x:Name="BtnAdNltest"     Content="nltest /dsgetdc"
-                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
                                         </WrapPanel>
 
-                                        <TextBox x:Name="AdDomainOutput"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="8" MinHeight="220">
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="440">
+                                                <StackPanel x:Name="AdDomainPanel"/>
+                                            </ScrollViewer>
+                                        </Border>
+
+                                        <TextBox x:Name="AdShellOutput"
                                                  IsReadOnly="True" AcceptsReturn="True"
                                                  TextWrapping="Wrap" Background="{DynamicResource InputBgBrush}"
-                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
+                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="1"
+                                                 BorderBrush="{DynamicResource BorderBrush}"
                                                  FontFamily="Consolas" FontSize="11"
                                                  MinHeight="220" MaxHeight="440"
                                                  VerticalScrollBarVisibility="Auto" Padding="8"
-                                                 Text="Pick an action to inspect domain or DC info."/>
+                                                 Visibility="Collapsed"/>
                                     </StackPanel>
                                 </Border>
                                 </StackPanel>

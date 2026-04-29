@@ -479,6 +479,7 @@ function Show-ThemedDialog {
 # ══════════════════════════════════════════════════════════════════
 $script:splashStatus = "Loading packages"
 Pump-Splash
+. (Join-Path $PSScriptRoot "Helpers\Helpers-Cards.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Updates.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Installs.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Uninstall.ps1")

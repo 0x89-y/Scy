@@ -62,11 +62,11 @@ function Build-GlobalSearchIndex {
     $items.Add(@{ Name = "SSH";             Description = "SSH key management";                       Category = "Network"; TabIndex = 4; SubNavIndex = 4 })
 
     $items.Add(@{ Name = "Active Directory"; Description = "AD users, groups, computers, OUs & domain";       Category = "Tabs"; TabIndex = 5; SubNavIndex = $null })
-    $items.Add(@{ Name = "AD Users";         Description = "Look up users, unlock, reset password, enable/disable"; Category = "Active Directory"; TabIndex = 5; SubNavIndex = 0 })
+    $items.Add(@{ Name = "AD Users";         Description = "Look up users by SAM, UPN, or display name";    Category = "Active Directory"; TabIndex = 5; SubNavIndex = 0 })
     $items.Add(@{ Name = "AD Groups";        Description = "Look up groups and list members";                Category = "Active Directory"; TabIndex = 5; SubNavIndex = 1 })
     $items.Add(@{ Name = "AD Computers";     Description = "Look up computer accounts";                      Category = "Active Directory"; TabIndex = 5; SubNavIndex = 2 })
     $items.Add(@{ Name = "AD OUs";           Description = "Browse organizational units";                    Category = "Active Directory"; TabIndex = 5; SubNavIndex = 3 })
-    $items.Add(@{ Name = "Domain Info";      Description = "Domain, forest, DCs, FSMO, whoami, klist";       Category = "Active Directory"; TabIndex = 5; SubNavIndex = 4 })
+    $items.Add(@{ Name = "Domain Info";      Description = "Domain, forest, DCs, FSMO, whoami";             Category = "Active Directory"; TabIndex = 5; SubNavIndex = 4 })
 
     $items.Add(@{ Name = "Tools";     Description = "QR code, notes, export, hashing & password generator"; Category = "Tabs"; TabIndex = 6; SubNavIndex = $null })
     $items.Add(@{ Name = "QR Code";         Description = "Generate QR codes";                        Category = "Tools"; TabIndex = 6; SubNavIndex = 0 })
