@@ -61,18 +61,25 @@ function Build-GlobalSearchIndex {
     $items.Add(@{ Name = "DNS";             Description = "Change DNS servers";                       Category = "Network"; TabIndex = 4; SubNavIndex = 3 })
     $items.Add(@{ Name = "SSH";             Description = "SSH key management";                       Category = "Network"; TabIndex = 4; SubNavIndex = 4 })
 
-    $items.Add(@{ Name = "Tools";     Description = "QR code, notes, export, hashing & password generator"; Category = "Tabs"; TabIndex = 5; SubNavIndex = $null })
-    $items.Add(@{ Name = "QR Code";         Description = "Generate QR codes";                        Category = "Tools"; TabIndex = 5; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Notes";           Description = "Quick notes and scratchpad";               Category = "Tools"; TabIndex = 5; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Export";          Description = "Export system report";                      Category = "Tools"; TabIndex = 5; SubNavIndex = 2 })
-    $items.Add(@{ Name = "File Hashing";      Description = "MD5/SHA1/SHA256 hashes, compare & verify";        Category = "Tools"; TabIndex = 5; SubNavIndex = 3 })
-    $items.Add(@{ Name = "Password Generator"; Description = "Generate secure passwords with custom rules";     Category = "Tools"; TabIndex = 5; SubNavIndex = 4 })
+    $items.Add(@{ Name = "Active Directory"; Description = "AD users, groups, computers, OUs & domain";       Category = "Tabs"; TabIndex = 5; SubNavIndex = $null })
+    $items.Add(@{ Name = "AD Users";         Description = "Look up users, unlock, reset password, enable/disable"; Category = "Active Directory"; TabIndex = 5; SubNavIndex = 0 })
+    $items.Add(@{ Name = "AD Groups";        Description = "Look up groups and list members";                Category = "Active Directory"; TabIndex = 5; SubNavIndex = 1 })
+    $items.Add(@{ Name = "AD Computers";     Description = "Look up computer accounts";                      Category = "Active Directory"; TabIndex = 5; SubNavIndex = 2 })
+    $items.Add(@{ Name = "AD OUs";           Description = "Browse organizational units";                    Category = "Active Directory"; TabIndex = 5; SubNavIndex = 3 })
+    $items.Add(@{ Name = "Domain Info";      Description = "Domain, forest, DCs, FSMO, whoami, klist";       Category = "Active Directory"; TabIndex = 5; SubNavIndex = 4 })
 
-    $items.Add(@{ Name = "Settings";  Description = "App settings, themes & backup";                  Category = "Tabs"; TabIndex = 6; SubNavIndex = $null })
-    $items.Add(@{ Name = "General Settings";    Description = "General app preferences";              Category = "Settings"; TabIndex = 6; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Appearance";          Description = "Theme and color settings";             Category = "Settings"; TabIndex = 6; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Groups";              Description = "Manage quick install groups";          Category = "Settings"; TabIndex = 6; SubNavIndex = 2 })
-    $items.Add(@{ Name = "Backup & Restore";    Description = "Backup and restore settings";         Category = "Settings"; TabIndex = 6; SubNavIndex = 3 })
+    $items.Add(@{ Name = "Tools";     Description = "QR code, notes, export, hashing & password generator"; Category = "Tabs"; TabIndex = 6; SubNavIndex = $null })
+    $items.Add(@{ Name = "QR Code";         Description = "Generate QR codes";                        Category = "Tools"; TabIndex = 6; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Notes";           Description = "Quick notes and scratchpad";               Category = "Tools"; TabIndex = 6; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Export";          Description = "Export system report";                      Category = "Tools"; TabIndex = 6; SubNavIndex = 2 })
+    $items.Add(@{ Name = "File Hashing";      Description = "MD5/SHA1/SHA256 hashes, compare & verify";        Category = "Tools"; TabIndex = 6; SubNavIndex = 3 })
+    $items.Add(@{ Name = "Password Generator"; Description = "Generate secure passwords with custom rules";     Category = "Tools"; TabIndex = 6; SubNavIndex = 4 })
+
+    $items.Add(@{ Name = "Settings";  Description = "App settings, themes & backup";                  Category = "Tabs"; TabIndex = 7; SubNavIndex = $null })
+    $items.Add(@{ Name = "General Settings";    Description = "General app preferences";              Category = "Settings"; TabIndex = 7; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Appearance";          Description = "Theme and color settings";             Category = "Settings"; TabIndex = 7; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Groups";              Description = "Manage quick install groups";          Category = "Settings"; TabIndex = 7; SubNavIndex = 2 })
+    $items.Add(@{ Name = "Backup & Restore";    Description = "Backup and restore settings";         Category = "Settings"; TabIndex = 7; SubNavIndex = 3 })
 
     # -- Curated Quick Install apps (visible only) --
     if ($script:curatedApps) {
@@ -154,8 +161,9 @@ function Navigate-ToResult {
             2 { Set-SystemSubNav    $Item.SubNavIndex }
             3 { Set-BookmarksSubNav $Item.SubNavIndex }
             4 { Set-NetSubNav       $Item.SubNavIndex }
-            5 { Set-ToolsSubNav     $Item.SubNavIndex }
-            6 { Set-SettingsSubNav  $Item.SubNavIndex }
+            5 { Set-AdSubNav        $Item.SubNavIndex }
+            6 { Set-ToolsSubNav     $Item.SubNavIndex }
+            7 { Set-SettingsSubNav  $Item.SubNavIndex }
         }
     }
 

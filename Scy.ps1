@@ -496,6 +496,7 @@ $script:splashStatus = "Loading network"
 Pump-Splash
 . (Join-Path $PSScriptRoot "Tabs\Tab-RegBookmarks.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Network.ps1")
+. (Join-Path $PSScriptRoot "Tabs\Tab-ActiveDirectory.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-Hosts.ps1")
 . (Join-Path $PSScriptRoot "Tabs\Tab-SSH.ps1")
 . (Join-Path $PSScriptRoot "Tabs\QRCode.ps1")

@@ -3020,6 +3020,345 @@
                 </Border>
             </TabItem>
 
+            <!-- ─── Active Directory ─── -->
+            <TabItem Header="Active Directory (WIP)">
+                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Status banner (visible only when AD module / DC missing) -->
+                        <Border x:Name="AdStatusBanner" Grid.Row="0"
+                                Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                Padding="12,10" Margin="0,0,0,12" Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Width="3" CornerRadius="2"
+                                        Background="{DynamicResource WarningBrush}"
+                                        Margin="0,0,10,0" VerticalAlignment="Stretch"/>
+                                <TextBlock x:Name="AdStatusBannerText" Grid.Column="1"
+                                           Text="Active Directory module not detected."
+                                           Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                           VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button x:Name="BtnAdInstallRsat" Content="Install RSAT"
+                                            Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnAdRecheck" Content="Recheck"
+                                            Style="{StaticResource SecondaryButton}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- AD sub-navigation -->
+                        <StackPanel x:Name="AdSubNav" Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16">
+                            <Button x:Name="AdNav_Users"     Content="Users"
+                                    Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="AdNav_Groups"    Content="Groups"
+                                    Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="AdNav_Computers" Content="Computers"
+                                    Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="AdNav_OUs"       Content="OUs"
+                                    Style="{StaticResource SubNavButton}"/>
+                            <Button x:Name="AdNav_Domain"    Content="Domain"
+                                    Style="{StaticResource SubNavButton}"/>
+                        </StackPanel>
+
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+
+                                <!-- Users section -->
+                                <Border x:Name="AdSection_Users">
+                                <StackPanel>
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="16,14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <DockPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock Text="User lookup"
+                                                           FontSize="14" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button x:Name="BtnAdUserLookup"   Content="Lookup"
+                                                        Style="{StaticResource ActionButton}"   Margin="0,0,8,0"/>
+                                                <Button x:Name="BtnAdUserUnlock"   Content="Unlock"
+                                                        Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                                                <Button x:Name="BtnAdUserResetPwd" Content="Reset password"
+                                                        Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                                                <Button x:Name="BtnAdUserEnable"   Content="Enable"
+                                                        Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                                                <Button x:Name="BtnAdUserDisable"  Content="Disable"
+                                                        Style="{StaticResource SecondaryButton}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="10,0" Margin="0,0,0,10" Height="34">
+                                            <Grid>
+                                                <TextBlock x:Name="AdUserSearchPlaceholder"
+                                                           Text="SAM, UPN, or display name (e.g. jsmith)"
+                                                           Foreground="{DynamicResource MutedText}"
+                                                           VerticalAlignment="Center" FontSize="12"
+                                                           IsHitTestVisible="False"/>
+                                                <TextBox x:Name="AdUserSearchBox"
+                                                         Background="Transparent" BorderThickness="0"
+                                                         Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                         VerticalAlignment="Center"
+                                                         CaretBrush="{DynamicResource FgBrush}"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <TextBox x:Name="AdUserOutput"
+                                                 IsReadOnly="True" AcceptsReturn="True"
+                                                 TextWrapping="Wrap" Background="{DynamicResource InputBgBrush}"
+                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
+                                                 FontFamily="Consolas" FontSize="11"
+                                                 MinHeight="180" MaxHeight="360"
+                                                 VerticalScrollBarVisibility="Auto" Padding="8"
+                                                 Text="Enter a SAM, UPN, or name and click Lookup."/>
+                                    </StackPanel>
+                                </Border>
+                                </StackPanel>
+                                </Border>
+
+                                <!-- Groups section -->
+                                <Border x:Name="AdSection_Groups" Visibility="Collapsed">
+                                <StackPanel>
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="16,14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <DockPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock Text="Group lookup"
+                                                           FontSize="14" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button x:Name="BtnAdGroupLookup"      Content="Lookup"
+                                                        Style="{StaticResource ActionButton}"   Margin="0,0,8,0"/>
+                                                <Button x:Name="BtnAdGroupListMembers" Content="List members"
+                                                        Style="{StaticResource SecondaryButton}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="10,0" Margin="0,0,0,10" Height="34">
+                                            <Grid>
+                                                <TextBlock x:Name="AdGroupSearchPlaceholder"
+                                                           Text="Group name (e.g. Domain Admins)"
+                                                           Foreground="{DynamicResource MutedText}"
+                                                           VerticalAlignment="Center" FontSize="12"
+                                                           IsHitTestVisible="False"/>
+                                                <TextBox x:Name="AdGroupSearchBox"
+                                                         Background="Transparent" BorderThickness="0"
+                                                         Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                         VerticalAlignment="Center"
+                                                         CaretBrush="{DynamicResource FgBrush}"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <TextBox x:Name="AdGroupOutput"
+                                                 IsReadOnly="True" AcceptsReturn="True"
+                                                 TextWrapping="Wrap" Background="{DynamicResource InputBgBrush}"
+                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
+                                                 FontFamily="Consolas" FontSize="11"
+                                                 MinHeight="180" MaxHeight="360"
+                                                 VerticalScrollBarVisibility="Auto" Padding="8"
+                                                 Text="Enter a group name and click Lookup or List members."/>
+                                    </StackPanel>
+                                </Border>
+                                </StackPanel>
+                                </Border>
+
+                                <!-- Computers section -->
+                                <Border x:Name="AdSection_Computers" Visibility="Collapsed">
+                                <StackPanel>
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="16,14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <DockPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock Text="Computer lookup"
+                                                           FontSize="14" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button x:Name="BtnAdComputerLookup"  Content="Lookup"
+                                                        Style="{StaticResource ActionButton}"   Margin="0,0,8,0"/>
+                                                <Button x:Name="BtnAdComputerEnable"  Content="Enable"
+                                                        Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                                                <Button x:Name="BtnAdComputerDisable" Content="Disable"
+                                                        Style="{StaticResource SecondaryButton}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="10,0" Margin="0,0,0,10" Height="34">
+                                            <Grid>
+                                                <TextBlock x:Name="AdComputerSearchPlaceholder"
+                                                           Text="Computer name (e.g. WS-001)"
+                                                           Foreground="{DynamicResource MutedText}"
+                                                           VerticalAlignment="Center" FontSize="12"
+                                                           IsHitTestVisible="False"/>
+                                                <TextBox x:Name="AdComputerSearchBox"
+                                                         Background="Transparent" BorderThickness="0"
+                                                         Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                         VerticalAlignment="Center"
+                                                         CaretBrush="{DynamicResource FgBrush}"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <TextBox x:Name="AdComputerOutput"
+                                                 IsReadOnly="True" AcceptsReturn="True"
+                                                 TextWrapping="Wrap" Background="{DynamicResource InputBgBrush}"
+                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
+                                                 FontFamily="Consolas" FontSize="11"
+                                                 MinHeight="180" MaxHeight="360"
+                                                 VerticalScrollBarVisibility="Auto" Padding="8"
+                                                 Text="Enter a computer name and click Lookup."/>
+                                    </StackPanel>
+                                </Border>
+                                </StackPanel>
+                                </Border>
+
+                                <!-- OUs section -->
+                                <Border x:Name="AdSection_OUs" Visibility="Collapsed">
+                                <StackPanel>
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="16,14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <DockPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock Text="Organizational units"
+                                                           FontSize="14" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Button x:Name="BtnAdOuRefresh" Content="Refresh"
+                                                        Style="{StaticResource ActionButton}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <TextBlock Text="Indented tree of OUs in the current domain. Click Refresh to load."
+                                                   FontSize="11" Foreground="{DynamicResource MutedText}"
+                                                   Margin="0,0,0,10" TextWrapping="Wrap"/>
+
+                                        <TextBox x:Name="AdOuOutput"
+                                                 IsReadOnly="True" AcceptsReturn="True"
+                                                 TextWrapping="NoWrap" Background="{DynamicResource InputBgBrush}"
+                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
+                                                 FontFamily="Consolas" FontSize="11"
+                                                 MinHeight="240" MaxHeight="480"
+                                                 HorizontalScrollBarVisibility="Auto"
+                                                 VerticalScrollBarVisibility="Auto" Padding="8"
+                                                 Text="Click Refresh to list organizational units."/>
+                                    </StackPanel>
+                                </Border>
+                                </StackPanel>
+                                </Border>
+
+                                <!-- Domain section -->
+                                <Border x:Name="AdSection_Domain" Visibility="Collapsed">
+                                <StackPanel>
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="16,14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <DockPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock Text="Domain and DC info"
+                                                           FontSize="14" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                        </Grid>
+
+                                        <WrapPanel Margin="0,0,0,10">
+                                            <Button x:Name="BtnAdDomainInfo" Content="Domain"
+                                                    Style="{StaticResource ActionButton}" Margin="0,0,8,8"/>
+                                            <Button x:Name="BtnAdForestInfo" Content="Forest"
+                                                    Style="{StaticResource ActionButton}" Margin="0,0,8,8"/>
+                                            <Button x:Name="BtnAdDcList"     Content="Domain controllers"
+                                                    Style="{StaticResource ActionButton}" Margin="0,0,8,8"/>
+                                            <Button x:Name="BtnAdFsmo"       Content="FSMO roles"
+                                                    Style="{StaticResource ActionButton}" Margin="0,0,8,8"/>
+                                            <Button x:Name="BtnAdWhoami"     Content="whoami"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                                            <Button x:Name="BtnAdKlist"      Content="klist"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                                            <Button x:Name="BtnAdNltest"     Content="nltest /dsgetdc"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
+                                        </WrapPanel>
+
+                                        <TextBox x:Name="AdDomainOutput"
+                                                 IsReadOnly="True" AcceptsReturn="True"
+                                                 TextWrapping="Wrap" Background="{DynamicResource InputBgBrush}"
+                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
+                                                 FontFamily="Consolas" FontSize="11"
+                                                 MinHeight="220" MaxHeight="440"
+                                                 VerticalScrollBarVisibility="Auto" Padding="8"
+                                                 Text="Pick an action to inspect domain or DC info."/>
+                                    </StackPanel>
+                                </Border>
+                                </StackPanel>
+                                </Border>
+
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </TabItem>
+
             <!-- ─── Tools ─── -->
             <TabItem Header="Tools">
                 <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
