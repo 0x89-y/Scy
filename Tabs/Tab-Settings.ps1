@@ -462,21 +462,12 @@ function Apply-SidebarLayout {
     $search = Find "GlobalSearchContainer"
     if (-not $tc) { return }
 
-    $panelType  = [System.Windows.Controls.Primitives.TabPanel]
-    $panelStyle = New-Object System.Windows.Style($panelType)
-    $panelStyle.Setters.Add((New-Object System.Windows.Setter(
-        [System.Windows.FrameworkElement]::HorizontalAlignmentProperty,
-        [System.Windows.HorizontalAlignment]::Left)))
-
     if ($script:experimentalSidebarTabs) {
         $tc.TabStripPlacement  = [System.Windows.Controls.Dock]::Left
         $tc.ItemContainerStyle = $window.FindResource("SidebarTabItem")
-        $tc.Margin  = [System.Windows.Thickness]::new(16, 8, 16, 8)
-        $tc.Padding = [System.Windows.Thickness]::new(8, 0, 0, 0)
-        # Push only the rail (TabPanel) down to clear the search box; content area stays anchored to the top
-        $panelStyle.Setters.Add((New-Object System.Windows.Setter(
-            [System.Windows.FrameworkElement]::MarginProperty,
-            [System.Windows.Thickness]::new(4, 48, 0, 8))))
+        $tc.Margin    = [System.Windows.Thickness]::new(16, 8, 16, 8)
+        $tc.Padding   = [System.Windows.Thickness]::new(8, 0, 0, 0)
+        $headerMargin = [System.Windows.Thickness]::new(4, 48, 0, 8)
         if ($search) {
             $search.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
             $search.Width  = 150
@@ -485,11 +476,9 @@ function Apply-SidebarLayout {
     } else {
         $tc.TabStripPlacement  = [System.Windows.Controls.Dock]::Top
         $tc.ItemContainerStyle = $null
-        $tc.Margin  = [System.Windows.Thickness]::new(16, 8, 16, 8)
-        $tc.Padding = [System.Windows.Thickness]::new(0)
-        $panelStyle.Setters.Add((New-Object System.Windows.Setter(
-            [System.Windows.FrameworkElement]::MarginProperty,
-            [System.Windows.Thickness]::new(4, 4, 0, 8))))
+        $tc.Margin    = [System.Windows.Thickness]::new(16, 8, 16, 8)
+        $tc.Padding   = [System.Windows.Thickness]::new(0)
+        $headerMargin = [System.Windows.Thickness]::new(4, 4, 0, 8)
         if ($search) {
             $search.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
             $search.Width  = 260
@@ -497,8 +486,15 @@ function Apply-SidebarLayout {
         }
     }
 
-    # Cast strips the PSObject wrapper from New-Object's result so WPF can cast it to Style at template-expansion time
-    $tc.Resources[$panelType] = [System.Windows.Style]$panelStyle
+    # Reach into the default TabControl template and set the inner TabPanel's margin directly.
+    # The previous Resources/Style approach didn't apply because PowerShell's PSObject wrapping
+    # of Setter values prevents WPF from casting them to Thickness at apply time.
+    $tc.ApplyTemplate() | Out-Null
+    $headerPanel = $tc.Template.FindName('HeaderPanel', $tc)
+    if ($headerPanel) {
+        $headerPanel.Margin              = $headerMargin
+        $headerPanel.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+    }
 }
 
 # ── Tab visibility ────────────────────────────────────────────────

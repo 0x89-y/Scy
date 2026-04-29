@@ -659,12 +659,6 @@
 
         <TabControl x:Name="MainTabControl" Background="Transparent" BorderThickness="0"
                     Margin="16,8,16,8" Padding="0">
-            <TabControl.Resources>
-                <Style TargetType="TabPanel">
-                    <Setter Property="HorizontalAlignment" Value="Left"/>
-                    <Setter Property="Margin" Value="4,4,0,8"/>
-                </Style>
-            </TabControl.Resources>
 
 
             <!-- ─── Packages (Install + Uninstall) ─── -->
@@ -1374,6 +1368,7 @@
                             <Button x:Name="BtnHardwareInfo" Content="Hardware"    Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                             <Button x:Name="BtnDriveInfo"    Content="Drives"      Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                             <Button x:Name="BtnNetworkInfo"  Content="Network"     Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                            <Button x:Name="BtnExecPolicy"   Content="PS policy"   Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                             <Button x:Name="BtnSysInfo"      Content="Refresh all" Style="{StaticResource ActionButton}"/>
                         </StackPanel>
 
@@ -1454,6 +1449,18 @@
                                                     <TextBlock Text="Uptime" Foreground="{DynamicResource MutedText}" FontSize="12"/>
                                                     <TextBlock x:Name="SysUptime" Grid.Column="1" HorizontalAlignment="Right"
                                                                FontSize="12" Foreground="{DynamicResource SuccessBrush}"
+                                                               TextAlignment="Right" Text="-"/>
+                                                </Grid>
+                                            </Border>
+                                            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="90"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="PS policy" Foreground="{DynamicResource MutedText}" FontSize="12"/>
+                                                    <TextBlock x:Name="SysExecPolicy" Grid.Column="1" HorizontalAlignment="Right"
+                                                               FontSize="12" Foreground="{DynamicResource MutedText}"
                                                                TextAlignment="Right" Text="-"/>
                                                 </Grid>
                                             </Border>

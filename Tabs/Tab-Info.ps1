@@ -39,11 +39,12 @@ $systemNavFirmware.Add_Click({ Set-SystemSubNav 3 })
 $systemNavSfcDism.Add_Click({  Set-SystemSubNav 4 })
 
 # -- System Info Tab ----------------------------------------------------------
-$sysOS       = Find "SysOS"
-$sysBuild    = Find "SysBuild"
-$sysComputer = Find "SysComputer"
-$sysUser     = Find "SysUser"
-$sysUptime   = Find "SysUptime"
+$sysOS         = Find "SysOS"
+$sysBuild      = Find "SysBuild"
+$sysComputer   = Find "SysComputer"
+$sysUser       = Find "SysUser"
+$sysUptime     = Find "SysUptime"
+$sysExecPolicy = Find "SysExecPolicy"
 $hwCPU       = Find "HwCPU"
 $hwCores     = Find "HwCores"
 $hwRAM       = Find "HwRAM"
@@ -385,11 +386,50 @@ function Populate-SysInfo {
         } | Out-Null
 }
 
-(Find "BtnSysInfo").Add_Click({      Populate-SysInfo      })
+# Shows the persistent PS execution policy (skips the Process scope, which is whatever Scy was launched with).
+# Tooltip lists all scopes for full context.
+function Populate-ExecPolicy {
+    try {
+        $list = Get-ExecutionPolicy -List
+        $persistent      = $null
+        $persistentScope = $null
+        foreach ($entry in $list) {
+            $scopeStr = [string]$entry.Scope
+            if ($scopeStr -eq 'Process') { continue }
+            $polStr = [string]$entry.ExecutionPolicy
+            if ($polStr -ne 'Undefined') {
+                $persistent      = $polStr
+                $persistentScope = $scopeStr
+                break
+            }
+        }
+        if (-not $persistent) {
+            $persistent      = 'Restricted'   # implicit default when every persistent scope is Undefined
+            $persistentScope = 'default'
+        }
+        $sysExecPolicy.Text    = "$persistent ($persistentScope)"
+        $sysExecPolicy.ToolTip = ($list | ForEach-Object { '{0,-15} {1}' -f $_.Scope, $_.ExecutionPolicy }) -join "`n"
+        $brushKey = switch ($persistent) {
+            'Restricted'    { 'SuccessBrush' }
+            'AllSigned'     { 'SuccessBrush' }
+            'RemoteSigned'  { 'FgBrush' }
+            'Unrestricted'  { 'WarningBrush' }
+            'Bypass'        { 'DangerBrush' }
+            default         { 'FgBrush' }
+        }
+        $sysExecPolicy.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $brushKey)
+    } catch {
+        $sysExecPolicy.Text = 'Error'
+        $sysExecPolicy.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, 'DangerBrush')
+    }
+}
+
+(Find "BtnSysInfo").Add_Click({      Populate-SysInfo; Populate-ExecPolicy })
 (Find "BtnOSInfo").Add_Click({       Populate-OSInfo       })
 (Find "BtnHardwareInfo").Add_Click({ Populate-HardwareInfo })
 (Find "BtnDriveInfo").Add_Click({    Populate-DriveInfo    })
 (Find "BtnNetworkInfo").Add_Click({  Populate-NetInfo      })
+(Find "BtnExecPolicy").Add_Click({   Populate-ExecPolicy   })
 
 # ── Copy all hardware info button ─────────────────────────────────
 $btnCopyHw     = Find "BtnCopyHardware"
