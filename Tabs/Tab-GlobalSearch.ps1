@@ -80,6 +80,7 @@ function Build-GlobalSearchIndex {
     $items.Add(@{ Name = "Appearance";          Description = "Theme and color settings";             Category = "Settings"; TabIndex = 7; SubNavIndex = 1 })
     $items.Add(@{ Name = "Groups";              Description = "Manage quick install groups";          Category = "Settings"; TabIndex = 7; SubNavIndex = 2 })
     $items.Add(@{ Name = "Backup & Restore";    Description = "Backup and restore settings";         Category = "Settings"; TabIndex = 7; SubNavIndex = 3 })
+    $items.Add(@{ Name = "Sidebar Tabs";        Description = "Show tabs as a vertical left rail (experimental)"; Category = "Settings"; TabIndex = 7; SubNavIndex = 0 })
 
     # -- Curated Quick Install apps (visible only) --
     if ($script:curatedApps) {

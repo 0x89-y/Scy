@@ -513,6 +513,45 @@ function Apply-TabVisibility {
     }
 }
 
+function Apply-TabContextMenus {
+    $tc = Find "MainTabControl"
+    if (-not $tc) { return }
+    foreach ($item in $tc.Items) {
+        $header = [string]$item.Header
+        if ($header -eq "Settings") { continue }
+        if ($item.ContextMenu) { continue }
+
+        $menu = New-Object System.Windows.Controls.ContextMenu
+        $hide = New-Object System.Windows.Controls.MenuItem
+        $hide.Header = "Hide tab"
+        $hide.Tag    = $header
+        $hide.Add_Click({
+            param($s, $e)
+            $h = [string]$s.Tag
+            if (-not ($script:hiddenTabs -contains $h)) { $script:hiddenTabs.Add($h) | Out-Null }
+            Save-Settings
+            Apply-TabVisibility
+            Build-TabVisibilityList
+            if (Get-Command Update-GlobalSearchIndex -ErrorAction SilentlyContinue) { Update-GlobalSearchIndex }
+        })
+        $menu.Items.Add($hide) | Out-Null
+        $item.ContextMenu = $menu
+
+        # Only open the menu when the click actually landed on the tab header,
+        # not on the tab's body content (which inherits ContextMenu via the logical tree).
+        $item.Add_ContextMenuOpening({
+            param($s, $e)
+            $hit = [System.Windows.Input.Mouse]::DirectlyOver -as [System.Windows.DependencyObject]
+            $inHeader = $false
+            while ($hit) {
+                if ($hit -is [System.Windows.Controls.Primitives.TabPanel]) { $inHeader = $true; break }
+                $hit = [System.Windows.Media.VisualTreeHelper]::GetParent($hit)
+            }
+            if (-not $inHeader) { $e.Handled = $true }
+        })
+    }
+}
+
 function Build-TabVisibilityList {
     $list = Find "TabVisibilityList"
     $tc   = Find "MainTabControl"
@@ -580,6 +619,7 @@ function Build-TabVisibilityList {
 (Find "ToggleSidebarTabs").IsChecked = $script:experimentalSidebarTabs
 Build-TabVisibilityList
 Apply-TabVisibility
+Apply-TabContextMenus
 Apply-SidebarLayout
 $window.Dispatcher.BeginInvoke([action]{ Update-QuickInstalls }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
