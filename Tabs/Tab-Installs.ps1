@@ -1141,6 +1141,130 @@ function Update-QuickInstalls {
                     Update-QuickInstallSelectedState
                 }.GetNewClosure()))
 
+                # ── Right-click context menu ──────────────────────────
+                $ctxMenu = New-Object System.Windows.Controls.ContextMenu
+
+                # Hide (curated) / Remove (user)
+                $hideMi = New-Object System.Windows.Controls.MenuItem
+                $hideMi.Header = if ($qi.IsCurated) { "Hide" } else { "Remove" }
+                $hideMi.Tag    = $qi
+                $hideMi.Add_Click({
+                    param($s, $e)
+                    $app = $s.Tag
+                    if ($app.IsCurated) {
+                        if ([string]$app.Id -notin $script:hiddenCuratedApps) {
+                            $script:hiddenCuratedApps.Add([string]$app.Id)
+                            Save-Settings
+                            Update-QuickInstalls
+                        }
+                    } else {
+                        for ($i = 0; $i -lt $script:quickInstalls.Count; $i++) {
+                            if ($script:quickInstalls[$i].Id -eq $app.Id) {
+                                $script:quickInstalls.RemoveAt($i)
+                                Save-Settings
+                                Update-QuickInstalls
+                                break
+                            }
+                        }
+                    }
+                })
+                $ctxMenu.Items.Add($hideMi) | Out-Null
+
+                # Change category (user apps only — curated have fixed categories)
+                if (-not $qi.IsCurated) {
+                    $liveQi = $null
+                    foreach ($lc in $script:quickInstalls) {
+                        if ($lc.Id -eq $qi.Id) { $liveQi = $lc; break }
+                    }
+                    if ($liveQi) {
+                        $catSub = New-Object System.Windows.Controls.MenuItem
+                        $catSub.Header = "Change category"
+                        foreach ($cat in (Get-AllQuickCategories)) {
+                            $cmi = New-Object System.Windows.Controls.MenuItem
+                            $cmi.Header    = $cat
+                            $cmi.IsEnabled = ($liveQi.Category -ne $cat)
+                            $cmi.Tag       = @{ LiveQi = $liveQi; Category = $cat }
+                            $cmi.Add_Click({
+                                param($s, $e)
+                                $s.Tag.LiveQi.Category = $s.Tag.Category
+                                Save-Settings
+                                Update-QuickInstalls
+                            })
+                            $catSub.Items.Add($cmi) | Out-Null
+                        }
+                        $newCatMi = New-Object System.Windows.Controls.MenuItem
+                        $newCatMi.Header = "+ New category..."
+                        $newCatMi.Tag    = $liveQi
+                        $newCatMi.Add_Click({
+                            param($s, $e)
+                            Ensure-VisualBasic
+                            $g = [Microsoft.VisualBasic.Interaction]::InputBox("Category name:", "New Category", "")
+                            if (-not [string]::IsNullOrWhiteSpace($g)) {
+                                $g = $g.Trim()
+                                if ($g -notin (Get-AllQuickCategories)) {
+                                    $script:customInstallCategories.Add($g)
+                                    if (Get-Command Render-GroupSettings -ErrorAction SilentlyContinue) { Render-GroupSettings }
+                                }
+                                $s.Tag.Category = $g
+                                Save-Settings
+                                Update-QuickInstalls
+                            }
+                        })
+                        $catSub.Items.Add($newCatMi) | Out-Null
+                        $ctxMenu.Items.Add($catSub) | Out-Null
+                    }
+                }
+
+                # Add to bundle
+                $bundleSub = New-Object System.Windows.Controls.MenuItem
+                $bundleSub.Header = "Add to bundle"
+                if ($script:quickBundles.Count -eq 0) {
+                    $emptyMi = New-Object System.Windows.Controls.MenuItem
+                    $emptyMi.Header    = "(no bundles yet)"
+                    $emptyMi.IsEnabled = $false
+                    $bundleSub.Items.Add($emptyMi) | Out-Null
+                } else {
+                    foreach ($b in $script:quickBundles) {
+                        $alreadyIn = $false
+                        foreach ($a in @($b.Apps)) { if ($a.Id -eq $qi.Id) { $alreadyIn = $true; break } }
+                        $bmi = New-Object System.Windows.Controls.MenuItem
+                        $bmi.Header    = $b.Name
+                        $bmi.IsEnabled = -not $alreadyIn
+                        $bmi.Tag       = @{ Bundle = $b; AppName = $qi.Name; AppId = $qi.Id }
+                        $bmi.Add_Click({
+                            param($s, $e)
+                            $s.Tag.Bundle.Apps.Add(@{ Name = $s.Tag.AppName; Id = $s.Tag.AppId })
+                            Save-Settings
+                            Update-QuickInstalls
+                        })
+                        $bundleSub.Items.Add($bmi) | Out-Null
+                    }
+                }
+                $newBundleMi = New-Object System.Windows.Controls.MenuItem
+                $newBundleMi.Header = "+ New bundle..."
+                $newBundleMi.Tag    = @{ AppName = $qi.Name; AppId = $qi.Id }
+                $newBundleMi.Add_Click({
+                    param($s, $e)
+                    Ensure-VisualBasic
+                    $bn = [Microsoft.VisualBasic.Interaction]::InputBox("Bundle name:", "New Bundle", "")
+                    if (-not [string]::IsNullOrWhiteSpace($bn)) {
+                        $bn = $bn.Trim()
+                        $exists = $false
+                        foreach ($eb in $script:quickBundles) { if ($eb.Name -eq $bn) { $exists = $true; break } }
+                        if (-not $exists) {
+                            $apps = [System.Collections.Generic.List[hashtable]]::new()
+                            $apps.Add(@{ Name = $s.Tag.AppName; Id = $s.Tag.AppId })
+                            $script:quickBundles.Add(@{ Name = $bn; Description = ""; Apps = $apps })
+                            Save-Settings
+                            Update-QuickInstalls
+                        }
+                    }
+                })
+                $bundleSub.Items.Add($newBundleMi) | Out-Null
+                $ctxMenu.Items.Add($bundleSub) | Out-Null
+
+                $btn.ContextMenu = $ctxMenu
+
                 $itemsPanel.Children.Add($btn) | Out-Null
             }
         }

@@ -539,8 +539,10 @@ function Apply-TabContextMenus {
 
         # Only open the menu when the click actually landed on the tab header,
         # not on the tab's body content (which inherits ContextMenu via the logical tree).
+        # Skip this filter for descendant context menus that bubble through.
         $item.Add_ContextMenuOpening({
             param($s, $e)
+            if ($e.Source -ne $s) { return }
             $hit = [System.Windows.Input.Mouse]::DirectlyOver -as [System.Windows.DependencyObject]
             $inHeader = $false
             while ($hit) {
