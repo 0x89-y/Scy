@@ -3094,7 +3094,7 @@
             </TabItem>
 
             <!-- ─── Active Directory ─── -->
-            <TabItem Header="Active Directory (WIP)">
+            <TabItem Header="Active Directory">
                 <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
                     <Grid>
@@ -4483,7 +4483,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Sidebar tabs (experimental)" FontSize="12" FontWeight="SemiBold"
+                                                <TextBlock Text="Sidebar tabs" FontSize="12" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource FgBrush}"/>
                                                 <TextBlock Text="Show navigation as a vertical rail on the left instead of the top."
                                                            FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
