@@ -674,5 +674,5 @@ $f = Get-ADForest -ErrorAction Stop
 
 $btnAdWhoami.Add_Click({
     Show-DomainOutput -Mode Shell
-    Invoke-AdShellJob -Exe "whoami" -ArgString "/upn /groups /fqdn" -OutputBox $adShellOutput -Banner "whoami /upn /groups /fqdn"
+    Invoke-AdShellJob -Exe "whoami" -ArgString "/all" -OutputBox $adShellOutput -Banner "whoami /all"
 })
