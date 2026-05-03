@@ -14,7 +14,8 @@ function New-UninstallRow {
     param([string]$Name, [string]$Id, [string]$Version, [bool]$Alternate)
 
     $border = New-Object System.Windows.Controls.Border
-    $border.Background   = if ($Alternate) { $window.Resources["SurfaceBrush"] } else { $window.Resources["InputBgBrush"] }
+    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
     $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
     $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
     $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
@@ -35,7 +36,7 @@ function New-UninstallRow {
 
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text              = $Name
-    $nameBlock.Foreground        = $window.Resources["FgBrush"]
+    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
     $nameBlock.FontSize          = 12
     $nameBlock.VerticalAlignment = "Center"
     $nameBlock.TextTrimming      = "CharacterEllipsis"
@@ -43,7 +44,7 @@ function New-UninstallRow {
 
     $idBlock = New-Object System.Windows.Controls.TextBlock
     $idBlock.Text              = $Id
-    $idBlock.Foreground        = $window.Resources["MutedText"]
+    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     $idBlock.FontSize          = 11
     $idBlock.Margin            = [System.Windows.Thickness]::new(12, 0, 16, 0)
     $idBlock.VerticalAlignment = "Center"
@@ -51,7 +52,7 @@ function New-UninstallRow {
 
     $verBlock = New-Object System.Windows.Controls.TextBlock
     $verBlock.Text              = $Version
-    $verBlock.Foreground        = $window.Resources["SuccessBrush"]
+    $verBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
     $verBlock.FontSize          = 11
     $verBlock.VerticalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetColumn($verBlock, 3)
@@ -71,12 +72,13 @@ function New-UninstallRow {
 function New-ResultRow {
     param([string]$Name, [string]$Id, [bool]$Success, [bool]$Alternate)
 
-    $accent    = if ($Success) { $window.Resources["SuccessBrush"] } else { $window.Resources["DangerBrush"] }
+    $accentKey = if ($Success) { "SuccessBrush" } else { "DangerBrush" }
     $iconChar  = if ($Success)   { [char]0x2714 } else { [char]0x2716 }
     $statusTxt = if ($Success)   { "removed" } else { "failed" }
 
     $border = New-Object System.Windows.Controls.Border
-    $border.Background   = if ($Alternate) { $window.Resources["SurfaceBrush"] } else { $window.Resources["InputBgBrush"] }
+    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
     $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
     $border.Padding      = [System.Windows.Thickness]::new(10, 7, 10, 7)
     $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
@@ -91,7 +93,7 @@ function New-ResultRow {
 
     $icon                   = New-Object System.Windows.Controls.TextBlock
     $icon.Text              = $iconChar
-    $icon.Foreground        = $accent
+    $icon.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $accentKey)
     $icon.FontSize          = 13
     $icon.Margin            = [System.Windows.Thickness]::new(0, 0, 12, 0)
     $icon.VerticalAlignment = "Center"
@@ -99,7 +101,7 @@ function New-ResultRow {
 
     $nameBlock                   = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text              = $Name
-    $nameBlock.Foreground        = $window.Resources["FgBrush"]
+    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
     $nameBlock.FontSize          = 12
     $nameBlock.VerticalAlignment = "Center"
     $nameBlock.TextTrimming      = "CharacterEllipsis"
@@ -107,7 +109,7 @@ function New-ResultRow {
 
     $idBlock                   = New-Object System.Windows.Controls.TextBlock
     $idBlock.Text              = $Id
-    $idBlock.Foreground        = $window.Resources["MutedText"]
+    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     $idBlock.FontSize          = 11
     $idBlock.Margin            = [System.Windows.Thickness]::new(12, 0, 16, 0)
     $idBlock.VerticalAlignment = "Center"
@@ -115,7 +117,7 @@ function New-ResultRow {
 
     $statusBlock                   = New-Object System.Windows.Controls.TextBlock
     $statusBlock.Text              = $statusTxt
-    $statusBlock.Foreground        = $accent
+    $statusBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $accentKey)
     $statusBlock.FontSize          = 11
     $statusBlock.FontWeight        = [System.Windows.FontWeights]::SemiBold
     $statusBlock.VerticalAlignment = "Center"

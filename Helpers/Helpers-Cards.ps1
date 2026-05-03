@@ -12,7 +12,8 @@ function New-InfoRow {
     if ([string]::IsNullOrWhiteSpace($Value)) { $Value = "(none)" }
 
     $border = New-Object System.Windows.Controls.Border
-    $border.Background = if ($Alternate) { $window.Resources["SurfaceBrush"] } else { $window.Resources["InputBgBrush"] }
+    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
     $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
     $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
     $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)

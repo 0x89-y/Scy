@@ -60,7 +60,8 @@ function New-HostsRow {
     param($Entry, [bool]$Alternate = $false)
 
     $border = New-Object System.Windows.Controls.Border
-    $border.Background      = if ($Alternate) { $window.Resources["SurfaceBrush"] } else { $window.Resources["InputBgBrush"] }
+    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
     $border.Padding         = [System.Windows.Thickness]::new(14, 7, 14, 7)
     $border.Margin          = [System.Windows.Thickness]::new(0)
 

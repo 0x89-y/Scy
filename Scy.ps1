@@ -23,25 +23,24 @@ if (Test-Path $splashVersionPath) {
     } catch {}
 }
 
+# Load shared theme palette (also used by Tab-Settings.ps1 at runtime)
+. (Join-Path $PSScriptRoot "Themes.ps1")
+
 # Read theme from settings early so the splash matches the user's theme
-$script:splashColors = @{ AppBg = "#0a0a0f"; Border = "#2a2a3a"; Fg = "#e0e0e8"; Muted = "#6b6b80" }
+$aether = $script:BuiltinThemes["Aether"]
+$script:splashColors = @{ AppBg = $aether.AppBg; Border = $aether.Border; Fg = $aether.FgBrush; Muted = $aether.MutedText }
 $settingsPath = Join-Path $PSScriptRoot "settings.json"
 if (Test-Path $settingsPath) {
     try {
         $earlySettings = Get-Content $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        $themeColors = @{
-            Aether   = @{ AppBg = "#0a0a0f"; Border = "#2a2a3a"; Fg = "#e0e0e8"; Muted = "#6b6b80" }
-            Midnight = @{ AppBg = "#080c14"; Border = "#30363d"; Fg = "#e6edf3"; Muted = "#656d76" }
-            Blossom  = @{ AppBg = "#f8f5ff"; Border = "#d4cce8"; Fg = "#2e2842"; Muted = "#8c84a8" }
-            Frost    = @{ AppBg = "#f1f5f9"; Border = "#cbd5e1"; Fg = "#1e293b"; Muted = "#64748b" }
-        }
         if ($earlySettings.Theme -eq "Custom" -and $earlySettings.CustomTheme) {
             $ct = $earlySettings.CustomTheme
             if ($ct.AppBg -and $ct.Border -and $ct.FgBrush -and $ct.MutedText) {
                 $script:splashColors = @{ AppBg = $ct.AppBg; Border = $ct.Border; Fg = $ct.FgBrush; Muted = $ct.MutedText }
             }
-        } elseif ($earlySettings.Theme -and $themeColors[$earlySettings.Theme]) {
-            $script:splashColors = $themeColors[$earlySettings.Theme]
+        } elseif ($earlySettings.Theme -and $script:BuiltinThemes[$earlySettings.Theme]) {
+            $t = $script:BuiltinThemes[$earlySettings.Theme]
+            $script:splashColors = @{ AppBg = $t.AppBg; Border = $t.Border; Fg = $t.FgBrush; Muted = $t.MutedText }
         }
     } catch {}
 }

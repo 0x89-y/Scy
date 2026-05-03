@@ -180,7 +180,8 @@ function New-SearchRow {
     param([string]$Name, [string]$Id, [string]$Version, [bool]$Alternate)
 
     $border  = New-Object System.Windows.Controls.Border
-    $border.Background   = if ($Alternate) { $window.Resources["SurfaceBrush"] } else { $window.Resources["InputBgBrush"] }
+    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
     $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
     $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
     $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
@@ -203,7 +204,7 @@ function New-SearchRow {
 
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text              = $Name
-    $nameBlock.Foreground        = $window.Resources["FgBrush"]
+    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
     $nameBlock.FontSize          = 12
     $nameBlock.VerticalAlignment = "Center"
     $nameBlock.TextWrapping      = "NoWrap"
@@ -212,7 +213,7 @@ function New-SearchRow {
 
     $idBlock = New-Object System.Windows.Controls.TextBlock
     $idBlock.Text              = $Id
-    $idBlock.Foreground        = $window.Resources["MutedText"]
+    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     $idBlock.FontSize          = 11
     $idBlock.Margin            = [System.Windows.Thickness]::new(12, 0, 16, 0)
     $idBlock.VerticalAlignment = "Center"
@@ -220,7 +221,7 @@ function New-SearchRow {
 
     $verBlock = New-Object System.Windows.Controls.TextBlock
     $verBlock.Text              = $Version
-    $verBlock.Foreground        = $window.Resources["SubTextBrush"]
+    $verBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SubTextBrush")
     $verBlock.FontSize          = 11
     $verBlock.VerticalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetColumn($verBlock, 3)
@@ -242,7 +243,8 @@ function New-InstalledRow {
     param([string]$Name, [string]$Id, [string]$Version, [bool]$Alternate)
 
     $border = New-Object System.Windows.Controls.Border
-    $border.Background   = if ($Alternate) { $window.Resources["SurfaceBrush"] } else { $window.Resources["InputBgBrush"] }
+    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
     $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
     $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
     $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
@@ -255,7 +257,7 @@ function New-InstalledRow {
 
     $nameBlock = New-Object System.Windows.Controls.TextBlock
     $nameBlock.Text              = $Name
-    $nameBlock.Foreground        = $window.Resources["FgBrush"]
+    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
     $nameBlock.FontSize          = 12
     $nameBlock.VerticalAlignment = "Center"
     $nameBlock.TextWrapping      = "NoWrap"
@@ -264,7 +266,7 @@ function New-InstalledRow {
 
     $idBlock = New-Object System.Windows.Controls.TextBlock
     $idBlock.Text              = $Id
-    $idBlock.Foreground        = $window.Resources["MutedText"]
+    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     $idBlock.FontSize          = 11
     $idBlock.Margin            = [System.Windows.Thickness]::new(12, 0, 20, 0)
     $idBlock.VerticalAlignment = "Center"
@@ -272,7 +274,7 @@ function New-InstalledRow {
 
     $verBlock = New-Object System.Windows.Controls.TextBlock
     $verBlock.Text              = $Version
-    $verBlock.Foreground        = $window.Resources["SuccessBrush"]
+    $verBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
     $verBlock.FontSize          = 11
     $verBlock.VerticalAlignment = "Center"
     [System.Windows.Controls.Grid]::SetColumn($verBlock, 2)
@@ -557,7 +559,7 @@ function Show-QuickInstallConfirmDialog {
     function Add-SectionHeader($text) {
         $hdr            = New-Object System.Windows.Controls.TextBlock
         $hdr.Text       = $text
-        $hdr.Foreground = $window.Resources["MutedText"]
+        $hdr.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
         $hdr.FontSize   = 10
         $hdr.FontWeight = "SemiBold"
         $hdr.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 4)
@@ -573,13 +575,13 @@ function Show-QuickInstallConfirmDialog {
 
         $nb = New-Object System.Windows.Controls.TextBlock
         $nb.Text = $name; $nb.FontSize = 11
-        $nb.Foreground = $window.Resources["FgBrush"]
+        $nb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
         $nb.VerticalAlignment = "Center"
         [System.Windows.Controls.Grid]::SetColumn($nb, 0)
 
         $ib = New-Object System.Windows.Controls.TextBlock
         $ib.Text = $id; $ib.FontSize = 10
-        $ib.Foreground = $window.Resources["MutedText"]
+        $ib.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
         $ib.VerticalAlignment = "Center"
         [System.Windows.Controls.Grid]::SetColumn($ib, 1)
 
@@ -696,7 +698,7 @@ function Update-QuickInstalls {
 
             $restoreLabel = New-Object System.Windows.Controls.TextBlock
             $restoreLabel.Text              = "Curated hidden: " + [string]$script:hiddenCuratedApps.Count
-            $restoreLabel.Foreground        = $window.Resources["MutedText"]
+            $restoreLabel.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
             $restoreLabel.FontSize          = 11
             $restoreLabel.VerticalAlignment = "Center"
             [System.Windows.Controls.Grid]::SetColumn($restoreLabel, 0)
@@ -731,14 +733,14 @@ function Update-QuickInstalls {
 
             $nameBlock = New-Object System.Windows.Controls.TextBlock
             $nameBlock.Text              = if ($qi.IsCurated) { [char]0x2605 + "  " + $name } else { $name }
-            $nameBlock.Foreground        = $window.Resources["FgBrush"]
+            $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
             $nameBlock.FontSize          = 12
             $nameBlock.VerticalAlignment = "Center"
             [System.Windows.Controls.Grid]::SetColumn($nameBlock, 0)
 
             $idBlock = New-Object System.Windows.Controls.TextBlock
             $idBlock.Text              = $id
-            $idBlock.Foreground        = $window.Resources["MutedText"]
+            $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
             $idBlock.FontSize          = 11
             $idBlock.Margin            = [System.Windows.Thickness]::new(10, 0, 10, 0)
             $idBlock.VerticalAlignment = "Center"
@@ -750,7 +752,7 @@ function Update-QuickInstalls {
             if ($qi.IsCurated) {
                 $curLabel = New-Object System.Windows.Controls.TextBlock
                 $curLabel.Text              = "Curated"
-                $curLabel.Foreground        = $window.Resources["MutedText"]
+                $curLabel.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
                 $curLabel.FontSize          = 11
                 $curLabel.VerticalAlignment = "Center"
                 $curLabel.Margin            = [System.Windows.Thickness]::new(0, 0, 10, 0)
@@ -830,7 +832,7 @@ function Update-QuickInstalls {
             $removeBtn         = New-Object System.Windows.Controls.Button
             $removeBtn.Content = "Remove"
             $removeBtn.Style      = $window.Resources["SecondaryButton"]
-            $removeBtn.Foreground = $window.Resources["DangerBrush"]
+            $removeBtn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "DangerBrush")
             $removeBtn.Tag        = $id
             $removeBtn.Add_Click({
                 param($s, $e)
@@ -855,13 +857,13 @@ function Update-QuickInstalls {
         # Bundles section in edit mode
         $sepLine            = New-Object System.Windows.Controls.Border
         $sepLine.Height     = 1
-        $sepLine.Background = $window.Resources["BorderBrush"]
+        $sepLine.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BorderBrush")
         $sepLine.Margin     = [System.Windows.Thickness]::new(0, 10, 0, 10)
         $panel.Children.Add($sepLine) | Out-Null
 
         $bEditHeader            = New-Object System.Windows.Controls.TextBlock
         $bEditHeader.Text       = "Bundles"
-        $bEditHeader.Foreground = $window.Resources["MutedText"]
+        $bEditHeader.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
         $bEditHeader.FontSize   = 11
         $bEditHeader.FontWeight = "SemiBold"
         $bEditHeader.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 8)
@@ -871,7 +873,7 @@ function Update-QuickInstalls {
             $capturedBndl = $bndl
 
             $bCard             = New-Object System.Windows.Controls.Border
-            $bCard.Background  = $window.Resources["InputBgBrush"]
+            $bCard.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
             $bCard.CornerRadius = [System.Windows.CornerRadius]::new(4)
             $bCard.Padding     = [System.Windows.Thickness]::new(10, 8, 10, 8)
             $bCard.Margin      = [System.Windows.Thickness]::new(0, 0, 0, 6)
@@ -889,9 +891,9 @@ function Update-QuickInstalls {
             $nameBox                 = New-Object System.Windows.Controls.TextBox
             $nameBox.Text            = $bndl.Name
             $nameBox.FontSize        = 12
-            $nameBox.Foreground      = $window.Resources["FgBrush"]
-            $nameBox.Background      = $window.Resources["InputBgBrush"]
-            $nameBox.BorderBrush     = $window.Resources["BorderBrush"]
+            $nameBox.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
+            $nameBox.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty, "InputBgBrush")
+            $nameBox.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
             $nameBox.BorderThickness = [System.Windows.Thickness]::new(1)
             $nameBox.Padding         = [System.Windows.Thickness]::new(6, 3, 6, 3)
             $nameBox.Margin          = [System.Windows.Thickness]::new(0, 0, 8, 0)
@@ -903,9 +905,9 @@ function Update-QuickInstalls {
             $descBox                 = New-Object System.Windows.Controls.TextBox
             $descBox.Text            = if ($bndl.Description) { $bndl.Description } else { "" }
             $descBox.FontSize        = 11
-            $descBox.Foreground      = $window.Resources["FgBrush"]
-            $descBox.Background      = $window.Resources["InputBgBrush"]
-            $descBox.BorderBrush     = $window.Resources["BorderBrush"]
+            $descBox.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
+            $descBox.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty, "InputBgBrush")
+            $descBox.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
             $descBox.BorderThickness = [System.Windows.Thickness]::new(1)
             $descBox.Padding         = [System.Windows.Thickness]::new(6, 3, 6, 3)
             $descBox.Margin          = [System.Windows.Thickness]::new(0, 0, 8, 0)
@@ -953,14 +955,14 @@ function Update-QuickInstalls {
 
                 $appNameBlock                  = New-Object System.Windows.Controls.TextBlock
                 $appNameBlock.Text             = $app.Name
-                $appNameBlock.Foreground       = $window.Resources["FgBrush"]
+                $appNameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
                 $appNameBlock.FontSize         = 11
                 $appNameBlock.VerticalAlignment = "Center"
                 [System.Windows.Controls.Grid]::SetColumn($appNameBlock, 0)
 
                 $appIdBlock                  = New-Object System.Windows.Controls.TextBlock
                 $appIdBlock.Text             = $app.Id
-                $appIdBlock.Foreground       = $window.Resources["MutedText"]
+                $appIdBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
                 $appIdBlock.FontSize         = 10
                 $appIdBlock.Margin           = [System.Windows.Thickness]::new(8, 0, 10, 0)
                 $appIdBlock.VerticalAlignment = "Center"
@@ -969,7 +971,7 @@ function Update-QuickInstalls {
                 $removeAppBtn           = New-Object System.Windows.Controls.Button
                 $removeAppBtn.Content   = "×"
                 $removeAppBtn.Style     = $window.Resources["SecondaryButton"]
-                $removeAppBtn.Foreground = $window.Resources["MutedText"]
+                $removeAppBtn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
                 $removeAppBtn.Padding   = [System.Windows.Thickness]::new(6, 1, 6, 1)
                 $removeAppBtn.Add_Click(({
                     $capturedBndlForApp.Apps.Remove($capturedApp) | Out-Null
@@ -1055,9 +1057,9 @@ function Update-QuickInstalls {
             if (-not $groups.Contains($cat) -or $groups[$cat].Count -eq 0) { continue }
 
             $border              = New-Object System.Windows.Controls.Border
-            $border.Background   = $window.Resources["Surface2Brush"]
+            $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
             $border.CornerRadius = [System.Windows.CornerRadius]::new(6)
-            $border.BorderBrush  = $window.Resources["BorderBrush"]
+            $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
             $border.BorderThickness = [System.Windows.Thickness]::new(1)
             $border.Padding      = [System.Windows.Thickness]::new(14, 12, 14, 12)
             $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 8)
@@ -1272,9 +1274,9 @@ function Update-QuickInstalls {
         # ── Bundles card ──────────────────────────────────────────
         if ($script:quickBundles.Count -gt 0) {
             $bBorder              = New-Object System.Windows.Controls.Border
-            $bBorder.Background   = $window.Resources["Surface2Brush"]
+            $bBorder.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
             $bBorder.CornerRadius = [System.Windows.CornerRadius]::new(6)
-            $bBorder.BorderBrush  = $window.Resources["BorderBrush"]
+            $bBorder.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
             $bBorder.BorderThickness = [System.Windows.Thickness]::new(1)
             $bBorder.Padding      = [System.Windows.Thickness]::new(14, 12, 14, 12)
             $bBorder.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 8)
@@ -1511,7 +1513,7 @@ function Render-LocalInstallerButtons {
     if ($FileList.Count -eq 0) {
         $tb            = New-Object System.Windows.Controls.TextBlock
         $tb.Text       = "No .exe or .msi files found."
-        $tb.Foreground = $window.Resources["MutedText"]
+        $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
         $tb.FontSize   = 12
         $panel.Children.Add($tb) | Out-Null
         return
@@ -1547,7 +1549,7 @@ function Update-LocalInstallers {
     if (-not (Test-Path $folder)) {
         $tb            = New-Object System.Windows.Controls.TextBlock
         $tb.Text       = "Folder not found."
-        $tb.Foreground = $window.Resources["MutedText"]
+        $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
         $tb.FontSize   = 12
         $panel.Children.Add($tb) | Out-Null
         return

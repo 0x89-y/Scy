@@ -4099,21 +4099,6 @@
                                                 Style="{StaticResource SecondaryButton}" Margin="0,0,6,6"/>
                                     </WrapPanel>
 
-                                    <!-- Theme restart banner -->
-                                    <Border x:Name="ThemeRestartBanner" Visibility="Collapsed"
-                                            Background="{DynamicResource Surface2Brush}" CornerRadius="4"
-                                            BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1"
-                                            Padding="10,8" Margin="0,6,0,0">
-                                        <DockPanel>
-                                            <TextBlock Text="⚠" FontSize="14"
-                                                       Foreground="{DynamicResource WarningBrush}"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
-                                                       Text="Restart Scy to render the theme correctly."
-                                                       Foreground="{DynamicResource FgBrush}"/>
-                                        </DockPanel>
-                                    </Border>
-
                                     <!-- Use Windows accent color -->
                                     <Grid Margin="0,10,0,0">
                                         <Grid.ColumnDefinitions>

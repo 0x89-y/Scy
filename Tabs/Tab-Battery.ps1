@@ -122,7 +122,8 @@ function Populate-BatteryInfo {
             function _MakeRow {
                 param([string]$Label, [string]$Value, [string]$BrushKey = "FgBrush", [bool]$Alt = $false)
                 $border = New-Object System.Windows.Controls.Border
-                $border.Background   = if ($Alt) { $window.Resources["SurfaceBrush"] } else { $window.Resources["InputBgBrush"] }
+                $bgKey = if ($Alt) { "SurfaceBrush" } else { "InputBgBrush" }
+                $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
                 $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
                 $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
                 $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)
@@ -303,7 +304,8 @@ function Populate-BatteryInfo {
                 $alt = $false
                 foreach ($entry in $d.HistoryData) {
                     $row = New-Object System.Windows.Controls.Border
-                    $row.Background   = if ($alt) { $window.Resources["SurfaceBrush"] } else { $window.Resources["InputBgBrush"] }
+                    $rowBgKey = if ($alt) { "SurfaceBrush" } else { "InputBgBrush" }
+                    $row.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $rowBgKey)
                     $row.CornerRadius = [System.Windows.CornerRadius]::new(4)
                     $row.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
                     $row.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)

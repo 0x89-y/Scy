@@ -94,7 +94,7 @@ function New-PathRow {
     $bgKey = if ($Alternate) { "Surface2Brush" } else { "SurfaceBrush" }
 
     $border              = New-Object System.Windows.Controls.Border
-    $border.Background   = $window.Resources[$bgKey]
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
     $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
     $border.Padding      = [System.Windows.Thickness]::new(10, 7, 10, 7)
     $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)
@@ -104,7 +104,7 @@ function New-PathRow {
     $pathBlock              = New-Object System.Windows.Controls.TextBlock
     $pathBlock.Text         = $Label
     $pathBlock.FontSize     = 12
-    $pathBlock.Foreground   = $window.Resources["MutedText"]
+    $pathBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     $pathBlock.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
     $pathBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
 
@@ -117,7 +117,7 @@ function New-PathRow {
     $sizeBlock.Text       = $sizeText
     $sizeBlock.FontSize   = 12
     $sizeBlock.FontWeight = [System.Windows.FontWeights]::SemiBold
-    $sizeBlock.Foreground = $window.Resources[$sizeColorKey]
+    $sizeBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $sizeColorKey)
     $sizeBlock.Margin     = [System.Windows.Thickness]::new(16, 0, 0, 0)
     $sizeBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
 

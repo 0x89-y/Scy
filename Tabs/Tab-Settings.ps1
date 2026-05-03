@@ -66,6 +66,8 @@ $script:customRegBookmarkGroups        = [System.Collections.Generic.List[string
 $script:hiddenTabs                     = [System.Collections.Generic.List[string]]::new()
 
 # ── Theme definitions ─────────────────────────────────────────────
+# Built-in palettes come from Themes.ps1 (shared with the splash screen).
+# Custom is user state and stays defined here.
 $script:themes = [ordered]@{
     Custom = @{
         WindowBg  = "#2e2e42"
@@ -80,82 +82,9 @@ $script:themes = [ordered]@{
         Warning   = "#fdcb6e"
         Danger    = "#e17055"
     }
-    Aether = @{
-        WindowBg     = "#2e2e42"
-        AppBg        = "#0a0a0f"
-        Accent       = "#6c5ce7"
-        AccentHover  = "#7f70f0"
-        Surface      = "#13131a"
-        Surface2     = "#1a1a24"
-        Border       = "#2a2a3a"
-        MutedText    = "#6b6b80"
-        FgBrush      = "#e0e0e8"
-        SubText      = "#c0c0d0"
-        WinCtrlFg    = "#9090a8"
-        ScrollThumb  = "#3a3a52"
-        InputBg      = "#0d0d16"
-        HoverSurface = "#1e1e2e"
-        Success      = "#00b894"
-        Warning      = "#fdcb6e"
-        Danger       = "#e17055"
-    }
-    Midnight = @{
-        WindowBg     = "#1a1f2e"
-        AppBg        = "#080c14"
-        Accent       = "#4d9cf6"
-        AccentHover  = "#6ab0ff"
-        Surface      = "#0d1117"
-        Surface2     = "#161b22"
-        Border       = "#30363d"
-        MutedText    = "#656d76"
-        FgBrush      = "#e6edf3"
-        SubText      = "#b1bac4"
-        WinCtrlFg    = "#8b949e"
-        ScrollThumb  = "#30363d"
-        InputBg      = "#0a0e16"
-        HoverSurface = "#161b22"
-        Success      = "#3fb950"
-        Warning      = "#d29922"
-        Danger       = "#f85149"
-    }
-    Blossom = @{
-        WindowBg     = "#ede8f8"
-        AppBg        = "#f8f5ff"
-        Accent       = "#6c5ce7"
-        AccentHover  = "#7f70f0"
-        Surface      = "#ffffff"
-        Surface2     = "#f0ebfa"
-        Border       = "#d4cce8"
-        MutedText    = "#8c84a8"
-        FgBrush      = "#2e2842"
-        SubText      = "#4a4466"
-        WinCtrlFg    = "#6e6890"
-        ScrollThumb  = "#c8bef0"
-        InputBg      = "#f8f5ff"
-        HoverSurface = "#ede8f8"
-        Success      = "#00896e"
-        Warning      = "#c07c00"
-        Danger       = "#c0392b"
-    }
-    Frost = @{
-        WindowBg     = "#dde6f0"
-        AppBg        = "#f1f5f9"
-        Accent       = "#2563eb"
-        AccentHover  = "#1d4ed8"
-        Surface      = "#ffffff"
-        Surface2     = "#eef2f8"
-        Border       = "#cbd5e1"
-        MutedText    = "#64748b"
-        FgBrush      = "#1e293b"
-        SubText      = "#334155"
-        WinCtrlFg    = "#475569"
-        ScrollThumb  = "#94a3b8"
-        InputBg      = "#f8fafc"
-        HoverSurface = "#e2e8f0"
-        Success      = "#059669"
-        Warning      = "#d97706"
-        Danger       = "#dc2626"
-    }
+}
+foreach ($name in $script:BuiltinThemes.Keys) {
+    $script:themes[$name] = $script:BuiltinThemes[$name]
 }
 
 function script:New-Brush($hex) {
@@ -257,16 +186,6 @@ function script:Apply-Theme {
             [System.Windows.Visibility]::Collapsed
         }
         if ($ThemeName -eq "Custom") { Update-CustomSwatches }
-    }
-
-    # Show restart banner if theme changed from what was loaded at startup
-    $banner = Find "ThemeRestartBanner"
-    if ($banner) {
-        $banner.Visibility = if ($ThemeName -ne $script:startupTheme) {
-            [System.Windows.Visibility]::Visible
-        } else {
-            [System.Windows.Visibility]::Collapsed
-        }
     }
 
     $script:currentTheme = $ThemeName
@@ -626,7 +545,6 @@ Apply-SidebarLayout
 $window.Dispatcher.BeginInvoke([action]{ Update-QuickInstalls }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
 # Apply the saved/default theme on startup
-$script:startupTheme = $script:currentTheme
 Apply-Theme $script:currentTheme
 
 # Initialize shortcuts after settings are loaded

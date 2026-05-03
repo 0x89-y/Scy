@@ -178,9 +178,9 @@
           } else { $sectionName }
 
           $border              = New-Object System.Windows.Controls.Border
-          $border.Background   = $window.Resources["Surface2Brush"]
+          $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
           $border.CornerRadius = [System.Windows.CornerRadius]::new(6)
-          $border.BorderBrush  = $window.Resources["BorderBrush"]
+          $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
           $border.BorderThickness = [System.Windows.Thickness]::new(1)
           $border.Padding      = [System.Windows.Thickness]::new(14, 12, 14, 12)
           $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 8)

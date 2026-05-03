@@ -355,7 +355,7 @@ function New-NSRecordRow {
     $valBlock.Text       = $Value
     $valBlock.FontFamily = New-Object System.Windows.Media.FontFamily("Consolas, Courier New")
     $valBlock.FontSize   = 12
-    $valBlock.Foreground = $window.Resources["FgBrush"]
+    $valBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
     $valBlock.VerticalAlignment = "Center"
     $valBlock.TextWrapping = "Wrap"
     $row.Children.Add($valBlock) | Out-Null
@@ -364,7 +364,7 @@ function New-NSRecordRow {
         $detBlock = New-Object System.Windows.Controls.TextBlock
         $detBlock.Text       = $Detail
         $detBlock.FontSize   = 11
-        $detBlock.Foreground = $window.Resources["MutedText"]
+        $detBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
         $detBlock.HorizontalAlignment = "Right"
         $detBlock.VerticalAlignment   = "Center"
         $detBlock.Margin = [System.Windows.Thickness]::new(12, 0, 0, 0)
@@ -379,7 +379,7 @@ function New-NSTypeGroup {
     param([string]$TypeLabel, [System.Collections.ArrayList]$Rows)
 
     $group = New-Object System.Windows.Controls.Border
-    $group.Background      = $window.Resources["InputBgBrush"]
+    $group.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
     $group.CornerRadius    = [System.Windows.CornerRadius]::new(4)
     $group.Padding         = [System.Windows.Thickness]::new(12, 10, 12, 10)
     $group.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 8)
@@ -391,21 +391,21 @@ function New-NSTypeGroup {
     $header.Margin = [System.Windows.Thickness]::new(0, 0, 0, 6)
 
     $badge = New-Object System.Windows.Controls.Border
-    $badge.Background   = $window.Resources["AccentBrush"]
+    $badge.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
     $badge.CornerRadius = [System.Windows.CornerRadius]::new(3)
     $badge.Padding      = [System.Windows.Thickness]::new(8, 2, 8, 2)
     $badgeText = New-Object System.Windows.Controls.TextBlock
     $badgeText.Text       = $TypeLabel
     $badgeText.FontSize   = 11
     $badgeText.FontWeight = "SemiBold"
-    $badgeText.Foreground = $window.Resources["FgBrush"]
+    $badgeText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
     $badge.Child = $badgeText
     $header.Children.Add($badge) | Out-Null
 
     $countText = New-Object System.Windows.Controls.TextBlock
     $countText.Text       = "$($Rows.Count) record$(if ($Rows.Count -ne 1) { 's' })"
     $countText.FontSize   = 11
-    $countText.Foreground = $window.Resources["MutedText"]
+    $countText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     $countText.HorizontalAlignment = "Right"
     $countText.VerticalAlignment   = "Center"
     $countText.Margin = [System.Windows.Thickness]::new(8, 0, 0, 0)
@@ -417,7 +417,7 @@ function New-NSTypeGroup {
     # Separator
     $sep = New-Object System.Windows.Controls.Border
     $sep.BorderThickness = [System.Windows.Thickness]::new(0, 1, 0, 0)
-    $sep.BorderBrush     = $window.Resources["BorderBrush"]
+    $sep.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
     $sep.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 6)
     $stack.Children.Add($sep) | Out-Null
 
@@ -527,7 +527,7 @@ function Invoke-NSLookup {
                     $noResult = New-Object System.Windows.Controls.TextBlock
                     $noResult.Text       = "No $type records found for $domain"
                     $noResult.FontSize   = 11
-                    $noResult.Foreground = $window.Resources["MutedText"]
+                    $noResult.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
                     $noResult.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 8)
                     $netNSResultsPanel.Children.Add($noResult) | Out-Null
                     $script:nsLastResults += "`r`n[$type]  No records found`r`n"
@@ -757,11 +757,8 @@ $btnNetWifi.Add_Click({
                 $authType = $prof.AuthType
 
                 $border              = [System.Windows.Controls.Border]::new()
-                $border.Background   = if ($alt) {
-                    $window.Resources["SurfaceBrush"]
-                } else {
-                    $window.Resources["InputBgBrush"]
-                }
+                $bgKey = if ($alt) { "SurfaceBrush" } else { "InputBgBrush" }
+                $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
                 $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
                 $border.Padding      = [System.Windows.Thickness]::new(10, 7, 10, 7)
                 $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)

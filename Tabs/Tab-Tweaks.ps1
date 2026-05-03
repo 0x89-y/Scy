@@ -274,7 +274,7 @@ function Rebuild-TweaksPanel {
     if (-not $tweakDirs -or $tweakDirs.Count -eq 0) {
         $emptyBlock              = New-Object System.Windows.Controls.TextBlock
         $emptyBlock.Text         = "No tweaks found. Add subfolders with Apply.ps1 to the Tweaks\ folder."
-        $emptyBlock.Foreground   = $window.Resources["MutedText"]
+        $emptyBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
         $emptyBlock.FontSize     = 13
         $emptyBlock.TextWrapping = [System.Windows.TextWrapping]::Wrap
         $emptyBlock.Margin       = [System.Windows.Thickness]::new(0, 8, 0, 0)
