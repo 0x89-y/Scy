@@ -93,11 +93,11 @@ function Set-PkgSubNav {
         $script:pkgSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
         $btn = $script:pkgNavButtons[$i]
         if ($i -eq $Index) {
-            $btn.Foreground = $window.Resources["FgBrush"]
-            $btn.BorderBrush = $window.Resources["AccentBrush"]
+            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
+            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "AccentBrush")
         } else {
-            $btn.Foreground = $window.Resources["MutedText"]
-            $btn.BorderBrush = $window.Resources["BorderBrush"]
+            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
+            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
         }
     }
 }
