@@ -1383,5 +1383,8 @@ function Render-GroupSettings {
 (Find "BtnCreditsGitHub").Add_Click({
     Start-Process "https://github.com/0x89-y/Scy"
 })
+(Find "BtnCreditsWebsite").Add_Click({
+    Start-Process "https://0x89-y.xyz/"
+})
 
 Render-GroupSettings
