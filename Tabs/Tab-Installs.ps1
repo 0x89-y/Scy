@@ -413,20 +413,30 @@ $script:defaultQuickCategories = @("Development", "Communication", "Media", "Uti
 $script:curatedApps = @(
     @{ Name = "Firefox";              Id = "Mozilla.Firefox";                   Category = "Browsers" }
     @{ Name = "Brave";                Id = "Brave.Brave";                       Category = "Browsers" }
-    @{ Name = "Zen";                  Id = "Brave.Brave";                       Category = "Browsers" }
-    @{ Name = "Helium";               Id = "Brave.Brave";                       Category = "Browsers" }
+    @{ Name = "Zen";                  Id = "Zen-Team.Zen-Browser";              Category = "Browsers" }
+    @{ Name = "Helium";               Id = "imputnet.helium";                   Category = "Browsers" }
     @{ Name = "Discord";              Id = "Discord.Discord";                   Category = "Communication" }
     @{ Name = "Element";              Id = "Element.Element";                   Category = "Communication" }
     @{ Name = "Signal";               Id = "OpenWhisperSystems.Signal";         Category = "Communication" }
+    @{ Name = "Telegram";             Id = "Telegram.TelegramDesktop";          Category = "Communication" }
+    @{ Name = "Thunderbird";          Id = "Mozilla.Thunderbird";               Category = "Communication" }
     @{ Name = "VLC";                  Id = "VideoLAN.VLC";                      Category = "Media" }
     @{ Name = "Spotify";              Id = "Spotify.Spotify";                   Category = "Media" }
+    @{ Name = "MusicBee";             Id = "MusicBee.MusicBee";                 Category = "Media" }
     @{ Name = "OBS Studio";           Id = "OBSProject.OBSStudio";              Category = "Media" }
     @{ Name = "GIMP";                 Id = "GIMP.GIMP";                         Category = "Media" }
+    @{ Name = "Audacity";             Id = "Audacity.Audacity";                 Category = "Media" }
+    @{ Name = "HandBrake";            Id = "HandBrake.HandBrake";               Category = "Media" }
     @{ Name = "7-Zip";                Id = "7zip.7zip";                         Category = "Utilities" }
     @{ Name = "Notepad++";            Id = "Notepad++.Notepad++";               Category = "Utilities" }
     @{ Name = "Everything";           Id = "voidtools.Everything";              Category = "Utilities" }
     @{ Name = "PowerToys";            Id = "Microsoft.PowerToys";               Category = "Utilities" }
     @{ Name = "ShareX";               Id = "ShareX.ShareX";                     Category = "Utilities" }
+    @{ Name = "qBittorrent";          Id = "qBittorrent.qBittorrent";           Category = "Utilities" }
+    @{ Name = "WizTree";              Id = "AntibodySoftware.WizTree";          Category = "Utilities" }
+    @{ Name = "Visual Studio Code";   Id = "Microsoft.VisualStudioCode";        Category = "Development" }
+    @{ Name = "Git";                  Id = "Git.Git";                           Category = "Development" }
+    @{ Name = "Windows Terminal";     Id = "Microsoft.WindowsTerminal";         Category = "Development" }
     @{ Name = "Steam";                Id = "Valve.Steam";                       Category = "Gaming" }
     @{ Name = "Epic Games Launcher";  Id = "EpicGames.EpicGamesLauncher";       Category = "Gaming" }
     @{ Name = "GOG Galaxy";           Id = "GOG.Galaxy";                        Category = "Gaming" }
@@ -434,6 +444,7 @@ $script:curatedApps = @(
     @{ Name = "LibreOffice";          Id = "TheDocumentFoundation.LibreOffice"; Category = "Productivity" }
     @{ Name = "Bitwarden";            Id = "Bitwarden.Bitwarden";               Category = "Security" }
     @{ Name = "Malwarebytes";         Id = "Malwarebytes.Malwarebytes";         Category = "Security" }
+    @{ Name = "KeePassXC";            Id = "KeePassXCTeam.KeePassXC";           Category = "Security" }
 )
 
 function Get-MergedQuickInstalls {
