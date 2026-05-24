@@ -33,12 +33,10 @@ function Build-GlobalSearchIndex {
     $items = [System.Collections.Generic.List[hashtable]]::new()
 
     # -- Tab-level navigation items --
-    $items.Add(@{ Name = "Packages";  Description = "Search, install, update & uninstall packages";   Category = "Tabs"; TabIndex = 0; SubNavIndex = $null })
-    $items.Add(@{ Name = "Updates";   Description = "Check for package updates";                      Category = "Packages"; TabIndex = 0; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Search & Install"; Description = "Search winget packages and install";      Category = "Packages"; TabIndex = 0; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Quick Install";    Description = "Quick install from saved packages";       Category = "Packages"; TabIndex = 0; SubNavIndex = 2 })
-    $items.Add(@{ Name = "Local Installers"; Description = "Scan and run local installer files";      Category = "Packages"; TabIndex = 0; SubNavIndex = 3 })
-    $items.Add(@{ Name = "Uninstall";        Description = "Remove installed packages";               Category = "Packages"; TabIndex = 0; SubNavIndex = 4 })
+    $items.Add(@{ Name = "Packages";  Description = "Browse, install, update & uninstall packages";   Category = "Tabs"; TabIndex = 0; SubNavIndex = $null })
+    $items.Add(@{ Name = "Store";     Description = "Browse and install packages";                    Category = "Packages"; TabIndex = 0; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Installed"; Description = "List and uninstall installed packages";          Category = "Packages"; TabIndex = 0; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Updates";   Description = "Check for package updates";                      Category = "Packages"; TabIndex = 0; SubNavIndex = 2 })
 
     $items.Add(@{ Name = "Tweaks";    Description = "Apply and manage system tweaks";                 Category = "Tabs"; TabIndex = 1; SubNavIndex = $null })
 
@@ -89,10 +87,10 @@ function Build-GlobalSearchIndex {
             if ($c.Category -in $script:hiddenDefaultInstallCategories) { continue }
             $items.Add(@{
                 Name        = $c.Name
-                Description = "Quick Install - " + $c.Category
-                Category    = "Quick Install"
+                Description = "Store - " + $c.Category
+                Category    = "Store"
                 TabIndex    = 0
-                SubNavIndex = 2
+                SubNavIndex = 0
             })
         }
     }

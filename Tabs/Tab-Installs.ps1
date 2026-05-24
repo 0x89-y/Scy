@@ -71,23 +71,23 @@ $installedFilterClear.Add_Click({
 })
 
 # -- Package sub-navigation ---------------------------------------------------
+# 0 = Store (Search + Quick install + Local installers, all stacked)
+# 1 = Installed (uninstall surface)
+# 2 = Updates
+$pkgNavStore     = Find "PkgNav_Store"
+$pkgNavInstalled = Find "PkgNav_Installed"
 $pkgNavUpdates   = Find "PkgNav_Updates"
-$pkgNavSearch    = Find "PkgNav_Search"
-$pkgNavQuick     = Find "PkgNav_Quick"
-$pkgNavLocal     = Find "PkgNav_Local"
-$pkgNavUninstall = Find "PkgNav_Uninstall"
 
+$pkgSectionStore     = Find "PkgSection_Store"
+$pkgSectionInstalled = Find "PkgSection_Installed"
 $pkgSectionUpdates   = Find "PkgSection_Updates"
-$pkgSectionSearch    = Find "PkgSection_Search"
-$pkgSectionQuick     = Find "PkgSection_Quick"
-$pkgSectionLocal     = Find "PkgSection_Local"
-$pkgSectionUninstall = Find "PkgSection_Uninstall"
 
-$script:pkgNavButtons  = @($pkgNavUpdates, $pkgNavSearch, $pkgNavQuick, $pkgNavLocal, $pkgNavUninstall)
-$script:pkgSections    = @($pkgSectionUpdates, $pkgSectionSearch, $pkgSectionQuick, $pkgSectionLocal, $pkgSectionUninstall)
+$script:pkgNavButtons  = @($pkgNavStore, $pkgNavInstalled, $pkgNavUpdates)
+$script:pkgSections    = @($pkgSectionStore, $pkgSectionInstalled, $pkgSectionUpdates)
 
 function Set-PkgSubNav {
     param([int]$Index)
+    if ($Index -lt 0 -or $Index -ge $script:pkgSections.Count) { $Index = 0 }
     $script:pkgSubNavIndex = $Index
     for ($i = 0; $i -lt $script:pkgSections.Count; $i++) {
         $script:pkgSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
@@ -102,14 +102,12 @@ function Set-PkgSubNav {
     }
 }
 
-# Set default to Updates
+# Default landing: Store
 Set-PkgSubNav 0
 
-$pkgNavUpdates.Add_Click({   Set-PkgSubNav 0 })
-$pkgNavSearch.Add_Click({    Set-PkgSubNav 1 })
-$pkgNavQuick.Add_Click({     Set-PkgSubNav 2 })
-$pkgNavLocal.Add_Click({     Set-PkgSubNav 3 })
-$pkgNavUninstall.Add_Click({ Set-PkgSubNav 4 })
+$pkgNavStore.Add_Click({     Set-PkgSubNav 0 })
+$pkgNavInstalled.Add_Click({ Set-PkgSubNav 1 })
+$pkgNavUpdates.Add_Click({   Set-PkgSubNav 2 })
 
 # -- Helper: parse winget tabular output --------------------------------------
 # Outputs one string[] per data row to the pipeline; callers use @(Get-WingetRows ...)
@@ -1371,6 +1369,11 @@ function Update-QuickInstalls {
             }
         }
     }
+
+    # Keep the Store landing in sync with QuickInstalls changes (edits, adds, removes)
+    if (Get-Command Show-StoreLanding -ErrorAction SilentlyContinue) {
+        if ($storeCategoryArea.Visibility -ne "Visible") { Show-StoreLanding }
+    }
 }
 
 # -- Edit Quick Installs toggle -----------------------------------------------
@@ -1610,3 +1613,1084 @@ $window.Dispatcher.BeginInvoke([action]{
     }
 }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
+
+# ─────────────────────────────────────────────────────────────────
+# Store landing: category tiles + app cards (GNOME-Software-style)
+# Lives above the existing PkgSection_Search / PkgSection_Quick /
+# PkgSection_Local surfaces. Click a category tile -> swap to the
+# cards view for that category. Each card has a single Install
+# button. The "Edit list" header button toggles the legacy
+# PkgSection_Quick panel for managing the user's QuickInstalls.
+# ─────────────────────────────────────────────────────────────────
+
+$storeCategoriesPanel  = Find "StoreCategoriesPanel"
+$storeCategoryArea     = Find "StoreCategoryArea"
+$storeCategoryAppsPanel = Find "StoreCategoryAppsPanel"
+$storeCategoryBack     = Find "StoreCategoryBack"
+$storeCategoryName     = Find "StoreCategoryName"
+$storeHeaderText       = Find "StoreHeaderText"
+$btnStoreEdit          = Find "BtnStoreEdit"
+$btnStoreImport        = Find "BtnStoreImport"
+$btnStoreExport        = Find "BtnStoreExport"
+
+# Tiny accent palette for letter badges, drawn from the theme.
+$script:storeBadgeBrushKeys = @("AccentBrush", "SuccessBrush", "WarningBrush", "DangerBrush")
+
+function Get-StoreBadgeBrushKey {
+    param([string]$Seed)
+    if ([string]::IsNullOrEmpty($Seed)) { return "AccentBrush" }
+    $sum = 0
+    foreach ($ch in $Seed.ToCharArray()) { $sum += [int]$ch }
+    $idx = $sum % $script:storeBadgeBrushKeys.Count
+    return $script:storeBadgeBrushKeys[$idx]
+}
+
+function New-LetterBadge {
+    param([string]$Name, [string]$Id, [int]$Size = 32)
+
+    $border              = New-Object System.Windows.Controls.Border
+    $border.Width        = $Size
+    $border.Height       = $Size
+    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
+    $border.SetResourceReference(
+        [System.Windows.Controls.Border]::BackgroundProperty,
+        (Get-StoreBadgeBrushKey ($Id + $Name)))
+
+    $letter           = if ([string]::IsNullOrWhiteSpace($Name)) { "?" } else { ([string]$Name[0]).ToUpper() }
+    $tb               = New-Object System.Windows.Controls.TextBlock
+    $tb.Text          = $letter
+    $tb.Foreground    = [System.Windows.Media.Brushes]::White
+    $tb.FontSize      = [Math]::Round($Size * 0.5)
+    $tb.FontWeight    = [System.Windows.FontWeights]::SemiBold
+    $tb.HorizontalAlignment = "Center"
+    $tb.VerticalAlignment   = "Center"
+    $border.Child = $tb
+    return $border
+}
+
+# Neutral placeholder shown while an icon is being fetched. If the fetch
+# succeeds the favicon takes over; if it fails Set-BadgeToLetter swaps to
+# the colored letter as a final fallback.
+function New-LoadingBadge {
+    param([int]$Size = 32)
+
+    $border              = New-Object System.Windows.Controls.Border
+    $border.Width        = $Size
+    $border.Height       = $Size
+    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
+    $border.SetResourceReference(
+        [System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+    $border.SetResourceReference(
+        [System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $border.BorderThickness = [System.Windows.Thickness]::new(1)
+
+    $tb               = New-Object System.Windows.Controls.TextBlock
+    $tb.Text          = [string][char]0x22EF  # midline horizontal ellipsis ⋯
+    $tb.FontSize      = [Math]::Round($Size * 0.42)
+    $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+    $tb.HorizontalAlignment = "Center"
+    $tb.VerticalAlignment   = "Center"
+    $border.Child = $tb
+    return $border
+}
+
+# In-place swap of a Border's contents/background to the letter-badge look.
+# Used when an async icon fetch fails - we keep the same Border instance so
+# parent layouts don't have to re-resolve a new child.
+function Set-BadgeToLetter {
+    param(
+        [System.Windows.Controls.Border]$Target,
+        [string]$Name, [string]$Id, [int]$Size = 32
+    )
+    $Target.SetResourceReference(
+        [System.Windows.Controls.Border]::BackgroundProperty,
+        (Get-StoreBadgeBrushKey ($Id + $Name)))
+    $Target.BorderThickness = [System.Windows.Thickness]::new(0)
+
+    $letter        = if ([string]::IsNullOrWhiteSpace($Name)) { "?" } else { ([string]$Name[0]).ToUpper() }
+    $tb            = New-Object System.Windows.Controls.TextBlock
+    $tb.Text       = $letter
+    $tb.Foreground = [System.Windows.Media.Brushes]::White
+    $tb.FontSize   = [Math]::Round($Size * 0.5)
+    $tb.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $tb.HorizontalAlignment = "Center"
+    $tb.VerticalAlignment   = "Center"
+    $Target.Child = $tb
+}
+
+function Install-StoreSingleApp {
+    param([string]$Id, [string]$Name, $TriggerButton)
+
+    if ($script:installInProgress) { return }
+    $script:installInProgress = $true
+    if ($TriggerButton) {
+        $TriggerButton.IsEnabled = $false
+        $TriggerButton.Content   = "Installing..."
+    }
+
+    Set-BusyStatus ("Installing " + $Name + "...")
+    Show-ScyProgress -Border $installsProgressBorder -Bar $installsProgressBar -Label $installsProgressLabel `
+                     -Text ("Installing " + $Name + "...") -Value $null -Max 1
+
+    Start-ScyJob `
+        -Variables @{ wingetId = $Id } `
+        -Context   @{ Name = $Name; Btn = $TriggerButton } `
+        -Work {
+            param($emit)
+            & $emit ("Installing " + $wingetId)
+            & winget install --id $wingetId --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+            return @{ ExitCode = $LASTEXITCODE; Id = $wingetId }
+        } `
+        -OnLine {
+            param($line, $ctx)
+            $footerStatus.Text = "Scy - " + [string]$line
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $script:installInProgress = $false
+            Hide-ScyProgress $installsProgressBorder $installsProgressBar
+            Set-ReadyStatus
+            $btn = $ctx.Btn
+            if ($btn) {
+                $btn.IsEnabled = $true
+                $btn.Content   = "Install"
+            }
+            if ($err) {
+                Show-ThemedDialog ("Install error: " + $err.Exception.Message) "Error" "OK" "Error"
+                return
+            }
+            if ($result.ExitCode -ne 0) {
+                Show-ThemedDialog ("winget exited with code " + [string]$result.ExitCode + " installing " + $ctx.Name) "Install failed" "OK" "Warning"
+            }
+        } | Out-Null
+}
+
+function New-CategoryTile {
+    param([string]$Category, [int]$Count)
+
+    $border              = New-Object System.Windows.Controls.Border
+    $border.SetResourceReference(
+        [System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+    $border.SetResourceReference(
+        [System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $border.BorderThickness = [System.Windows.Thickness]::new(1)
+    $border.CornerRadius    = [System.Windows.CornerRadius]::new(8)
+    $border.Width           = 180
+    $border.Height          = 84
+    $border.Margin          = [System.Windows.Thickness]::new(0, 0, 10, 10)
+    $border.Padding         = [System.Windows.Thickness]::new(16, 14, 16, 14)
+    $border.Cursor          = [System.Windows.Input.Cursors]::Hand
+
+    $sp = New-Object System.Windows.Controls.StackPanel
+
+    $name              = New-Object System.Windows.Controls.TextBlock
+    $name.Text         = $Category
+    $name.FontSize     = 13
+    $name.FontWeight   = [System.Windows.FontWeights]::SemiBold
+    $name.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+    $name.TextTrimming = "CharacterEllipsis"
+
+    $sub             = New-Object System.Windows.Controls.TextBlock
+    $sub.Text        = if ($Count -eq 1) { "1 app" } else { [string]$Count + " apps" }
+    $sub.FontSize    = 11
+    $sub.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+    $sub.Margin      = [System.Windows.Thickness]::new(0, 6, 0, 0)
+
+    $sp.Children.Add($name) | Out-Null
+    $sp.Children.Add($sub)  | Out-Null
+    $border.Child = $sp
+
+    $border.Tag = $Category
+    $border.Add_MouseLeftButtonUp({
+        param($s, $e)
+        Show-StoreCategory ([string]$s.Tag)
+    })
+
+    return $border
+}
+
+function New-AppCard {
+    param([string]$Name, [string]$Id, [string]$Subtitle = "")
+
+    $border              = New-Object System.Windows.Controls.Border
+    $border.SetResourceReference(
+        [System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+    $border.SetResourceReference(
+        [System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $border.BorderThickness = [System.Windows.Thickness]::new(1)
+    $border.CornerRadius    = [System.Windows.CornerRadius]::new(6)
+    $border.Width           = 220
+    $border.Margin          = [System.Windows.Thickness]::new(0, 0, 10, 10)
+    $border.Padding         = [System.Windows.Thickness]::new(12, 12, 12, 12)
+    $border.Cursor          = [System.Windows.Input.Cursors]::Hand
+
+    # Card layout: badge | name + subtitle
+    $row = New-Object System.Windows.Controls.Grid
+    $rc0 = New-Object System.Windows.Controls.ColumnDefinition; $rc0.Width = [System.Windows.GridLength]::Auto
+    $rc1 = New-Object System.Windows.Controls.ColumnDefinition; $rc1.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+    $row.ColumnDefinitions.Add($rc0); $row.ColumnDefinitions.Add($rc1)
+
+    $badge        = New-LoadingBadge -Size 36
+    $badge.Margin = [System.Windows.Thickness]::new(0, 0, 12, 0)
+    [System.Windows.Controls.Grid]::SetColumn($badge, 0)
+
+    # Kick off async icon fetch; swap to favicon when available, or fall
+    # back to the colored letter badge if the fetch fails.
+    $capturedBadge = $badge
+    $capturedName  = $Name
+    $capturedId    = $Id
+    Get-AppIconAsync -Id $Id -Name $Name -OnReady ({
+        param($iconPath)
+        if ($iconPath) {
+            Swap-BadgeToIcon -Target $capturedBadge -Path $iconPath -Size 36
+        } else {
+            Set-BadgeToLetter -Target $capturedBadge -Name $capturedName -Id $capturedId -Size 36
+        }
+    }.GetNewClosure())
+
+    $textStack = New-Object System.Windows.Controls.StackPanel
+    $textStack.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($textStack, 1)
+
+    $nameBlock              = New-Object System.Windows.Controls.TextBlock
+    $nameBlock.Text         = $Name
+    $nameBlock.FontSize     = 13
+    $nameBlock.FontWeight   = [System.Windows.FontWeights]::SemiBold
+    $nameBlock.TextTrimming = "CharacterEllipsis"
+    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+
+    $subBlock              = New-Object System.Windows.Controls.TextBlock
+    $subBlock.Text         = if ([string]::IsNullOrWhiteSpace($Subtitle)) { $Id } else { $Subtitle }
+    $subBlock.FontSize     = 11
+    $subBlock.TextTrimming = "CharacterEllipsis"
+    $subBlock.Margin       = [System.Windows.Thickness]::new(0, 2, 0, 0)
+    $subBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+
+    $textStack.Children.Add($nameBlock) | Out-Null
+    $textStack.Children.Add($subBlock)  | Out-Null
+
+    $row.Children.Add($badge)     | Out-Null
+    $row.Children.Add($textStack) | Out-Null
+    $border.Child = $row
+
+    # Click anywhere on the card opens the detail panel
+    $border.Tag = @{ Id = $Id; Name = $Name }
+    $border.Add_MouseLeftButtonUp({
+        param($s, $e)
+        $info = $s.Tag
+        Show-AppDetailPanel -Id $info.Id -Name $info.Name
+    })
+
+    return $border
+}
+
+# ── Serialized 'winget show' meta fetcher ────────────────────────
+# winget show is slow (~1-2s per call) and each one spawns a runspace +
+# process. Firing N in parallel freezes the UI thread. We funnel all
+# meta requests through this coordinator: max 1 in flight, the rest
+# queue up. Both the icon fetcher and the detail panel share it.
+
+# Shared meta-fetcher state bundled into one hashtable so it survives the
+# Register-ObjectEvent boundary (subscriber actions get a private $script:
+# scope - the only reliable way to share state is by reference via
+# -MessageData). The Active flag is wrapped in a 1-element array to make
+# the bool itself mutable through the same reference.
+$script:metaState = @{
+    Cache    = @{}                                                          # id -> parsed meta
+    Pending  = @{}                                                          # id -> List[scriptblock]
+    Queue    = [System.Collections.Generic.Queue[string]]::new()
+    Active   = @($false)                                                    # use [0] for mutable bool
+}
+# Back-compat aliases so the rest of the file can keep reading $script:appMetaCache etc.
+$script:appMetaCache = $script:metaState.Cache
+
+function Start-MetaFetchJob {
+    param([string]$Id)
+
+    # Spawn winget show as a plain Process and let it exit, then read the
+    # stdout buffer in one go. Avoids the ~300ms runspace creation cost that
+    # Start-ScyJob pays per call. Process.Exited is wired through
+    # Register-ObjectEvent so the handler runs on the engine thread (with a
+    # runspace available); raw .NET delegates would crash because the .NET
+    # thread pool has no PowerShell runspace.
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName               = "winget"
+    $psi.Arguments              = "show --id `"$Id`" --accept-source-agreements"
+    $psi.UseShellExecute        = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError  = $true
+    $psi.CreateNoWindow         = $true
+    $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+
+    $proc                     = New-Object System.Diagnostics.Process
+    $proc.StartInfo           = $psi
+    $proc.EnableRaisingEvents = $true
+
+    $sourceId = "MetaFetch_" + ([guid]::NewGuid().ToString("N"))
+    # Pass the shared state hashtable + window by reference; the subscriber
+    # action runs in a private $script: scope and can only see what arrives
+    # via -MessageData.
+    Register-ObjectEvent -InputObject $proc -EventName Exited `
+        -SourceIdentifier $sourceId `
+        -MessageData @{
+            Id       = $Id
+            SourceId = $sourceId
+            State    = $script:metaState
+            Win      = $window
+        } `
+        -Action {
+            $msg   = $Event.MessageData
+            $p     = $Sender
+            $state = $msg.State
+            try {
+                $stdout = $p.StandardOutput.ReadToEnd()
+                $lines  = $stdout -split "`r?`n"
+                $meta   = $null
+                try { $meta = Parse-WingetShowOutput -Lines $lines } catch {}
+                if ($meta) { $state.Cache[$msg.Id] = $meta }
+
+                if ($state.Pending.ContainsKey($msg.Id)) {
+                    $cbs = $state.Pending[$msg.Id]
+                    $state.Pending.Remove($msg.Id) | Out-Null
+                    foreach ($cb in $cbs) { try { & $cb $meta $null } catch {} }
+                }
+                $state.Active[0] = $false
+
+                if ($state.Queue.Count -gt 0) {
+                    $nextId       = $state.Queue.Dequeue()
+                    $state.Active[0] = $true
+                    $drainAction = { Start-MetaFetchJob -Id $nextId }.GetNewClosure()
+                    $msg.Win.Dispatcher.BeginInvoke([action]$drainAction,
+                        [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
+                }
+            } finally {
+                Unregister-Event -SourceIdentifier $msg.SourceId -ErrorAction SilentlyContinue
+                try { $p.Dispose() } catch {}
+            }
+        } | Out-Null
+
+    try {
+        [void]$proc.Start()
+    } catch {
+        Unregister-Event -SourceIdentifier $sourceId -ErrorAction SilentlyContinue
+        if ($script:metaState.Pending.ContainsKey($Id)) {
+            $cbs = $script:metaState.Pending[$Id]
+            $script:metaState.Pending.Remove($Id) | Out-Null
+            foreach ($cb in $cbs) { try { & $cb $null $_ } catch {} }
+        }
+        $script:metaState.Active[0] = $false
+    }
+}
+
+function Get-AppMetaAsync {
+    param(
+        [Parameter(Mandatory)][string]$Id,
+        [Parameter(Mandatory)][scriptblock]$OnReady
+    )
+
+    # In-memory cache hit -> defer to a Background dispatcher tick so a burst
+    # of callers don't all run their UI work in one stall.
+    if ($script:metaState.Cache.ContainsKey($Id)) {
+        $captured   = $OnReady
+        $cachedMeta = $script:metaState.Cache[$Id]
+        $action = {
+            try { & $captured $cachedMeta $null } catch {}
+        }.GetNewClosure()
+        $window.Dispatcher.BeginInvoke([action]$action,
+            [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
+        return
+    }
+
+    # Coalesce: same id already in flight or queued
+    if ($script:metaState.Pending.ContainsKey($Id)) {
+        $script:metaState.Pending[$Id].Add($OnReady) | Out-Null
+        return
+    }
+    $script:metaState.Pending[$Id] = [System.Collections.Generic.List[scriptblock]]::new()
+    $script:metaState.Pending[$Id].Add($OnReady) | Out-Null
+
+    if ($script:metaState.Active[0]) {
+        $script:metaState.Queue.Enqueue($Id)
+    } else {
+        $script:metaState.Active[0] = $true
+        $deferredId = $Id
+        $action = { Start-MetaFetchJob -Id $deferredId }.GetNewClosure()
+        $window.Dispatcher.BeginInvoke([action]$action,
+            [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
+    }
+}
+
+
+# ── Icon cache + async favicon fetcher ───────────────────────────
+# Pulls publisher / homepage URL out of `winget show`, derives the domain,
+# fetches a favicon from google's s2 endpoint, and caches a PNG per Id at
+# %LOCALAPPDATA%\Scy\IconCache. Cards and the detail panel show a letter
+# badge first; once an icon is on disk, the badge is swapped for an Image.
+
+function Get-ScyIconCacheDir {
+    $dir = Join-Path $env:LOCALAPPDATA "Scy\IconCache"
+    if (-not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    return $dir
+}
+
+function Get-CachedIconPath {
+    param([string]$Id)
+    $safe = ($Id -replace '[^A-Za-z0-9._-]', '_')
+    return (Join-Path (Get-ScyIconCacheDir) ($safe + ".png"))
+}
+
+# Pending icon callbacks per Id, so multiple cards waiting on the same Id
+# are all notified by a single fetch.
+$script:iconPendingCallbacks = @{}
+# Set of Ids we've already tried this session that returned nothing.
+$script:iconFailedThisSession = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+
+function Load-ImageFromCache {
+    param([string]$Path)
+    try {
+        $bmp = New-Object System.Windows.Media.Imaging.BitmapImage
+        $bmp.BeginInit()
+        $bmp.CacheOption  = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+        $bmp.CreateOptions = [System.Windows.Media.Imaging.BitmapCreateOptions]::IgnoreImageCache
+        $bmp.UriSource    = New-Object System.Uri($Path)
+        $bmp.EndInit()
+        $bmp.Freeze()
+        return $bmp
+    } catch {
+        return $null
+    }
+}
+
+function Get-DomainFromMeta {
+    param([hashtable]$Meta)
+    $url = ""
+    if ($Meta.Homepage)        { $url = $Meta.Homepage }
+    elseif ($Meta.PublisherUrl){ $url = $Meta.PublisherUrl }
+    if (-not $url) { return $null }
+    try {
+        $uri = New-Object System.Uri($url)
+        return $uri.Host
+    } catch { return $null }
+}
+
+function Invoke-IconCallbacks {
+    param([string]$Id, [string]$Path)
+    if (-not $script:iconPendingCallbacks.ContainsKey($Id)) { return }
+    $cbs = $script:iconPendingCallbacks[$Id]
+    $script:iconPendingCallbacks.Remove($Id) | Out-Null
+    foreach ($cb in $cbs) {
+        try { & $cb $Path } catch {}
+    }
+}
+
+function Fetch-FaviconAsync {
+    param([string]$Id, [string]$Domain)
+
+    $outPath = Get-CachedIconPath -Id $Id
+    $url     = "https://www.google.com/s2/favicons?domain=" + $Domain + "&sz=64"
+
+    Start-ScyJob `
+        -Variables @{ favUrl = $url; favOut = $outPath } `
+        -Context   @{ Id = $Id; OutPath = $outPath } `
+        -Work {
+            param($emit)
+            try {
+                $wc = New-Object System.Net.WebClient
+                $wc.Headers.Add('User-Agent', 'Mozilla/5.0 Scy')
+                $wc.DownloadFile($favUrl, $favOut)
+                $wc.Dispose()
+                return @{ Ok = $true }
+            } catch {
+                return @{ Ok = $false; Err = $_.Exception.Message }
+            }
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $ok = $false
+            if (-not $err -and $result.Ok -and (Test-Path $ctx.OutPath)) {
+                $fi = Get-Item $ctx.OutPath -ErrorAction SilentlyContinue
+                # Google's "domain has no icon" fallback is ~150-200 bytes; real
+                # 64x64 PNGs are 800+ bytes. Use 400 as a conservative cutoff.
+                if ($fi -and $fi.Length -gt 400) { $ok = $true }
+                elseif ($fi) { Remove-Item $ctx.OutPath -Force -ErrorAction SilentlyContinue }
+            }
+            if ($ok) {
+                Invoke-IconCallbacks -Id $ctx.Id -Path $ctx.OutPath
+            } else {
+                $script:iconFailedThisSession.Add($ctx.Id) | Out-Null
+                Invoke-IconCallbacks -Id $ctx.Id -Path $null
+            }
+        } | Out-Null
+}
+
+function Get-AppIconAsync {
+    param(
+        [Parameter(Mandatory)][string]$Id,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][scriptblock]$OnReady
+    )
+
+    # Disk cache hit -> defer callback to a Background tick so a burst of
+    # card renders doesn't stall the UI thread.
+    $cached = Get-CachedIconPath -Id $Id
+    if (Test-Path $cached) {
+        $captured     = $OnReady
+        $capturedPath = $cached
+        $action = {
+            try { & $captured $capturedPath } catch {}
+        }.GetNewClosure()
+        $window.Dispatcher.BeginInvoke([action]$action,
+            [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
+        return
+    }
+
+    # Already failed this session - don't keep retrying
+    if ($script:iconFailedThisSession.Contains($Id)) {
+        & $OnReady $null
+        return
+    }
+
+    # Coalesce concurrent requests for the same Id
+    if ($script:iconPendingCallbacks.ContainsKey($Id)) {
+        $script:iconPendingCallbacks[$Id].Add($OnReady) | Out-Null
+        return
+    }
+    $script:iconPendingCallbacks[$Id] = [System.Collections.Generic.List[scriptblock]]::new()
+    $script:iconPendingCallbacks[$Id].Add($OnReady) | Out-Null
+
+    # Route meta lookup through the serial coordinator
+    Get-AppMetaAsync -Id $Id -OnReady ({
+        param($meta, $err)
+        if ($err -or -not $meta) {
+            $script:iconFailedThisSession.Add($Id) | Out-Null
+            Invoke-IconCallbacks -Id $Id -Path $null
+            return
+        }
+        $domain = Get-DomainFromMeta -Meta $meta
+        if (-not $domain) {
+            $script:iconFailedThisSession.Add($Id) | Out-Null
+            Invoke-IconCallbacks -Id $Id -Path $null
+            return
+        }
+        Fetch-FaviconAsync -Id $Id -Domain $domain
+    }.GetNewClosure())
+}
+
+function Swap-BadgeToIcon {
+    param([System.Windows.Controls.Border]$Target, [string]$Path, [int]$Size = 32)
+    if (-not $Path) { return }
+    $img = Load-ImageFromCache -Path $Path
+    if (-not $img) { return }
+    $imgCtl              = New-Object System.Windows.Controls.Image
+    $imgCtl.Source       = $img
+    $imgCtl.Width        = $Size
+    $imgCtl.Height       = $Size
+    $imgCtl.Stretch      = [System.Windows.Media.Stretch]::Uniform
+    $Target.Child        = $imgCtl
+    # Adopt a subtle background so light favicons stay visible
+    $Target.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "SurfaceBrush")
+}
+
+
+# ── App detail side panel ────────────────────────────────────────
+$appDetailPanel       = Find "AppDetailPanel"
+$appDetailClose       = Find "AppDetailClose"
+$appDetailIconHost    = Find "AppDetailIconHost"
+$appDetailName        = Find "AppDetailName"
+$appDetailPublisher   = Find "AppDetailPublisher"
+$appDetailId          = Find "AppDetailId"
+$appDetailVersion     = Find "AppDetailVersion"
+$appDetailSource      = Find "AppDetailSource"
+$appDetailDescription = Find "AppDetailDescription"
+$appDetailAction      = Find "AppDetailAction"
+
+# Cache of parsed `winget show` results keyed by Id.
+$script:appMetaCache = @{}
+# Id currently displayed in the detail panel (guards stale async writes).
+$global:appDetailCurrentId = $null
+
+# winget show is localized by Windows UI culture, so match keys against a
+# multi-language alias table. Add more languages as needed.
+$script:wingetFieldAliases = @{
+    Description  = @('Description', 'Beschreibung', 'Descripción', 'Descrizione',
+                     'Description', 'Descrição', 'Beschrijving', '描述', '說明',
+                     '説明', '설명', 'Описание', 'Açıklama')
+    Publisher    = @('Publisher', 'Herausgeber', 'Editor', 'Editore', 'Éditeur',
+                     'Uitgever', '发布者', '發行者', '発行元', '게시자',
+                     'Издатель', 'Yayıncı')
+    PublisherUrl = @('Publisher Url', 'Herausgeber-URL', 'URL del editor',
+                     'URL de l''éditeur', 'URL dell''editore', 'URL do editor',
+                     'URL издателя', 'Publisher URL')
+    Homepage     = @('Homepage', 'Startseite', 'Página principal', 'Page d''accueil',
+                     'Pagina iniziale', 'Página inicial', 'Главная страница',
+                     'Ana sayfa', '主页', '首頁', 'ホームページ', '홈페이지')
+    Version      = @('Version', 'Versión', 'Versione', 'Версия', '版本',
+                     'バージョン', '버전', 'Sürüm')
+}
+
+function Resolve-WingetField {
+    param([string]$Key)
+    foreach ($field in $script:wingetFieldAliases.Keys) {
+        foreach ($alias in $script:wingetFieldAliases[$field]) {
+            if ($Key -ieq $alias) { return $field }
+        }
+    }
+    return $null
+}
+
+function Parse-WingetShowOutput {
+    param([string[]]$Lines)
+    $meta = @{
+        Description  = ""
+        Publisher    = ""
+        PublisherUrl = ""
+        Homepage     = ""
+        Version      = ""
+        Source       = ""
+    }
+    # Strip ANSI + CR
+    $clean = @($Lines | ForEach-Object { ($_ -replace '\x1B\[[0-9;]*[mK]', '') -replace '\r', '' })
+    $current = $null
+    foreach ($raw in $clean) {
+        $line = [string]$raw
+        if ([string]::IsNullOrWhiteSpace($line)) { $current = $null; continue }
+        if ($line -match '^\s{2,}\S' -and $null -ne $current -and $current -eq 'Description') {
+            # Indented continuation of the description block
+            $meta[$current] = (($meta[$current]) + ' ' + $line.Trim()).Trim()
+            continue
+        }
+        $idx = $line.IndexOf(':')
+        if ($idx -lt 1) { $current = $null; continue }
+        $key = $line.Substring(0, $idx).Trim()
+        $val = $line.Substring($idx + 1).Trim()
+        $field = Resolve-WingetField -Key $key
+        if ($field) {
+            $meta[$field] = $val
+            $current = $field
+        } else {
+            $current = $null
+        }
+    }
+    return $meta
+}
+
+function Set-AppDetailMeta {
+    param([string]$Id, [hashtable]$Meta)
+    if ($global:appDetailCurrentId -ne $Id) { return }  # Panel moved on
+    if ($Meta.Version)     { $appDetailVersion.Text     = "v" + $Meta.Version }
+    if ($Meta.Publisher)   { $appDetailPublisher.Text   = $Meta.Publisher }
+    if ($Meta.Description) {
+        $appDetailDescription.Text = $Meta.Description
+    } else {
+        $appDetailDescription.Text = "No description provided by the manifest."
+    }
+}
+
+function Show-AppDetailPanel {
+    param([string]$Id, [string]$Name)
+
+    $global:appDetailCurrentId = $Id
+
+    # Reset fields
+    $appDetailName.Text        = $Name
+    $appDetailId.Text          = $Id
+    $appDetailPublisher.Text   = ""
+    $appDetailVersion.Text     = ""
+    $appDetailSource.Text      = "winget"
+    $appDetailDescription.Text = "Loading..."
+
+    # Icon: cached icon -> embed immediately; otherwise show a loading
+    # placeholder and async-swap to favicon (or letter fallback on failure).
+    $cachedIconPath = Get-CachedIconPath -Id $Id
+    if (Test-Path $cachedIconPath) {
+        Swap-BadgeToIcon -Target $appDetailIconHost -Path $cachedIconPath -Size 64
+    } else {
+        # Reset themed background a previous app may have left behind
+        $appDetailIconHost.ClearValue([System.Windows.Controls.Border]::BackgroundProperty)
+        $appDetailIconHost.Child = New-LoadingBadge -Size 64
+        $expectedId      = $Id
+        $capturedHost    = $appDetailIconHost
+        $capturedName    = $Name
+        $capturedId      = $Id
+        Get-AppIconAsync -Id $Id -Name $Name -OnReady ({
+            param($iconPath)
+            if ($global:appDetailCurrentId -ne $expectedId) { return }
+            if ($iconPath) {
+                Swap-BadgeToIcon -Target $capturedHost -Path $iconPath -Size 64
+            } else {
+                # Replace the loading placeholder inside the host with a letter badge.
+                $capturedHost.Child = New-LetterBadge -Name $capturedName -Id $capturedId -Size 64
+            }
+        }.GetNewClosure())
+    }
+
+    # Action button: Install (refresh when we know if installed - Phase 4 task)
+    $appDetailAction.Content   = "Install"
+    $appDetailAction.IsEnabled = $true
+    $appDetailAction.Style     = $window.Resources["ActionButton"]
+    $appDetailAction.Tag       = @{ Id = $Id; Name = $Name }
+
+    $appDetailPanel.Visibility = "Visible"
+
+    # Route through the serial meta coordinator so we never duplicate
+    # 'winget show' for the same id (cards request the same data).
+    $detailExpectedId = $Id
+    Get-AppMetaAsync -Id $Id -OnReady ({
+        param($meta, $err)
+        if ($global:appDetailCurrentId -ne $detailExpectedId) { return }
+        if ($err -or -not $meta) {
+            $appDetailDescription.Text = "Could not load details."
+            return
+        }
+        Set-AppDetailMeta -Id $detailExpectedId -Meta $meta
+    }.GetNewClosure())
+}
+
+function Hide-AppDetailPanel {
+    $global:appDetailCurrentId = $null
+    $appDetailPanel.Visibility = "Collapsed"
+}
+
+$appDetailClose.Add_Click({ Hide-AppDetailPanel })
+
+$appDetailAction.Add_Click({
+    param($s, $e)
+    $info = $s.Tag
+    if (-not $info) { return }
+    Install-StoreSingleApp -Id $info.Id -Name $info.Name -TriggerButton $s
+})
+
+# Hide the panel automatically when leaving the Store sub-tab.
+$pkgNavInstalled.Add_Click({ Hide-AppDetailPanel })
+$pkgNavUpdates.Add_Click({   Hide-AppDetailPanel })
+
+
+function Show-StoreLanding {
+    $storeCategoriesPanel.Children.Clear()
+    $storeHeaderText.Text       = "Browse"
+    $storeCategoryArea.Visibility = "Collapsed"
+    $storeCategoriesPanel.Visibility = "Visible"
+
+    # Group merged quick installs by category, fall back to "Other"
+    $groups = @{}
+    foreach ($qi in (Get-MergedQuickInstalls)) {
+        $cat = if ([string]::IsNullOrWhiteSpace($qi.Category)) { "Other" } else { [string]$qi.Category }
+        if (-not $groups.ContainsKey($cat)) { $groups[$cat] = 0 }
+        $groups[$cat] = $groups[$cat] + 1
+    }
+    foreach ($cat in ($groups.Keys | Sort-Object)) {
+        $tile = New-CategoryTile -Category $cat -Count $groups[$cat]
+        $storeCategoriesPanel.Children.Add($tile) | Out-Null
+    }
+}
+
+function Show-StoreCategory {
+    param([string]$Category)
+    $storeCategoryAppsPanel.Children.Clear()
+    $storeCategoryName.Text       = $Category
+    $storeHeaderText.Text         = "Browse"
+    $storeCategoriesPanel.Visibility = "Collapsed"
+    $storeCategoryArea.Visibility = "Visible"
+
+    foreach ($qi in (Get-MergedQuickInstalls)) {
+        $cat = if ([string]::IsNullOrWhiteSpace($qi.Category)) { "Other" } else { [string]$qi.Category }
+        if ($cat -ne $Category) { continue }
+        $sub  = if ($qi.IsCurated) { "Curated - " + $qi.Id } else { $qi.Id }
+        $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub
+        $storeCategoryAppsPanel.Children.Add($card) | Out-Null
+    }
+}
+
+$storeCategoryBack.Add_Click({ Hide-AppDetailPanel; Show-StoreLanding })
+
+# Edit list button toggles the legacy PkgSection_Quick panel
+$btnStoreEdit.Add_Click({
+    if ($pkgSectionStore.Visibility -ne "Visible") { return }
+    $quick = Find "PkgSection_Quick"
+    if ($quick.Visibility -eq "Visible") {
+        $quick.Visibility = "Collapsed"
+        $btnStoreEdit.Content = "Edit list"
+    } else {
+        $quick.Visibility = "Visible"
+        $btnStoreEdit.Content = "Done"
+        # Force quick-install panel into edit mode so user sees full controls
+        if (-not $script:quickInstallEditMode) {
+            $script:quickInstallEditMode = $true
+            Update-QuickInstalls
+        }
+    }
+})
+
+# Delegate Import/Export to the existing handlers on PkgSection_Quick buttons
+$btnStoreImport.Add_Click({ (Find "BtnImportBundles").RaiseEvent(
+    (New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Button]::ClickEvent))) })
+$btnStoreExport.Add_Click({ (Find "BtnExportBundles").RaiseEvent(
+    (New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Button]::ClickEvent))) })
+
+# Refresh landing on startup, after the legacy Update-QuickInstalls has run.
+$window.Dispatcher.BeginInvoke([action]{
+    Show-StoreLanding
+}, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
+
+
+# ─────────────────────────────────────────────────────────────────
+# Installed sub-tab (formerly Tab-Uninstall.ps1)
+# Drives PkgSection_Installed: scan installed winget packages,
+# filter, multi-select uninstall, show results.
+# ─────────────────────────────────────────────────────────────────
+
+$pkgPanel               = Find "PkgStackPanel"
+$pkgCountLabel          = Find "PkgCountLabel"
+$uninstallResultsCard   = Find "UninstallResultsCard"
+$uninstallResultsPanel  = Find "UninstallResultsPanel"
+$uninstallResultsStatus = Find "UninstallResultsStatus"
+$uninstallResultsCount  = Find "UninstallResultsCount"
+
+$script:uninstallItems = [System.Collections.Generic.List[hashtable]]::new()
+
+function New-UninstallRow {
+    param([string]$Name, [string]$Id, [string]$Version, [bool]$Alternate)
+
+    $border = New-Object System.Windows.Controls.Border
+    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
+    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
+    $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
+    $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
+    $border.Cursor       = [System.Windows.Input.Cursors]::Hand
+
+    $grid = New-Object System.Windows.Controls.Grid
+    $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::Auto
+    $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+    $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = [System.Windows.GridLength]::Auto
+    $c3 = New-Object System.Windows.Controls.ColumnDefinition; $c3.Width = [System.Windows.GridLength]::Auto
+    $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1)
+    $grid.ColumnDefinitions.Add($c2); $grid.ColumnDefinitions.Add($c3)
+
+    $cb = New-Object System.Windows.Controls.CheckBox
+    $cb.Margin            = [System.Windows.Thickness]::new(0, 0, 12, 0)
+    $cb.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($cb, 0)
+
+    $nameBlock = New-Object System.Windows.Controls.TextBlock
+    $nameBlock.Text              = $Name
+    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+    $nameBlock.FontSize          = 12
+    $nameBlock.VerticalAlignment = "Center"
+    $nameBlock.TextTrimming      = "CharacterEllipsis"
+    [System.Windows.Controls.Grid]::SetColumn($nameBlock, 1)
+
+    $idBlock = New-Object System.Windows.Controls.TextBlock
+    $idBlock.Text              = $Id
+    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+    $idBlock.FontSize          = 11
+    $idBlock.Margin            = [System.Windows.Thickness]::new(12, 0, 16, 0)
+    $idBlock.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($idBlock, 2)
+
+    $verBlock = New-Object System.Windows.Controls.TextBlock
+    $verBlock.Text              = $Version
+    $verBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
+    $verBlock.FontSize          = 11
+    $verBlock.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($verBlock, 3)
+
+    $grid.Children.Add($cb)        | Out-Null
+    $grid.Children.Add($nameBlock) | Out-Null
+    $grid.Children.Add($idBlock)   | Out-Null
+    $grid.Children.Add($verBlock)  | Out-Null
+    $border.Child = $grid
+
+    $border.Add_MouseLeftButtonUp(({ $cb.IsChecked = -not $cb.IsChecked }.GetNewClosure()))
+
+    return @{ Border = $border; CheckBox = $cb; Id = $Id; Name = $Name; Tag = ($Name + " " + $Id).ToLower() }
+}
+
+function New-ResultRow {
+    param([string]$Name, [string]$Id, [bool]$Success, [bool]$Alternate)
+
+    $accentKey = if ($Success) { "SuccessBrush" } else { "DangerBrush" }
+    $iconChar  = if ($Success)   { [char]0x2714 } else { [char]0x2716 }
+    $statusTxt = if ($Success)   { "removed" } else { "failed" }
+
+    $border = New-Object System.Windows.Controls.Border
+    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
+    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
+    $border.Padding      = [System.Windows.Thickness]::new(10, 7, 10, 7)
+    $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
+
+    $grid = New-Object System.Windows.Controls.Grid
+    $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::Auto
+    $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+    $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = [System.Windows.GridLength]::Auto
+    $c3 = New-Object System.Windows.Controls.ColumnDefinition; $c3.Width = [System.Windows.GridLength]::Auto
+    $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1)
+    $grid.ColumnDefinitions.Add($c2); $grid.ColumnDefinitions.Add($c3)
+
+    $icon                   = New-Object System.Windows.Controls.TextBlock
+    $icon.Text              = $iconChar
+    $icon.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $accentKey)
+    $icon.FontSize          = 13
+    $icon.Margin            = [System.Windows.Thickness]::new(0, 0, 12, 0)
+    $icon.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($icon, 0)
+
+    $nameBlock                   = New-Object System.Windows.Controls.TextBlock
+    $nameBlock.Text              = $Name
+    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+    $nameBlock.FontSize          = 12
+    $nameBlock.VerticalAlignment = "Center"
+    $nameBlock.TextTrimming      = "CharacterEllipsis"
+    [System.Windows.Controls.Grid]::SetColumn($nameBlock, 1)
+
+    $idBlock                   = New-Object System.Windows.Controls.TextBlock
+    $idBlock.Text              = $Id
+    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+    $idBlock.FontSize          = 11
+    $idBlock.Margin            = [System.Windows.Thickness]::new(12, 0, 16, 0)
+    $idBlock.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($idBlock, 2)
+
+    $statusBlock                   = New-Object System.Windows.Controls.TextBlock
+    $statusBlock.Text              = $statusTxt
+    $statusBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $accentKey)
+    $statusBlock.FontSize          = 11
+    $statusBlock.FontWeight        = [System.Windows.FontWeights]::SemiBold
+    $statusBlock.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($statusBlock, 3)
+
+    $grid.Children.Add($icon)        | Out-Null
+    $grid.Children.Add($nameBlock)   | Out-Null
+    $grid.Children.Add($idBlock)     | Out-Null
+    $grid.Children.Add($statusBlock) | Out-Null
+    $border.Child = $grid
+
+    return $border
+}
+
+(Find "BtnScanInstalled").Add_Click({
+    $statusIndicator.Text       = "● Scanning..."
+    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
+    $footerStatus.Text          = "Scy - Scanning installed packages..."
+    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+
+    $pkgPanel.Children.Clear()
+    $script:uninstallItems.Clear()
+    (Find "PkgSearchBox").Text               = ""
+    (Find "PkgSearchPlaceholder").Visibility = "Visible"
+
+    try {
+        $raw   = & winget list --accept-source-agreements 2>&1
+        $lines = @($raw | ForEach-Object { [string]$_ })
+        $rows  = @(Get-WingetRows $lines)
+
+        if ($rows.Count -eq 0) { throw "No packages returned by winget." }
+
+        $alt = $false
+        foreach ($row in $rows) {
+            $name = if ($row.Count -gt 0) { $row[0] } else { "" }
+            $id   = if ($row.Count -gt 1) { $row[1] } else { "" }
+            $ver  = if ($row.Count -gt 2) { $row[2] } else { "" }
+            if ([string]::IsNullOrWhiteSpace($name)) { continue }
+
+            $item = New-UninstallRow $name $id $ver $alt
+            $pkgPanel.Children.Add($item.Border) | Out-Null
+            $script:uninstallItems.Add($item)
+            $alt = -not $alt
+        }
+
+        $pkgCountLabel.Text                    = [string]$script:uninstallItems.Count + " packages installed"
+        (Find "PkgListBorder").Visibility       = "Visible"
+        (Find "BtnUninstallSelected").IsEnabled = $true
+
+    } catch {
+        Show-ThemedDialog ("Scan failed:`n" + $_.Exception.Message) "Scan Error" "OK" "Error"
+    }
+
+    $statusIndicator.Text       = "● Ready"
+    $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
+    $footerStatus.Text          = "Ready"
+})
+
+$script:pkgSearchClear = Find "PkgSearchClear"
+
+(Find "PkgSearchBox").Add_TextChanged({
+    $q           = (Find "PkgSearchBox").Text.ToLower()
+    $placeholder = Find "PkgSearchPlaceholder"
+    $placeholder.Visibility = if ($q) { "Collapsed" } else { "Visible" }
+    $script:pkgSearchClear.Visibility = if ($q) { "Visible" } else { "Collapsed" }
+
+    $visible = 0
+    foreach ($item in $script:uninstallItems) {
+        $show = (-not $q) -or $item.Tag.Contains($q)
+        $item.Border.Visibility = if ($show) { "Visible" } else { "Collapsed" }
+        if ($show) { $visible++ }
+    }
+    $total = $script:uninstallItems.Count
+    $pkgCountLabel.Text = if ($q) { [string]$visible + " of " + [string]$total + " packages" } else { [string]$total + " packages installed" }
+})
+
+$script:pkgSearchClear.Add_Click({
+    (Find "PkgSearchBox").Text = ""
+})
+
+(Find "BtnSelectAll").Add_Click({
+    foreach ($item in $script:uninstallItems) { $item.CheckBox.IsChecked = $true }
+})
+
+(Find "BtnDeselectAll").Add_Click({
+    foreach ($item in $script:uninstallItems) { $item.CheckBox.IsChecked = $false }
+})
+
+(Find "BtnUninstallSelected").Add_Click({
+    $selected = @($script:uninstallItems | Where-Object { $_.CheckBox.IsChecked -eq $true })
+    if ($selected.Count -eq 0) {
+        Show-ThemedDialog "No packages selected. Click a row or check the box to select packages." "Nothing Selected" "OK" "Information"
+        return
+    }
+
+    $list    = ($selected | ForEach-Object { "  - " + $_.Id }) -join "`n"
+    $confirm = Show-ThemedDialog ("Uninstall " + [string]$selected.Count + " package(s)?`n`n" + $list) "Confirm Uninstall" "YesNo" "Warning"
+    if ($confirm -ne "Yes") { return }
+
+    $statusIndicator.Text       = "● Uninstalling..."
+    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
+
+    $uninstallResultsPanel.Children.Clear()
+    $uninstallResultsCount.Text  = ""
+    $uninstallResultsStatus.Text = "Working..."
+    $uninstallResultsCard.Visibility = "Visible"
+    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+
+    $succeeded = 0
+    $failed    = 0
+    $i         = 0
+    foreach ($item in $selected) {
+        $uninstallResultsStatus.Text = "Removing " + $item.Name + " (" + ($i + 1) + " of " + $selected.Count + ")..."
+        $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+
+        & winget uninstall --id $item.Id --silent --accept-source-agreements 2>&1 | Out-Null
+        $success = ($LASTEXITCODE -eq 0)
+
+        if ($success) { $succeeded++ } else { $failed++ }
+
+        $uninstallResultsPanel.Children.Add((New-ResultRow $item.Name $item.Id $success ($i % 2 -eq 0))) | Out-Null
+        $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+        $i++
+    }
+
+    $uninstallResultsCount.Text = [string]$succeeded
+    if ($failed -gt 0) {
+        $uninstallResultsCount.Foreground = $window.Resources["WarningBrush"]
+        $uninstallResultsStatus.Text = "$succeeded removed, $failed failed - re-scan to refresh the list"
+    } else {
+        $uninstallResultsCount.Foreground = $window.Resources["SuccessBrush"]
+        $uninstallResultsStatus.Text = "$succeeded removed - re-scan to refresh the list"
+    }
+
+    $statusIndicator.Text       = "● Ready"
+    $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
+})
