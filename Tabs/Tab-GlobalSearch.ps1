@@ -33,10 +33,10 @@ function Build-GlobalSearchIndex {
     $items = [System.Collections.Generic.List[hashtable]]::new()
 
     # -- Tab-level navigation items --
-    $items.Add(@{ Name = "Packages";  Description = "Browse, install, update & uninstall packages";   Category = "Tabs"; TabIndex = 0; SubNavIndex = $null })
-    $items.Add(@{ Name = "Store";     Description = "Browse and install packages";                    Category = "Packages"; TabIndex = 0; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Installed"; Description = "List and uninstall installed packages";          Category = "Packages"; TabIndex = 0; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Updates";   Description = "Check for package updates";                      Category = "Packages"; TabIndex = 0; SubNavIndex = 2 })
+    $items.Add(@{ Name = "Apps";      Description = "Browse, install, update & uninstall apps";       Category = "Tabs"; TabIndex = 0; SubNavIndex = $null })
+    $items.Add(@{ Name = "Store";     Description = "Browse and install apps";                        Category = "Apps"; TabIndex = 0; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Installed"; Description = "List and uninstall installed apps";              Category = "Apps"; TabIndex = 0; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Updates";   Description = "Check for app updates";                          Category = "Apps"; TabIndex = 0; SubNavIndex = 2 })
 
     $items.Add(@{ Name = "Tweaks";    Description = "Apply and manage system tweaks";                 Category = "Tabs"; TabIndex = 1; SubNavIndex = $null })
 
@@ -66,12 +66,12 @@ function Build-GlobalSearchIndex {
     $items.Add(@{ Name = "AD OUs";           Description = "Browse organizational units";                    Category = "Active Directory"; TabIndex = 5; SubNavIndex = 3 })
     $items.Add(@{ Name = "Domain Info";      Description = "Domain, forest, DCs, FSMO, whoami";             Category = "Active Directory"; TabIndex = 5; SubNavIndex = 4 })
 
-    $items.Add(@{ Name = "Tools";     Description = "QR code, notes, export, hashing & password generator"; Category = "Tabs"; TabIndex = 6; SubNavIndex = $null })
+    $items.Add(@{ Name = "Tools";     Description = "QR code, notes, hashing & password generator";   Category = "Tabs"; TabIndex = 6; SubNavIndex = $null })
     $items.Add(@{ Name = "QR Code";         Description = "Generate QR codes";                        Category = "Tools"; TabIndex = 6; SubNavIndex = 0 })
     $items.Add(@{ Name = "Notes";           Description = "Quick notes and scratchpad";               Category = "Tools"; TabIndex = 6; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Export";          Description = "Export system report";                      Category = "Tools"; TabIndex = 6; SubNavIndex = 2 })
-    $items.Add(@{ Name = "File Hashing";      Description = "MD5/SHA1/SHA256 hashes, compare & verify";        Category = "Tools"; TabIndex = 6; SubNavIndex = 3 })
-    $items.Add(@{ Name = "Password Generator"; Description = "Generate secure passwords with custom rules";     Category = "Tools"; TabIndex = 6; SubNavIndex = 4 })
+    $items.Add(@{ Name = "File Hashing";      Description = "MD5/SHA1/SHA256 hashes, compare & verify";        Category = "Tools"; TabIndex = 6; SubNavIndex = 2 })
+    $items.Add(@{ Name = "Password Generator"; Description = "Generate secure passwords with custom rules";     Category = "Tools"; TabIndex = 6; SubNavIndex = 3 })
+    $items.Add(@{ Name = "Export installed apps"; Description = "Scan winget + registry, export as JSON/CSV";   Category = "Apps"; TabIndex = 0; SubNavIndex = 1 })
 
     $items.Add(@{ Name = "Settings";  Description = "App settings, themes & backup";                  Category = "Tabs"; TabIndex = 7; SubNavIndex = $null })
     $items.Add(@{ Name = "General Settings";    Description = "General app preferences";              Category = "Settings"; TabIndex = 7; SubNavIndex = 0 })

@@ -734,8 +734,8 @@
                     Margin="16,8,16,8" Padding="0">
 
 
-            <!-- ─── Packages (Install + Uninstall) ─── -->
-            <TabItem Header="Packages">
+            <!-- ─── Apps (Store + Installed + Updates) ─── -->
+            <TabItem Header="Apps">
                 <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="24">
                     <Grid>
@@ -1066,7 +1066,7 @@
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock x:Name="SearchPlaceholder"
-                                                               Text="Search winget packages (e.g. Firefox, 7-Zip)..."
+                                                               Text="Search winget for apps (e.g. Firefox, 7-Zip)..."
                                                                Foreground="{DynamicResource MutedText}" FontSize="12"
                                                                VerticalAlignment="Center" IsHitTestVisible="False"/>
                                                     <TextBox x:Name="InstallSearchBox"
@@ -1124,7 +1124,7 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Installed packages (hidden until List Installed clicked) -->
+                                <!-- Installed apps (hidden until List Installed clicked) -->
                                 <Border x:Name="InstalledCard" Background="{DynamicResource Surface2Brush}"
                                         CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
                                         BorderThickness="1" Padding="16,14" Margin="0,8,0,0" Visibility="Collapsed">
@@ -1133,7 +1133,7 @@
                                             <DockPanel VerticalAlignment="Center">
                                                 <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                         Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                                <TextBlock Text="Installed packages" FontSize="14"
+                                                <TextBlock Text="Installed apps" FontSize="14"
                                                            FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
                                                            VerticalAlignment="Center"/>
                                             </DockPanel>
@@ -1250,6 +1250,7 @@
 
                                 <!-- Installed (formerly Uninstall) -->
                                 <Border x:Name="PkgSection_Installed" Visibility="Collapsed">
+                                <StackPanel>
                                 <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="16,14" Margin="0,0,0,12">
@@ -1282,7 +1283,7 @@
                                             <StackPanel>
                                                 <Grid Margin="0,0,0,8">
                                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <TextBlock x:Name="PkgCountLabel" Text="0 packages"
+                                                        <TextBlock x:Name="PkgCountLabel" Text="0 apps"
                                                                    FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"/>
                                                         <TextBlock Text=" - check to select for uninstall"
                                                                    FontSize="12" Foreground="{DynamicResource MutedText}"/>
@@ -1355,6 +1356,87 @@
 
                                     </StackPanel>
                                 </Border>
+
+                                <!-- Export installed apps (moved from Tools > Software Export) -->
+                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Padding="16,14" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <DockPanel Margin="0,0,0,10">
+                                            <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                    Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                            <TextBlock Text="Export"
+                                                       FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}"
+                                                       VerticalAlignment="Center"/>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <TextBlock x:Name="ExportStatus" Text=""
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}"
+                                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                        <TextBlock Text="Scan installed apps from winget and the Windows registry, then export as JSON or CSV for migration or documentation."
+                                                   FontSize="11" Foreground="{DynamicResource MutedText}"
+                                                   TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                            <Button x:Name="BtnExportScan" Content="Scan installed apps"
+                                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                            <Button x:Name="BtnExportJSON" Content="Export JSON"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                                                    IsEnabled="False" Opacity="0.4"/>
+                                            <Button x:Name="BtnExportCSV" Content="Export CSV"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                                                    IsEnabled="False" Opacity="0.4"/>
+                                            <Button x:Name="BtnExportCopy" Content="Copy to clipboard"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    IsEnabled="False" Opacity="0.4"/>
+                                        </StackPanel>
+
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="10,0" Margin="0,0,0,12">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock x:Name="ExportFilterPlaceholder"
+                                                           Text="Filter installed apps..."
+                                                           Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                           VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                <TextBox x:Name="ExportFilterBox" Background="Transparent" BorderThickness="0"
+                                                         Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                         CaretBrush="{DynamicResource FgBrush}"
+                                                         Padding="0,8" SelectionBrush="{DynamicResource AccentBrush}"/>
+                                                <Button x:Name="ExportFilterClear" Grid.Column="1"
+                                                        Content="&#xD7;" FontSize="14" Visibility="Collapsed"
+                                                        Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                        Foreground="{DynamicResource MutedText}" Padding="4,0"
+                                                        VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <DockPanel Margin="0,0,0,8">
+                                            <TextBlock x:Name="ExportSummary" Text="No scan performed yet."
+                                                       FontSize="11" Foreground="{DynamicResource MutedText}"/>
+                                            <TextBlock x:Name="ExportFilterCount" Text=""
+                                                       FontSize="11" Foreground="{DynamicResource MutedText}"
+                                                       HorizontalAlignment="Right"/>
+                                        </DockPanel>
+
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="280">
+                                            <StackPanel x:Name="ExportResultsPanel">
+                                                <TextBlock Text="Click 'Scan installed apps' to begin."
+                                                           Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                           HorizontalAlignment="Center" TextAlignment="Center"
+                                                           Margin="0,24,0,0"/>
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                    </StackPanel>
+                                </Border>
+
+                                </StackPanel>
                                 </Border>
 
                             </StackPanel>
@@ -3591,8 +3673,6 @@
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="ToolsNav_Notes" Content="Notes"
                                     Style="{StaticResource SubNavButton}"/>
-                            <Button x:Name="ToolsNav_Export" Content="Software Export"
-                                    Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="ToolsNav_Hashing" Content="File Hashing"
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="ToolsNav_PasswordGen" Content="Password Generator"
@@ -3734,107 +3814,6 @@
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
                             </Grid>
-                        </Border>
-
-                                </StackPanel>
-                                </Border>
-
-                                <!-- ─── Software Export section ─── -->
-                                <Border x:Name="ToolsSection_Export" Visibility="Collapsed">
-                                <StackPanel>
-
-                        <Border Background="{DynamicResource Surface2Brush}"
-                                CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
-                                BorderThickness="1" Padding="16,14" Margin="0,0,0,12">
-                            <StackPanel>
-                                <DockPanel Margin="0,0,0,10">
-                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Installed Software Exporter"
-                                               FontSize="14" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource FgBrush}"
-                                               VerticalAlignment="Center"/>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <TextBlock x:Name="ExportStatus" Text=""
-                                                   FontSize="11" Foreground="{DynamicResource MutedText}"
-                                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                    </StackPanel>
-                                </DockPanel>
-                                <TextBlock Text="Scan installed programs from Winget and the Windows registry, then export as JSON or CSV for migration or documentation."
-                                           FontSize="11" Foreground="{DynamicResource MutedText}"
-                                           TextWrapping="Wrap" Margin="0,0,0,12"/>
-
-                                <!-- Action buttons -->
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                    <Button x:Name="BtnExportScan" Content="Scan installed software"
-                                            Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                                    <Button x:Name="BtnExportJSON" Content="Export JSON"
-                                            Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
-                                            IsEnabled="False" Opacity="0.4"/>
-                                    <Button x:Name="BtnExportCSV" Content="Export CSV"
-                                            Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
-                                            IsEnabled="False" Opacity="0.4"/>
-                                    <Button x:Name="BtnExportCopy" Content="Copy to clipboard"
-                                            Style="{StaticResource SecondaryButton}"
-                                            IsEnabled="False" Opacity="0.4"/>
-                                </StackPanel>
-
-                                <!-- Filter -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                        Padding="10,0" Margin="0,0,0,12">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock x:Name="ExportFilterPlaceholder"
-                                                   Text="Filter installed software..."
-                                                   Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                   VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                        <TextBox x:Name="ExportFilterBox" Background="Transparent" BorderThickness="0"
-                                                 Foreground="{DynamicResource FgBrush}" FontSize="12"
-                                                 CaretBrush="{DynamicResource FgBrush}"
-                                                 Padding="0,8" SelectionBrush="{DynamicResource AccentBrush}"/>
-                                        <Button x:Name="ExportFilterClear" Grid.Column="1"
-                                                Content="&#xD7;" FontSize="14" Visibility="Collapsed"
-                                                Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                                Foreground="{DynamicResource MutedText}" Padding="4,0"
-                                                VerticalAlignment="Center"/>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Summary row -->
-                                <DockPanel Margin="0,0,0,8">
-                                    <TextBlock x:Name="ExportSummary" Text="No scan performed yet."
-                                               FontSize="11" Foreground="{DynamicResource MutedText}"/>
-                                    <TextBlock x:Name="ExportFilterCount" Text=""
-                                               FontSize="11" Foreground="{DynamicResource MutedText}"
-                                               HorizontalAlignment="Right"/>
-                                </DockPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Results list -->
-                        <Border Background="{DynamicResource Surface2Brush}"
-                                CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
-                                BorderThickness="1" Padding="16,14">
-                            <StackPanel>
-                                <DockPanel Margin="0,0,0,10">
-                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Installed Programs"
-                                               FontSize="14" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource FgBrush}"
-                                               VerticalAlignment="Center"/>
-                                </DockPanel>
-                                <StackPanel x:Name="ExportResultsPanel">
-                                    <TextBlock Text="Click 'Scan installed software' to begin."
-                                               Foreground="{DynamicResource MutedText}" FontSize="12"
-                                               HorizontalAlignment="Center" TextAlignment="Center"
-                                               Margin="0,24,0,0"/>
-                                </StackPanel>
-                            </StackPanel>
                         </Border>
 
                                 </StackPanel>

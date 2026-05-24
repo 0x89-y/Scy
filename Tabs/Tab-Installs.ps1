@@ -334,7 +334,7 @@ function Search-WingetPackages {
                 $alt = -not $alt
             }
             $count = $script:searchItems.Count
-            $searchResultsLabel.Text        = [string]$count + " packages found"
+            $searchResultsLabel.Text        = [string]$count + " apps found"
             $searchResultsBorder.Visibility = "Visible"
             $searchStatus.Text              = ""
         } | Out-Null
@@ -349,9 +349,9 @@ function Search-WingetPackages {
     $script:installInProgress     = $true
     $btnInstallSelected.IsEnabled = $false
     $total = $toInstall.Count
-    Set-BusyStatus ("Installing " + [string]$total + " package(s)...")
+    Set-BusyStatus ("Installing " + [string]$total + " app(s)...")
     Show-ScyProgress -Border $installsProgressBorder -Bar $installsProgressBar -Label $installsProgressLabel `
-                     -Text ("Starting install of " + [string]$total + " package(s)...") -Value 0 -Max $total
+                     -Text ("Starting install of " + [string]$total + " app(s)...") -Value 0 -Max $total
 
     Start-ScyJob `
         -Variables @{ pkgs = $toInstall } `
@@ -389,9 +389,9 @@ function Search-WingetPackages {
                 return
             }
             if ($result.Failed.Count -gt 0) {
-                Show-ThemedDialog ("Done. Failed packages:`n" + ($result.Failed -join "`n")) "Result" "OK" "Warning"
+                Show-ThemedDialog ("Done. Failed apps:`n" + ($result.Failed -join "`n")) "Result" "OK" "Warning"
             } else {
-                Show-ThemedDialog ("Installed " + [string]$result.Total + " package(s) successfully.") "Done" "OK" "Information"
+                Show-ThemedDialog ("Installed " + [string]$result.Total + " app(s) successfully.") "Done" "OK" "Information"
             }
         } | Out-Null
 })
@@ -621,8 +621,8 @@ function Show-QuickInstallConfirmDialog {
         }
     }
 
-    ($dlg.FindName("DlgTitle")).Text = "Review - " + [string]$allPackages.Count + " package(s)"
-    ($dlg.FindName("DlgTotal")).Text = [string]$allPackages.Count + " unique package(s) to install"
+    ($dlg.FindName("DlgTitle")).Text = "Review - " + [string]$allPackages.Count + " app(s)"
+    ($dlg.FindName("DlgTotal")).Text = [string]$allPackages.Count + " unique app(s) to install"
     ($dlg.FindName("DlgCancelBtn")).Add_Click({ $dlg.Close() })
 
     $installBtn     = $dlg.FindName("DlgInstallBtn")
@@ -636,9 +636,9 @@ function Show-QuickInstallConfirmDialog {
         $info.Dlg.Close()
 
         $script:installInProgress = $true
-        Set-BusyStatus ("Installing " + [string]$total + " package(s)...")
+        Set-BusyStatus ("Installing " + [string]$total + " app(s)...")
         Show-ScyProgress -Border $installsProgressBorder -Bar $installsProgressBar -Label $installsProgressLabel `
-                         -Text ("Starting install of " + [string]$total + " package(s)...") -Value 0 -Max $total
+                         -Text ("Starting install of " + [string]$total + " app(s)...") -Value 0 -Max $total
 
         Start-ScyJob `
             -Variables @{ pkgs = $pkgIds } `
@@ -678,9 +678,9 @@ function Show-QuickInstallConfirmDialog {
                     return
                 }
                 if ($result.Failed.Count -gt 0) {
-                    Show-ThemedDialog ("Done. Failed packages:`n" + ($result.Failed -join "`n")) "Result" "OK" "Warning"
+                    Show-ThemedDialog ("Done. Failed apps:`n" + ($result.Failed -join "`n")) "Result" "OK" "Warning"
                 } else {
-                    Show-ThemedDialog ("Installed " + [string]$result.Total + " package(s) successfully.") "Done" "OK" "Information"
+                    Show-ThemedDialog ("Installed " + [string]$result.Total + " app(s) successfully.") "Done" "OK" "Information"
                 }
             } | Out-Null
     })
@@ -1407,9 +1407,9 @@ $btnAddToQuickInstalls.Add_Click({
         Save-Settings
         Update-QuickInstalls
         Refresh-QuickInstallCategories
-        Show-ThemedDialog "Added $added package(s) to Quick Installs." "Done" "OK" "Information"
+        Show-ThemedDialog "Added $added app(s) to Quick Installs." "Done" "OK" "Information"
     } else {
-        Show-ThemedDialog "Selected packages are already in Quick Installs." "No Change" "OK" "Information"
+        Show-ThemedDialog "Selected apps are already in Quick Installs." "No Change" "OK" "Information"
     }
 })
 
@@ -2574,7 +2574,7 @@ function New-ResultRow {
 (Find "BtnScanInstalled").Add_Click({
     $statusIndicator.Text       = "● Scanning..."
     $statusIndicator.Foreground = $window.Resources["WarningBrush"]
-    $footerStatus.Text          = "Scy - Scanning installed packages..."
+    $footerStatus.Text          = "Scy - Scanning installed apps..."
     $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 
     $pkgPanel.Children.Clear()
@@ -2587,7 +2587,7 @@ function New-ResultRow {
         $lines = @($raw | ForEach-Object { [string]$_ })
         $rows  = @(Get-WingetRows $lines)
 
-        if ($rows.Count -eq 0) { throw "No packages returned by winget." }
+        if ($rows.Count -eq 0) { throw "No apps returned by winget." }
 
         $alt = $false
         foreach ($row in $rows) {
@@ -2602,7 +2602,7 @@ function New-ResultRow {
             $alt = -not $alt
         }
 
-        $pkgCountLabel.Text                    = [string]$script:uninstallItems.Count + " packages installed"
+        $pkgCountLabel.Text                    = [string]$script:uninstallItems.Count + " apps installed"
         (Find "PkgListBorder").Visibility       = "Visible"
         (Find "BtnUninstallSelected").IsEnabled = $true
 
@@ -2630,7 +2630,7 @@ $script:pkgSearchClear = Find "PkgSearchClear"
         if ($show) { $visible++ }
     }
     $total = $script:uninstallItems.Count
-    $pkgCountLabel.Text = if ($q) { [string]$visible + " of " + [string]$total + " packages" } else { [string]$total + " packages installed" }
+    $pkgCountLabel.Text = if ($q) { [string]$visible + " of " + [string]$total + " apps" } else { [string]$total + " apps installed" }
 })
 
 $script:pkgSearchClear.Add_Click({
@@ -2648,12 +2648,12 @@ $script:pkgSearchClear.Add_Click({
 (Find "BtnUninstallSelected").Add_Click({
     $selected = @($script:uninstallItems | Where-Object { $_.CheckBox.IsChecked -eq $true })
     if ($selected.Count -eq 0) {
-        Show-ThemedDialog "No packages selected. Click a row or check the box to select packages." "Nothing Selected" "OK" "Information"
+        Show-ThemedDialog "No apps selected. Click a row or check the box to select apps." "Nothing Selected" "OK" "Information"
         return
     }
 
     $list    = ($selected | ForEach-Object { "  - " + $_.Id }) -join "`n"
-    $confirm = Show-ThemedDialog ("Uninstall " + [string]$selected.Count + " package(s)?`n`n" + $list) "Confirm Uninstall" "YesNo" "Warning"
+    $confirm = Show-ThemedDialog ("Uninstall " + [string]$selected.Count + " app(s)?`n`n" + $list) "Confirm Uninstall" "YesNo" "Warning"
     if ($confirm -ne "Yes") { return }
 
     $statusIndicator.Text       = "● Uninstalling..."

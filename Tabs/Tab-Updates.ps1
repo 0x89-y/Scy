@@ -22,7 +22,7 @@ function Set-UpdateBadge {
         "checking" {
             $updateStatusDot.Foreground  = New-ColorBrush "#fdcb6e"
             $updateStatusTitle.Text      = "Checking..."
-            $updateStatusSub.Text        = "Scanning installed packages for available updates"
+            $updateStatusSub.Text        = "Scanning installed apps for available updates"
             $updateBadgeHint.Visibility  = "Collapsed"
             $updateStatusBadge.Cursor    = $null
         }
@@ -37,7 +37,7 @@ function Set-UpdateBadge {
         "uptodate" {
             $updateStatusDot.Foreground  = New-ColorBrush "#00b894"
             $updateStatusTitle.Text      = "Up to date"
-            $updateStatusSub.Text        = "All packages are up to date"
+            $updateStatusSub.Text        = "All apps are up to date"
             $updateBadgeHint.Visibility  = "Collapsed"
             $updateStatusBadge.Cursor    = $null
             $updatePkgList.Visibility    = "Collapsed"
@@ -45,7 +45,7 @@ function Set-UpdateBadge {
         "updated" {
             $updateStatusDot.Foreground  = New-ColorBrush "#00b894"
             $updateStatusTitle.Text      = "Updated"
-            $updateStatusSub.Text        = "Run 'Check for Updates' to verify all packages are current"
+            $updateStatusSub.Text        = "Run 'Check for Updates' to verify all apps are current"
             $updateBadgeHint.Visibility  = "Collapsed"
             $updateStatusBadge.Cursor    = $null
             $updatePkgList.Visibility    = "Collapsed"
@@ -255,7 +255,7 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
             } elseif ($capturedSummary -eq 0) {
                 $_statusDot.Foreground  = _NewColorBrush "#00b894"
                 $_statusTitle.Text      = "Up to date"
-                $_statusSub.Text        = "All packages are up to date"
+                $_statusSub.Text        = "All apps are up to date"
                 $_badgeHint.Visibility  = "Collapsed"
                 $_statusBadge.Cursor    = $null
                 $_pkgList.Visibility    = "Collapsed"

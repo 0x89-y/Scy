@@ -1321,7 +1321,7 @@ function Render-GroupSettings {
         $deleteBtn.FontSize = 11; $deleteBtn.Padding = [System.Windows.Thickness]::new(10, 4, 10, 4)
         $deleteBtn.Foreground = $window.Resources["DangerBrush"]
         $deleteBtn.Add_Click(({
-            $dlgResult = Show-ThemedDialog "Delete category '$capturedName'? Packages in this category will become uncategorized." "Confirm Delete" "YesNo" "Question"
+            $dlgResult = Show-ThemedDialog "Delete category '$capturedName'? Apps in this category will become uncategorized." "Confirm Delete" "YesNo" "Question"
             if ($dlgResult -ne "Yes") { return }
             $capturedInstallCategories.Remove($capturedName) | Out-Null
             foreach ($qi in $capturedQuickInstalls) {

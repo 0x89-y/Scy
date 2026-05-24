@@ -1,21 +1,21 @@
 # ── Tools sub-navigation ──────────────────────────────────────────
+# (Software Export moved to Apps > Installed)
 $toolsNavQRCode      = Find "ToolsNav_QRCode"
 $toolsNavNotes       = Find "ToolsNav_Notes"
-$toolsNavExport      = Find "ToolsNav_Export"
 $toolsNavHashing     = Find "ToolsNav_Hashing"
 $toolsNavPasswordGen = Find "ToolsNav_PasswordGen"
 
 $toolsSectionQRCode      = Find "ToolsSection_QRCode"
 $toolsSectionNotes       = Find "ToolsSection_Notes"
-$toolsSectionExport      = Find "ToolsSection_Export"
 $toolsSectionHashing     = Find "ToolsSection_Hashing"
 $toolsSectionPasswordGen = Find "ToolsSection_PasswordGen"
 
-$script:toolsNavButtons = @($toolsNavQRCode, $toolsNavNotes, $toolsNavExport, $toolsNavHashing, $toolsNavPasswordGen)
-$script:toolsSections   = @($toolsSectionQRCode, $toolsSectionNotes, $toolsSectionExport, $toolsSectionHashing, $toolsSectionPasswordGen)
+$script:toolsNavButtons = @($toolsNavQRCode, $toolsNavNotes, $toolsNavHashing, $toolsNavPasswordGen)
+$script:toolsSections   = @($toolsSectionQRCode, $toolsSectionNotes, $toolsSectionHashing, $toolsSectionPasswordGen)
 
 function Set-ToolsSubNav {
     param([int]$Index)
+    if ($Index -lt 0 -or $Index -ge $script:toolsSections.Count) { $Index = 0 }
     $script:toolsSubNavIndex = $Index
     for ($i = 0; $i -lt $script:toolsSections.Count; $i++) {
         $script:toolsSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
@@ -34,9 +34,8 @@ Set-ToolsSubNav 0
 
 $toolsNavQRCode.Add_Click({      Set-ToolsSubNav 0 })
 $toolsNavNotes.Add_Click({       Set-ToolsSubNav 1 })
-$toolsNavExport.Add_Click({      Set-ToolsSubNav 2 })
-$toolsNavHashing.Add_Click({     Set-ToolsSubNav 3 })
-$toolsNavPasswordGen.Add_Click({ Set-ToolsSubNav 4 })
+$toolsNavHashing.Add_Click({     Set-ToolsSubNav 2 })
+$toolsNavPasswordGen.Add_Click({ Set-ToolsSubNav 3 })
 
 # ── Quick Notes / Scratchpad ─────────────────────────────────────
 $notesTextBox    = Find "NotesTextBox"
