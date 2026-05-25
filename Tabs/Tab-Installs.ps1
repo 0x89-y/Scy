@@ -1,74 +1,17 @@
 ﻿# -- Installs Tab -------------------------------------------------------------
 
-$installSearchBox          = Find "InstallSearchBox"
-$searchPlaceholder         = Find "SearchPlaceholder"
-$searchResultsBorder       = Find "SearchResultsBorder"
-$searchResultsPanel        = Find "SearchResultsPanel"
-$searchResultsLabel        = Find "SearchResultsLabel"
-$btnInstallSelected        = Find "BtnInstallSelected"
-$btnAddToQuickInstalls     = Find "BtnAddToQuickInstalls"
-$quickInstallCategoryBox   = Find "QuickInstallCategoryBox"
-$btnAddToBundle            = Find "BtnAddToBundle"
-$btnImportBundles          = Find "BtnImportBundles"
-$btnExportBundles          = Find "BtnExportBundles"
-$searchStatus              = Find "SearchStatus"
-$installedCard             = Find "InstalledCard"
-$installedPanel            = Find "InstalledPanel"
-$installedCountLabel       = Find "InstalledCountLabel"
-$installedFilterBox        = Find "InstalledFilterBox"
-$installedFilterPlaceholder = Find "InstalledFilterPlaceholder"
-$installedFilterClear      = Find "InstalledFilterClear"
+# Shared install progress bar (used by both the Store install path and the
+# Installed sub-tab uninstall flow).
 $installsProgressBorder    = Find "InstallsProgressBorder"
 $installsProgressBar       = Find "InstallsProgressBar"
 $installsProgressLabel     = Find "InstallsProgressLabel"
 
-# Tracks search result rows for checkbox harvesting
-$script:searchItems    = [System.Collections.Generic.List[hashtable]]::new()
-# Tracks installed rows for live filter
-$script:installedItems = [System.Collections.Generic.List[hashtable]]::new()
-# Re-entry guards for async winget operations
-$script:searchInProgress  = $false
+# Settings > Groups > Quick installs hosts the Import/Export buttons now.
+$btnImportBundles          = Find "BtnImportBundles"
+$btnExportBundles          = Find "BtnExportBundles"
+
+# Re-entry guard for async winget install
 $script:installInProgress = $false
-
-# -- Search box placeholder behaviour -----------------------------------------
-$installSearchClear = Find "InstallSearchClear"
-$installSearchBox.Add_GotFocus({  $searchPlaceholder.Visibility = "Collapsed" })
-$installSearchBox.Add_LostFocus({
-    if ([string]::IsNullOrWhiteSpace($installSearchBox.Text)) {
-        $searchPlaceholder.Visibility = "Visible"
-    }
-})
-$installSearchBox.Add_TextChanged({
-    $installSearchClear.Visibility = if ($installSearchBox.Text.Length -gt 0) { "Visible" } else { "Collapsed" }
-})
-$installSearchClear.Add_Click({
-    $installSearchBox.Text = ""
-    $searchPlaceholder.Visibility = "Visible"
-    $installSearchClear.Visibility = "Collapsed"
-})
-$installSearchBox.Add_KeyDown({
-    param($s, $e)
-    if ($e.Key -eq [System.Windows.Input.Key]::Return) { Search-WingetPackages }
-})
-
-# -- Filter box placeholder behaviour -----------------------------------------
-$installedFilterBox.Add_GotFocus({  $installedFilterPlaceholder.Visibility = "Collapsed" })
-$installedFilterBox.Add_LostFocus({
-    if ([string]::IsNullOrWhiteSpace($installedFilterBox.Text)) {
-        $installedFilterPlaceholder.Visibility = "Visible"
-    }
-})
-$installedFilterBox.Add_TextChanged({
-    $q = $installedFilterBox.Text.ToLower()
-    $installedFilterClear.Visibility = if ($q) { "Visible" } else { "Collapsed" }
-    foreach ($item in $script:installedItems) {
-        $item.Border.Visibility = if ($q -eq '' -or $item.Tag.Contains($q)) { "Visible" } else { "Collapsed" }
-    }
-})
-$installedFilterClear.Add_Click({
-    $installedFilterBox.Text = ""
-    $installedFilterBox.Focus()
-})
 
 # -- Package sub-navigation ---------------------------------------------------
 # 0 = Store (Search + Quick install + Local installers, all stacked)
@@ -162,243 +105,6 @@ function Set-ReadyStatus {
     $footerStatus.Text          = "Ready"
 }
 
-# -- Helper: update Install Selected button state -----------------------------
-function Update-InstallSelectedState {
-    $any = $false
-    foreach ($item in $script:searchItems) {
-        if ($item.CheckBox.IsChecked) { $any = $true; break }
-    }
-    $btnInstallSelected.IsEnabled      = $any
-    $btnAddToQuickInstalls.IsEnabled   = $any
-    $btnAddToBundle.IsEnabled          = $any
-}
-
-# -- Helper: create a search result row (with checkbox) -----------------------
-function New-SearchRow {
-    param([string]$Name, [string]$Id, [string]$Version, [bool]$Alternate)
-
-    $border  = New-Object System.Windows.Controls.Border
-    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
-    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-    $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
-    $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
-    $border.Cursor       = [System.Windows.Input.Cursors]::Hand
-
-    $grid = New-Object System.Windows.Controls.Grid
-    $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::Auto
-    $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
-    $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = [System.Windows.GridLength]::Auto
-    $c3 = New-Object System.Windows.Controls.ColumnDefinition; $c3.Width = [System.Windows.GridLength]::Auto
-    $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1)
-    $grid.ColumnDefinitions.Add($c2); $grid.ColumnDefinitions.Add($c3)
-
-    $cb = New-Object System.Windows.Controls.CheckBox
-    $cb.Margin            = [System.Windows.Thickness]::new(0, 0, 12, 0)
-    $cb.VerticalAlignment = "Center"
-    $cb.Add_Checked({   Update-InstallSelectedState })
-    $cb.Add_Unchecked({ Update-InstallSelectedState })
-    [System.Windows.Controls.Grid]::SetColumn($cb, 0)
-
-    $nameBlock = New-Object System.Windows.Controls.TextBlock
-    $nameBlock.Text              = $Name
-    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-    $nameBlock.FontSize          = 12
-    $nameBlock.VerticalAlignment = "Center"
-    $nameBlock.TextWrapping      = "NoWrap"
-    $nameBlock.TextTrimming      = "CharacterEllipsis"
-    [System.Windows.Controls.Grid]::SetColumn($nameBlock, 1)
-
-    $idBlock = New-Object System.Windows.Controls.TextBlock
-    $idBlock.Text              = $Id
-    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-    $idBlock.FontSize          = 11
-    $idBlock.Margin            = [System.Windows.Thickness]::new(12, 0, 16, 0)
-    $idBlock.VerticalAlignment = "Center"
-    [System.Windows.Controls.Grid]::SetColumn($idBlock, 2)
-
-    $verBlock = New-Object System.Windows.Controls.TextBlock
-    $verBlock.Text              = $Version
-    $verBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SubTextBrush")
-    $verBlock.FontSize          = 11
-    $verBlock.VerticalAlignment = "Center"
-    [System.Windows.Controls.Grid]::SetColumn($verBlock, 3)
-
-    $grid.Children.Add($cb)        | Out-Null
-    $grid.Children.Add($nameBlock) | Out-Null
-    $grid.Children.Add($idBlock)   | Out-Null
-    $grid.Children.Add($verBlock)  | Out-Null
-    $border.Child = $grid
-
-    # Click border to toggle checkbox
-    $border.Add_MouseLeftButtonUp(({ $cb.IsChecked = -not $cb.IsChecked }.GetNewClosure()))
-
-    return @{ Border = $border; CheckBox = $cb; Name = $Name; Id = $Id }
-}
-
-# -- Helper: create an installed package row (read-only) ----------------------
-function New-InstalledRow {
-    param([string]$Name, [string]$Id, [string]$Version, [bool]$Alternate)
-
-    $border = New-Object System.Windows.Controls.Border
-    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
-    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-    $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
-    $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
-
-    $grid = New-Object System.Windows.Controls.Grid
-    $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
-    $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = [System.Windows.GridLength]::Auto
-    $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = [System.Windows.GridLength]::Auto
-    $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1); $grid.ColumnDefinitions.Add($c2)
-
-    $nameBlock = New-Object System.Windows.Controls.TextBlock
-    $nameBlock.Text              = $Name
-    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-    $nameBlock.FontSize          = 12
-    $nameBlock.VerticalAlignment = "Center"
-    $nameBlock.TextWrapping      = "NoWrap"
-    $nameBlock.TextTrimming      = "CharacterEllipsis"
-    [System.Windows.Controls.Grid]::SetColumn($nameBlock, 0)
-
-    $idBlock = New-Object System.Windows.Controls.TextBlock
-    $idBlock.Text              = $Id
-    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-    $idBlock.FontSize          = 11
-    $idBlock.Margin            = [System.Windows.Thickness]::new(12, 0, 20, 0)
-    $idBlock.VerticalAlignment = "Center"
-    [System.Windows.Controls.Grid]::SetColumn($idBlock, 1)
-
-    $verBlock = New-Object System.Windows.Controls.TextBlock
-    $verBlock.Text              = $Version
-    $verBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
-    $verBlock.FontSize          = 11
-    $verBlock.VerticalAlignment = "Center"
-    [System.Windows.Controls.Grid]::SetColumn($verBlock, 2)
-
-    $grid.Children.Add($nameBlock) | Out-Null
-    $grid.Children.Add($idBlock)   | Out-Null
-    $grid.Children.Add($verBlock)  | Out-Null
-    $border.Child = $grid
-
-    $tag = ($Name + " " + $Id).ToLower()
-    return @{ Border = $border; Tag = $tag }
-}
-
-# -- Search winget packages ---------------------------------------------------
-function Search-WingetPackages {
-    if ($script:searchInProgress) { return }
-    $query = $installSearchBox.Text.Trim()
-    if ([string]::IsNullOrWhiteSpace($query)) { return }
-
-    $script:searchInProgress         = $true
-    $searchStatus.Text               = "Searching for '" + $query + "'..."
-    $searchResultsBorder.Visibility  = "Collapsed"
-    $searchResultsPanel.Children.Clear()
-    $script:searchItems.Clear()
-    $btnInstallSelected.IsEnabled    = $false
-    $btnAddToQuickInstalls.IsEnabled = $false
-    $btnAddToBundle.IsEnabled        = $false
-
-    Start-ScyJob `
-        -Variables @{ q = $query } `
-        -Context   @{ Query = $query } `
-        -Work {
-            param($emit)
-            $raw = & winget search $q --accept-source-agreements 2>&1
-            return @{ Lines = @($raw | ForEach-Object { [string]$_ }) }
-        } `
-        -OnComplete {
-            param($result, $err, $ctx)
-            $script:searchInProgress = $false
-            if ($err) {
-                $searchStatus.Text = "Search failed: " + $err.Exception.Message
-                return
-            }
-            $rows = @(Get-WingetRows $result.Lines)
-            if ($rows.Count -eq 0) {
-                $searchStatus.Text = "No results found for '" + $ctx.Query + "'."
-                return
-            }
-            $alt = $false
-            foreach ($row in $rows) {
-                $name    = if ($row.Count -gt 0) { $row[0] } else { "" }
-                $id      = if ($row.Count -gt 1) { $row[1] } else { "" }
-                $version = if ($row.Count -gt 2) { $row[2] } else { "" }
-                if ([string]::IsNullOrWhiteSpace($id)) { continue }
-
-                $item = New-SearchRow $name $id $version $alt
-                $searchResultsPanel.Children.Add($item.Border) | Out-Null
-                $script:searchItems.Add($item)
-                $alt = -not $alt
-            }
-            $count = $script:searchItems.Count
-            $searchResultsLabel.Text        = [string]$count + " apps found"
-            $searchResultsBorder.Visibility = "Visible"
-            $searchStatus.Text              = ""
-        } | Out-Null
-}
-
-# -- Install selected from search results -------------------------------------
-(Find "BtnInstallSelected").Add_Click({
-    if ($script:installInProgress) { return }
-    $toInstall = @($script:searchItems | Where-Object { $_.CheckBox.IsChecked } | ForEach-Object { $_.Id })
-    if ($toInstall.Count -eq 0) { return }
-
-    $script:installInProgress     = $true
-    $btnInstallSelected.IsEnabled = $false
-    $total = $toInstall.Count
-    Set-BusyStatus ("Installing " + [string]$total + " app(s)...")
-    Show-ScyProgress -Border $installsProgressBorder -Bar $installsProgressBar -Label $installsProgressLabel `
-                     -Text ("Starting install of " + [string]$total + " app(s)...") -Value 0 -Max $total
-
-    Start-ScyJob `
-        -Variables @{ pkgs = $toInstall } `
-        -Context   @{ Total = $total } `
-        -Work {
-            param($emit)
-            $failed = @()
-            $i = 0
-            foreach ($pkg in $pkgs) {
-                $i++
-                & $emit @{ Index = $i; Name = $pkg }
-                & winget install --id $pkg --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
-                if ($LASTEXITCODE -ne 0) { $failed += $pkg }
-            }
-            return @{ Failed = $failed; Total = $pkgs.Count }
-        } `
-        -OnLine {
-            param($line, $ctx)
-            if ($line -is [hashtable]) {
-                $installsProgressBar.Value   = [double]$line.Index
-                $installsProgressLabel.Text  = "Installing " + [string]$line.Index + " of " + [string]$ctx.Total + " - " + [string]$line.Name
-                $footerStatus.Text           = "Scy - Installing: " + [string]$line.Name
-            } else {
-                $footerStatus.Text = "Scy - Installing: " + [string]$line
-            }
-        } `
-        -OnComplete {
-            param($result, $err, $ctx)
-            $script:installInProgress     = $false
-            $btnInstallSelected.IsEnabled = $true
-            Hide-ScyProgress $installsProgressBorder $installsProgressBar
-            Set-ReadyStatus
-            if ($err) {
-                Show-ThemedDialog ("Install error: " + $err.Exception.Message) "Error" "OK" "Error"
-                return
-            }
-            if ($result.Failed.Count -gt 0) {
-                Show-ThemedDialog ("Done. Failed apps:`n" + ($result.Failed -join "`n")) "Result" "OK" "Warning"
-            } else {
-                Show-ThemedDialog ("Installed " + [string]$result.Total + " app(s) successfully.") "Done" "OK" "Information"
-            }
-        } | Out-Null
-})
-
-# -- Search button click ------------------------------------------------------
-(Find "BtnSearchPackage").Add_Click({ Search-WingetPackages })
-
 # -- Quick Install (dynamic, persisted in settings) ---------------------------
 $script:quickInstalls      = [System.Collections.Generic.List[hashtable]]::new()
 $script:quickBundles       = [System.Collections.Generic.List[hashtable]]::new()
@@ -411,127 +117,128 @@ $script:defaultQuickCategories = @(
     "Productivity", "Security", "Network", "Cloud & Sync", "Office"
 )
 
-# Optional Source field on a curated entry routes the install / winget show
-# calls through that winget source (default "winget" when omitted). Used for
-# msstore-only apps like Emby.
+# Optional fields:
+#   Source      - winget source ("msstore" etc); omitted means default winget repo
+#   Description - hardcoded one-liner shown instantly in the detail panel; when
+#                 present, the async winget-show description does not overwrite it
 $script:curatedApps = @(
     # Browsers
-    @{ Name = "Firefox";                  Id = "Mozilla.Firefox";                   Category = "Browsers" }
-    @{ Name = "Brave";                    Id = "Brave.Brave";                       Category = "Browsers" }
-    @{ Name = "Zen";                      Id = "Zen-Team.Zen-Browser";              Category = "Browsers" }
-    @{ Name = "Helium";                   Id = "imputnet.helium";                   Category = "Browsers" }
-    @{ Name = "Vivaldi";                  Id = "Vivaldi.Vivaldi";                   Category = "Browsers" }
-    @{ Name = "LibreWolf";                Id = "LibreWolf.LibreWolf";               Category = "Browsers" }
-    @{ Name = "Tor Browser";              Id = "TorProject.TorBrowser";             Category = "Browsers" }
+    @{ Name = "Firefox";                  Id = "Mozilla.Firefox";                   Category = "Browsers";       Description = "Open-source web browser from Mozilla." }
+    @{ Name = "Brave";                    Id = "Brave.Brave";                       Category = "Browsers";       Description = "Chromium browser with built-in ad and tracker blocking." }
+    @{ Name = "Zen";                      Id = "Zen-Team.Zen-Browser";              Category = "Browsers";       Description = "Firefox-based browser with workspaces and focus features." }
+    @{ Name = "Helium";                   Id = "imputnet.helium";                   Category = "Browsers";       Description = "Lightweight Chromium fork focused on speed and privacy." }
+    @{ Name = "Vivaldi";                  Id = "Vivaldi.Vivaldi";                   Category = "Browsers";       Description = "Highly customizable Chromium browser with tab stacking and built-in tools." }
+    @{ Name = "LibreWolf";                Id = "LibreWolf.LibreWolf";               Category = "Browsers";       Description = "Hardened Firefox fork with privacy-first defaults." }
+    @{ Name = "Tor Browser";              Id = "TorProject.TorBrowser";             Category = "Browsers";       Description = "Routes traffic through the Tor network for anonymous browsing." }
 
     # Communication
-    @{ Name = "Discord";                  Id = "Discord.Discord";                   Category = "Communication" }
-    @{ Name = "Element";                  Id = "Element.Element";                   Category = "Communication" }
-    @{ Name = "Signal";                   Id = "OpenWhisperSystems.Signal";         Category = "Communication" }
-    @{ Name = "Telegram";                 Id = "Telegram.TelegramDesktop";          Category = "Communication" }
-    @{ Name = "Thunderbird";              Id = "Mozilla.Thunderbird";               Category = "Communication" }
-    @{ Name = "SimpleX Chat";             Id = "SimpleXChat.SimpleX-Desktop";       Category = "Communication" }
+    @{ Name = "Discord";                  Id = "Discord.Discord";                   Category = "Communication";  Description = "Voice, video, and text chat for communities." }
+    @{ Name = "Element";                  Id = "Element.Element";                   Category = "Communication";  Description = "Matrix client for end-to-end encrypted team chat." }
+    @{ Name = "Signal";                   Id = "OpenWhisperSystems.Signal";         Category = "Communication";  Description = "End-to-end encrypted messenger with voice and video calls." }
+    @{ Name = "Telegram";                 Id = "Telegram.TelegramDesktop";          Category = "Communication";  Description = "Cloud-based messenger with channels, bots, and large groups." }
+    @{ Name = "Thunderbird";              Id = "Mozilla.Thunderbird";               Category = "Communication";  Description = "Mozilla's open-source email, calendar, and feed client." }
+    @{ Name = "SimpleX Chat";             Id = "SimpleXChat.SimpleX-Desktop";       Category = "Communication";  Description = "Messenger that requires no user IDs or phone numbers." }
 
     # Media
-    @{ Name = "VLC";                      Id = "VideoLAN.VLC";                      Category = "Media" }
-    @{ Name = "Spotify";                  Id = "Spotify.Spotify";                   Category = "Media" }
-    @{ Name = "MusicBee";                 Id = "MusicBee.MusicBee";                 Category = "Media" }
-    @{ Name = "OBS Studio";               Id = "OBSProject.OBSStudio";              Category = "Media" }
-    @{ Name = "GIMP";                     Id = "GIMP.GIMP";                         Category = "Media" }
-    @{ Name = "Audacity";                 Id = "Audacity.Audacity";                 Category = "Media" }
-    @{ Name = "HandBrake";                Id = "HandBrake.HandBrake";               Category = "Media" }
-    @{ Name = "Inkscape";                 Id = "Inkscape.Inkscape";                 Category = "Media" }
-    @{ Name = "Krita";                    Id = "KDE.Krita";                         Category = "Media" }
-    @{ Name = "Blender";                  Id = "BlenderFoundation.Blender";         Category = "Media" }
-    @{ Name = "mpv";                      Id = "shinchiro.mpv";                     Category = "Media" }
-    @{ Name = "Plex";                     Id = "Plex.Plex";                         Category = "Media" }
-    @{ Name = "Jellyfin Media Player";    Id = "Jellyfin.JellyfinMediaPlayer";      Category = "Media" }
-    @{ Name = "DaVinci Resolve";          Id = "BlackmagicDesign.DaVinciResolve";   Category = "Media" }
-    @{ Name = "Emby";                     Id = "9NBLGGH4T70L";                      Category = "Media";       Source = "msstore" }
+    @{ Name = "VLC";                      Id = "VideoLAN.VLC";                      Category = "Media";          Description = "Plays nearly any audio and video format." }
+    @{ Name = "Spotify";                  Id = "Spotify.Spotify";                   Category = "Media";          Description = "Music streaming client." }
+    @{ Name = "MusicBee";                 Id = "MusicBee.MusicBee";                 Category = "Media";          Description = "Local music library player with rich tagging." }
+    @{ Name = "OBS Studio";               Id = "OBSProject.OBSStudio";              Category = "Media";          Description = "Live streaming and screen recording." }
+    @{ Name = "GIMP";                     Id = "GIMP.GIMP";                         Category = "Media";          Description = "Open-source raster image editor." }
+    @{ Name = "Audacity";                 Id = "Audacity.Audacity";                 Category = "Media";          Description = "Multi-track audio recording and editing." }
+    @{ Name = "HandBrake";                Id = "HandBrake.HandBrake";               Category = "Media";          Description = "Video transcoder for converting between formats." }
+    @{ Name = "Inkscape";                 Id = "Inkscape.Inkscape";                 Category = "Media";          Description = "Vector graphics editor." }
+    @{ Name = "Krita";                    Id = "KDE.Krita";                         Category = "Media";          Description = "Digital painting and illustration." }
+    @{ Name = "Blender";                  Id = "BlenderFoundation.Blender";         Category = "Media";          Description = "3D modeling, animation, and rendering suite." }
+    @{ Name = "mpv";                      Id = "shinchiro.mpv";                     Category = "Media";          Description = "Minimalist scriptable media player." }
+    @{ Name = "Plex";                     Id = "Plex.Plex";                         Category = "Media";          Description = "Client for the Plex media server." }
+    @{ Name = "Jellyfin Media Player";    Id = "Jellyfin.JellyfinMediaPlayer";      Category = "Media";          Description = "Client for the open-source Jellyfin media server." }
+    @{ Name = "DaVinci Resolve";          Id = "BlackmagicDesign.DaVinciResolve";   Category = "Media";          Description = "Professional video editing and color grading." }
+    @{ Name = "Emby";                     Id = "9NBLGGH4T70L";                      Category = "Media";          Source = "msstore"; Description = "Client for the Emby media server." }
 
     # Utilities
-    @{ Name = "7-Zip";                    Id = "7zip.7zip";                         Category = "Utilities" }
-    @{ Name = "Notepad++";                Id = "Notepad++.Notepad++";               Category = "Utilities" }
-    @{ Name = "Everything";               Id = "voidtools.Everything";              Category = "Utilities" }
-    @{ Name = "PowerToys";                Id = "Microsoft.PowerToys";               Category = "Utilities" }
-    @{ Name = "ShareX";                   Id = "ShareX.ShareX";                     Category = "Utilities" }
-    @{ Name = "qBittorrent";              Id = "qBittorrent.qBittorrent";           Category = "Utilities" }
-    @{ Name = "WizTree";                  Id = "AntibodySoftware.WizTree";          Category = "Utilities" }
-    @{ Name = "File Pilot";               Id = "FilePilot.FilePilot";               Category = "Utilities" }
-    @{ Name = "Ditto";                    Id = "Ditto.Ditto";                       Category = "Utilities" }
-    @{ Name = "CrystalDiskInfo";          Id = "CrystalDewWorld.CrystalDiskInfo";   Category = "Utilities" }
-    @{ Name = "Greenshot";                Id = "Greenshot.Greenshot";               Category = "Utilities" }
-    @{ Name = "Flow Launcher";            Id = "Flow-Launcher.Flow-Launcher";       Category = "Utilities" }
-    @{ Name = "AutoHotkey";               Id = "AutoHotkey.AutoHotkey";             Category = "Utilities" }
-    @{ Name = "NanaZip";                  Id = "M2Team.NanaZip";                    Category = "Utilities" }
-    @{ Name = "Files";                    Id = "Files-Community.Files";             Category = "Utilities" }
-    @{ Name = "Rufus";                    Id = "Rufus.Rufus";                       Category = "Utilities" }
+    @{ Name = "7-Zip";                    Id = "7zip.7zip";                         Category = "Utilities";      Description = "High-ratio file archiver." }
+    @{ Name = "Notepad++";                Id = "Notepad++.Notepad++";               Category = "Utilities";      Description = "Lightweight tabbed text and code editor." }
+    @{ Name = "Everything";               Id = "voidtools.Everything";              Category = "Utilities";      Description = "Instant filename search across the file system." }
+    @{ Name = "PowerToys";                Id = "Microsoft.PowerToys";               Category = "Utilities";      Description = "Microsoft's set of power-user utilities for Windows." }
+    @{ Name = "ShareX";                   Id = "ShareX.ShareX";                     Category = "Utilities";      Description = "Screenshot, screen recorder, and upload automation." }
+    @{ Name = "qBittorrent";              Id = "qBittorrent.qBittorrent";           Category = "Utilities";      Description = "Open-source BitTorrent client." }
+    @{ Name = "WizTree";                  Id = "AntibodySoftware.WizTree";          Category = "Utilities";      Description = "Fast disk space visualizer using the NTFS MFT." }
+    @{ Name = "File Pilot";               Id = "FilePilot.FilePilot";               Category = "Utilities";      Description = "Modern, very fast Windows file manager." }
+    @{ Name = "Ditto";                    Id = "Ditto.Ditto";                       Category = "Utilities";      Description = "Clipboard history manager." }
+    @{ Name = "CrystalDiskInfo";          Id = "CrystalDewWorld.CrystalDiskInfo";   Category = "Utilities";      Description = "Drive health monitor reading S.M.A.R.T. data." }
+    @{ Name = "Greenshot";                Id = "Greenshot.Greenshot";               Category = "Utilities";      Description = "Lightweight screenshot tool with annotation." }
+    @{ Name = "Flow Launcher";            Id = "Flow-Launcher.Flow-Launcher";       Category = "Utilities";      Description = "Quick app and file launcher (Alfred-style)." }
+    @{ Name = "AutoHotkey";               Id = "AutoHotkey.AutoHotkey";             Category = "Utilities";      Description = "Scripting language for keyboard, mouse, and UI automation." }
+    @{ Name = "NanaZip";                  Id = "M2Team.NanaZip";                    Category = "Utilities";      Description = "Modern 7-Zip fork with extra format support." }
+    @{ Name = "Files";                    Id = "Files-Community.Files";             Category = "Utilities";      Description = "Tabbed modern file explorer for Windows." }
+    @{ Name = "Rufus";                    Id = "Rufus.Rufus";                       Category = "Utilities";      Description = "Creates bootable USB drives from ISO files." }
 
     # Development
-    @{ Name = "Visual Studio Code";       Id = "Microsoft.VisualStudioCode";        Category = "Development" }
-    @{ Name = "Git";                      Id = "Git.Git";                           Category = "Development" }
-    @{ Name = "Windows Terminal";         Id = "Microsoft.WindowsTerminal";         Category = "Development" }
-    @{ Name = "Node.js LTS";              Id = "OpenJS.NodeJS.LTS";                 Category = "Development" }
-    @{ Name = "Python 3.12";              Id = "Python.Python.3.12";                Category = "Development" }
-    @{ Name = "Docker Desktop";           Id = "Docker.DockerDesktop";              Category = "Development" }
-    @{ Name = "JetBrains Toolbox";        Id = "JetBrains.Toolbox";                 Category = "Development" }
-    @{ Name = "Sublime Text";             Id = "SublimeHQ.SublimeText.4";           Category = "Development" }
-    @{ Name = "Postman";                  Id = "Postman.Postman";                   Category = "Development" }
-    @{ Name = "Insomnia";                 Id = "Insomnia.Insomnia";                 Category = "Development" }
-    @{ Name = "Neovim";                   Id = "Neovim.Neovim";                     Category = "Development" }
-    @{ Name = "Cursor";                   Id = "Anysphere.Cursor";                  Category = "Development" }
-    @{ Name = "Zed";                      Id = "Zed.Zed";                           Category = "Development" }
-    @{ Name = "GitHub Desktop";           Id = "GitHub.GitHubDesktop";              Category = "Development" }
-    @{ Name = "GitHub CLI";               Id = "GitHub.cli";                        Category = "Development" }
-    @{ Name = "DBeaver";                  Id = "dbeaver.dbeaver";                   Category = "Development" }
-    @{ Name = "MongoDB Compass";          Id = "MongoDB.Compass.Community";         Category = "Development" }
+    @{ Name = "Visual Studio Code";       Id = "Microsoft.VisualStudioCode";        Category = "Development";    Description = "Cross-platform code editor from Microsoft." }
+    @{ Name = "Git";                      Id = "Git.Git";                           Category = "Development";    Description = "Distributed version control." }
+    @{ Name = "Windows Terminal";         Id = "Microsoft.WindowsTerminal";         Category = "Development";    Description = "Modern terminal for Cmd, PowerShell, and WSL." }
+    @{ Name = "Node.js LTS";              Id = "OpenJS.NodeJS.LTS";                 Category = "Development";    Description = "JavaScript runtime built on V8 (long-term-support release)." }
+    @{ Name = "Python 3.12";              Id = "Python.Python.3.12";                Category = "Development";    Description = "Python interpreter and tooling." }
+    @{ Name = "Docker Desktop";           Id = "Docker.DockerDesktop";              Category = "Development";    Description = "Run and manage containers on Windows." }
+    @{ Name = "JetBrains Toolbox";        Id = "JetBrains.Toolbox";                 Category = "Development";    Description = "Installer and manager for JetBrains IDEs." }
+    @{ Name = "Sublime Text";             Id = "SublimeHQ.SublimeText.4";           Category = "Development";    Description = "Fast multi-language code editor." }
+    @{ Name = "Postman";                  Id = "Postman.Postman";                   Category = "Development";    Description = "HTTP API client for testing and team collaboration." }
+    @{ Name = "Insomnia";                 Id = "Insomnia.Insomnia";                 Category = "Development";    Description = "Open-source REST, GraphQL, and gRPC API client." }
+    @{ Name = "Neovim";                   Id = "Neovim.Neovim";                     Category = "Development";    Description = "Modernized Vim with embedded scripting and async plugins." }
+    @{ Name = "Cursor";                   Id = "Anysphere.Cursor";                  Category = "Development";    Description = "AI-powered code editor based on VS Code." }
+    @{ Name = "Zed";                      Id = "Zed.Zed";                           Category = "Development";    Description = "Fast, collaborative code editor written in Rust." }
+    @{ Name = "GitHub Desktop";           Id = "GitHub.GitHubDesktop";              Category = "Development";    Description = "Visual Git client for GitHub repositories." }
+    @{ Name = "GitHub CLI";               Id = "GitHub.cli";                        Category = "Development";    Description = "Command-line tool for GitHub workflows." }
+    @{ Name = "DBeaver";                  Id = "dbeaver.dbeaver";                   Category = "Development";    Description = "Universal database GUI for SQL and NoSQL engines." }
+    @{ Name = "MongoDB Compass";          Id = "MongoDB.Compass.Community";         Category = "Development";    Description = "Official GUI for MongoDB databases." }
 
     # Gaming
-    @{ Name = "Steam";                    Id = "Valve.Steam";                       Category = "Gaming" }
-    @{ Name = "Epic Games Launcher";      Id = "EpicGames.EpicGamesLauncher";       Category = "Gaming" }
-    @{ Name = "GOG Galaxy";               Id = "GOG.Galaxy";                        Category = "Gaming" }
-    @{ Name = "Heroic Games Launcher";    Id = "HeroicGamesLauncher.HeroicGamesLauncher"; Category = "Gaming" }
-    @{ Name = "Battle.net";               Id = "Blizzard.BattleNet";                Category = "Gaming" }
-    @{ Name = "EA Desktop";               Id = "ElectronicArts.EADesktop";          Category = "Gaming" }
-    @{ Name = "Ubisoft Connect";          Id = "Ubisoft.Connect";                   Category = "Gaming" }
-    @{ Name = "itch.io";                  Id = "itchio.itch";                       Category = "Gaming" }
-    @{ Name = "Prism Launcher";           Id = "PrismLauncher.PrismLauncher";       Category = "Gaming" }
-    @{ Name = "DS4Windows";               Id = "Ryochan7.DS4Windows";               Category = "Gaming" }
-    @{ Name = "Vortex";                   Id = "Nexus-Mods.Vortex";                 Category = "Gaming" }
+    @{ Name = "Steam";                    Id = "Valve.Steam";                       Category = "Gaming";         Description = "Valve's game store and library." }
+    @{ Name = "Epic Games Launcher";      Id = "EpicGames.EpicGamesLauncher";       Category = "Gaming";         Description = "Game store and library from Epic." }
+    @{ Name = "GOG Galaxy";               Id = "GOG.Galaxy";                        Category = "Gaming";         Description = "DRM-free game library and unified launcher." }
+    @{ Name = "Heroic Games Launcher";    Id = "HeroicGamesLauncher.HeroicGamesLauncher"; Category = "Gaming";   Description = "Open-source launcher for Epic, GOG, and Amazon Games." }
+    @{ Name = "Battle.net";               Id = "Blizzard.BattleNet";                Category = "Gaming";         Description = "Blizzard's game launcher." }
+    @{ Name = "EA Desktop";               Id = "ElectronicArts.EADesktop";          Category = "Gaming";         Description = "EA's game store and launcher." }
+    @{ Name = "Ubisoft Connect";          Id = "Ubisoft.Connect";                   Category = "Gaming";         Description = "Ubisoft's game launcher and store." }
+    @{ Name = "itch.io";                  Id = "itchio.itch";                       Category = "Gaming";         Description = "Indie game and asset store with built-in updates." }
+    @{ Name = "Prism Launcher";           Id = "PrismLauncher.PrismLauncher";       Category = "Gaming";         Description = "Open-source Minecraft launcher with instance profiles and mod support." }
+    @{ Name = "DS4Windows";               Id = "Ryochan7.DS4Windows";               Category = "Gaming";         Description = "Use DualShock 4 and DualSense controllers on Windows." }
+    @{ Name = "Vortex";                   Id = "Nexus-Mods.Vortex";                 Category = "Gaming";         Description = "Nexus Mods' game mod manager." }
 
     # Productivity (LibreOffice moved to Office)
-    @{ Name = "Obsidian";                 Id = "Obsidian.Obsidian";                 Category = "Productivity" }
-    @{ Name = "Notion";                   Id = "Notion.Notion";                     Category = "Productivity" }
-    @{ Name = "Joplin";                   Id = "JoplinApp.Joplin";                  Category = "Productivity" }
-    @{ Name = "Logseq";                   Id = "Logseq.Logseq";                     Category = "Productivity" }
-    @{ Name = "Anki";                     Id = "Anki.Anki";                         Category = "Productivity" }
-    @{ Name = "Calibre";                  Id = "calibre.calibre";                   Category = "Productivity" }
-    @{ Name = "Standard Notes";           Id = "StandardNotes.StandardNotes";       Category = "Productivity" }
+    @{ Name = "Obsidian";                 Id = "Obsidian.Obsidian";                 Category = "Productivity";   Description = "Markdown-based personal knowledge base." }
+    @{ Name = "Notion";                   Id = "Notion.Notion";                     Category = "Productivity";   Description = "Notes, docs, and lightweight databases." }
+    @{ Name = "Joplin";                   Id = "JoplinApp.Joplin";                  Category = "Productivity";   Description = "Open-source notes and to-do with end-to-end encryption." }
+    @{ Name = "Logseq";                   Id = "Logseq.Logseq";                     Category = "Productivity";   Description = "Local-first outliner and knowledge graph." }
+    @{ Name = "Anki";                     Id = "Anki.Anki";                         Category = "Productivity";   Description = "Spaced-repetition flashcards." }
+    @{ Name = "Calibre";                  Id = "calibre.calibre";                   Category = "Productivity";   Description = "E-book library manager and converter." }
+    @{ Name = "Standard Notes";           Id = "StandardNotes.StandardNotes";       Category = "Productivity";   Description = "Encrypted note-taking with cross-platform sync." }
 
     # Security
-    @{ Name = "Bitwarden";                Id = "Bitwarden.Bitwarden";               Category = "Security" }
-    @{ Name = "Malwarebytes";             Id = "Malwarebytes.Malwarebytes";         Category = "Security" }
-    @{ Name = "KeePassXC";                Id = "KeePassXCTeam.KeePassXC";           Category = "Security" }
-    @{ Name = "Cryptomator";              Id = "Cryptomator.Cryptomator";           Category = "Security" }
-    @{ Name = "VeraCrypt";                Id = "IDRIX.VeraCrypt";                   Category = "Security" }
-    @{ Name = "WireGuard";                Id = "WireGuard.WireGuard";               Category = "Security" }
-    @{ Name = "Tailscale";                Id = "tailscale.tailscale";               Category = "Security" }
+    @{ Name = "Bitwarden";                Id = "Bitwarden.Bitwarden";               Category = "Security";       Description = "Open-source password manager with cloud sync." }
+    @{ Name = "Malwarebytes";             Id = "Malwarebytes.Malwarebytes";         Category = "Security";       Description = "Anti-malware scanner." }
+    @{ Name = "KeePassXC";                Id = "KeePassXCTeam.KeePassXC";           Category = "Security";       Description = "Local-first password manager (KeePass-compatible)." }
+    @{ Name = "Cryptomator";              Id = "Cryptomator.Cryptomator";           Category = "Security";       Description = "Encrypts files in any cloud storage folder." }
+    @{ Name = "VeraCrypt";                Id = "IDRIX.VeraCrypt";                   Category = "Security";       Description = "Disk and container encryption (TrueCrypt successor)." }
+    @{ Name = "WireGuard";                Id = "WireGuard.WireGuard";               Category = "Security";       Description = "Modern, fast VPN tunnel." }
+    @{ Name = "Tailscale";                Id = "tailscale.tailscale";               Category = "Security";       Description = "Zero-config mesh VPN built on WireGuard." }
 
-    # Network (new)
-    @{ Name = "Wireshark";                Id = "WiresharkFoundation.Wireshark";     Category = "Network" }
-    @{ Name = "PuTTY";                    Id = "PuTTY.PuTTY";                       Category = "Network" }
-    @{ Name = "WinSCP";                   Id = "WinSCP.WinSCP";                     Category = "Network" }
-    @{ Name = "FileZilla";                Id = "TimKosse.FileZilla.Client";         Category = "Network" }
+    # Network
+    @{ Name = "Wireshark";                Id = "WiresharkFoundation.Wireshark";     Category = "Network";        Description = "Network protocol analyzer." }
+    @{ Name = "PuTTY";                    Id = "PuTTY.PuTTY";                       Category = "Network";        Description = "SSH and serial terminal client." }
+    @{ Name = "WinSCP";                   Id = "WinSCP.WinSCP";                     Category = "Network";        Description = "SFTP, FTP, and SCP file transfer client." }
+    @{ Name = "FileZilla";                Id = "TimKosse.FileZilla.Client";         Category = "Network";        Description = "Cross-platform FTP, FTPS, and SFTP client." }
 
-    # Cloud & Sync (new)
-    @{ Name = "Syncthing";                Id = "Syncthing.Syncthing";               Category = "Cloud & Sync" }
-    @{ Name = "Nextcloud Desktop";        Id = "Nextcloud.NextcloudDesktop";        Category = "Cloud & Sync" }
-    @{ Name = "Dropbox";                  Id = "Dropbox.Dropbox";                   Category = "Cloud & Sync" }
-    @{ Name = "MEGA Sync";                Id = "MEGALimited.MEGASync";              Category = "Cloud & Sync" }
+    # Cloud & Sync
+    @{ Name = "Syncthing";                Id = "Syncthing.Syncthing";               Category = "Cloud & Sync";   Description = "Peer-to-peer continuous file sync." }
+    @{ Name = "Nextcloud Desktop";        Id = "Nextcloud.NextcloudDesktop";        Category = "Cloud & Sync";   Description = "Sync client for self-hosted Nextcloud servers." }
+    @{ Name = "Dropbox";                  Id = "Dropbox.Dropbox";                   Category = "Cloud & Sync";   Description = "File sync and sharing." }
+    @{ Name = "MEGA Sync";                Id = "MEGALimited.MEGASync";              Category = "Cloud & Sync";   Description = "Encrypted cloud storage sync client." }
 
-    # Office (new; LibreOffice moved here from Productivity)
-    @{ Name = "LibreOffice";              Id = "TheDocumentFoundation.LibreOffice"; Category = "Office" }
-    @{ Name = "OnlyOffice DesktopEditors"; Id = "ONLYOFFICE.DesktopEditors";        Category = "Office" }
+    # Office (LibreOffice moved here from Productivity)
+    @{ Name = "LibreOffice";              Id = "TheDocumentFoundation.LibreOffice"; Category = "Office";         Description = "Free office suite with Writer, Calc, Impress, and more." }
+    @{ Name = "OnlyOffice DesktopEditors"; Id = "ONLYOFFICE.DesktopEditors";        Category = "Office";         Description = "MS-Office-compatible office suite." }
 )
 
 function Get-MergedQuickInstalls {
@@ -541,16 +248,18 @@ function Get-MergedQuickInstalls {
     $merged = [System.Collections.Generic.List[hashtable]]::new()
 
     foreach ($qi in $script:quickInstalls) {
-        $src = if ($qi.PSObject.Properties["Source"]) { [string]$qi.Source } else { $null }
-        $merged.Add(@{ Name = $qi.Name; Id = $qi.Id; Category = $qi.Category; IsCurated = $false; Source = $src })
+        $src  = if ($qi.PSObject.Properties["Source"])      { [string]$qi.Source }      else { $null }
+        $desc = if ($qi.PSObject.Properties["Description"]) { [string]$qi.Description } else { $null }
+        $merged.Add(@{ Name = $qi.Name; Id = $qi.Id; Category = $qi.Category; IsCurated = $false; Source = $src; Description = $desc })
     }
 
     foreach ($c in $script:curatedApps) {
         if ($userIds.Contains([string]$c.Id)) { continue }
         if ($c.Id -in $script:hiddenCuratedApps) { continue }
         if ($c.Category -in $script:hiddenDefaultInstallCategories) { continue }
-        $src = if ($c.ContainsKey("Source")) { [string]$c.Source } else { $null }
-        $merged.Add(@{ Name = $c.Name; Id = $c.Id; Category = $c.Category; IsCurated = $true; Source = $src })
+        $src  = if ($c.ContainsKey("Source"))      { [string]$c.Source }      else { $null }
+        $desc = if ($c.ContainsKey("Description")) { [string]$c.Description } else { $null }
+        $merged.Add(@{ Name = $c.Name; Id = $c.Id; Category = $c.Category; IsCurated = $true; Source = $src; Description = $desc })
     }
     return $merged
 }
@@ -566,30 +275,9 @@ function Get-AllQuickCategories {
     return @($all | Sort-Object)
 }
 
-function Refresh-QuickInstallCategories {
-    $quickInstallCategoryBox.Items.Clear()
-    foreach ($c in (Get-AllQuickCategories)) { $quickInstallCategoryBox.Items.Add($c) | Out-Null }
-    $quickInstallCategoryBox.Items.Add("+ New group...") | Out-Null
-}
-
-$quickInstallCategoryBox.Add_SelectionChanged({
-    if ($this.SelectedItem -eq "+ New group...") {
-        Ensure-VisualBasic; $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Category name:", "New Category", "")
-        if (-not [string]::IsNullOrWhiteSpace($gName)) {
-            $gName = $gName.Trim()
-            if ($gName -notin (Get-AllQuickCategories)) {
-                $script:customInstallCategories.Add($gName)
-                Save-Settings
-                if ((Get-Command Render-GroupSettings -ErrorAction SilentlyContinue)) { Render-GroupSettings }
-            }
-            Refresh-QuickInstallCategories
-            $quickInstallCategoryBox.Text = $gName
-        } else {
-            $this.SelectedIndex = -1
-            $this.Text = ""
-        }
-    }
-})
+# Refresh-QuickInstallCategories was tied to the deleted in-search ComboBox.
+# Kept as a no-op so existing call sites (Update-QuickInstalls) don't break.
+function Refresh-QuickInstallCategories { }
 
 function Update-QuickInstallSelectedState {
     $installBtn = Find "BtnQuickInstallSelected"
@@ -1482,68 +1170,9 @@ function Update-QuickInstalls {
     Show-QuickInstallConfirmDialog
 })
 
-# -- Add to Quick Installs button ---------------------------------------------
-$btnAddToQuickInstalls.Add_Click({
-    $toAdd      = @($script:searchItems | Where-Object { $_.CheckBox.IsChecked })
-    $existingIds = @($script:quickInstalls | ForEach-Object { $_.Id })
-    $category = $quickInstallCategoryBox.Text.Trim()
-    $added = 0
-    foreach ($item in $toAdd) {
-        if ($item.Id -notin $existingIds) {
-            $script:quickInstalls.Add(@{Name = $item.Name; Id = $item.Id; Category = $category})
-            $added++
-        }
-    }
-    if ($added -gt 0) {
-        Save-Settings
-        Update-QuickInstalls
-        Refresh-QuickInstallCategories
-        Show-ThemedDialog "Added $added app(s) to Quick Installs." "Done" "OK" "Information"
-    } else {
-        Show-ThemedDialog "Selected apps are already in Quick Installs." "No Change" "OK" "Information"
-    }
-})
-
-# -- Add to Bundle ------------------------------------------------------------
-$btnAddToBundle.Add_Click({
-    $toAdd = @($script:searchItems | Where-Object { $_.CheckBox.IsChecked })
-    if ($toAdd.Count -eq 0) { return }
-
-    Ensure-VisualBasic; $bName = [Microsoft.VisualBasic.Interaction]::InputBox(
-        "Enter a bundle name (new or existing):",
-        "Add to Bundle", "")
-    if ([string]::IsNullOrWhiteSpace($bName)) { return }
-
-    $bundle = $script:quickBundles | Where-Object { $_.Name -eq $bName } | Select-Object -First 1
-    if ($null -eq $bundle) {
-        Ensure-VisualBasic; $bDesc = [Microsoft.VisualBasic.Interaction]::InputBox(
-            "Description for '$bName' (optional):",
-            "Bundle Description", "")
-        $bundle = @{
-            Name        = $bName
-            Description = $bDesc
-            Apps        = [System.Collections.Generic.List[hashtable]]::new()
-        }
-        $script:quickBundles.Add($bundle)
-    }
-
-    $existingIds = @($bundle.Apps | ForEach-Object { $_.Id })
-    $added = 0
-    foreach ($item in $toAdd) {
-        if ($item.Id -notin $existingIds) {
-            $bundle.Apps.Add(@{Name = $item.Name; Id = $item.Id})
-            $added++
-        }
-    }
-
-    if ($added -gt 0) {
-        Save-Settings
-        Update-QuickInstalls
-        Show-ThemedDialog "Added $added app(s) to bundle '$bName'." "Done" "OK" "Information"
-    } else {
-        Show-ThemedDialog "Selected apps are already in bundle '$bName'." "No Change" "OK" "Information"
-    }
-})
+# (Removed: $btnAddToQuickInstalls and $btnAddToBundle handlers - they
+# operated on the deleted checkbox-row search UI. The new Store search uses
+# cards with single-app install via the detail panel.)
 
 # -- Export bundles -----------------------------------------------------------
 $btnExportBundles.Add_Click({
@@ -1714,15 +1343,21 @@ $window.Dispatcher.BeginInvoke([action]{
 # PkgSection_Quick panel for managing the user's QuickInstalls.
 # ─────────────────────────────────────────────────────────────────
 
-$storeCategoriesPanel  = Find "StoreCategoriesPanel"
-$storeCategoryArea     = Find "StoreCategoryArea"
-$storeCategoryAppsPanel = Find "StoreCategoryAppsPanel"
-$storeCategoryBack     = Find "StoreCategoryBack"
-$storeCategoryName     = Find "StoreCategoryName"
-$storeHeaderText       = Find "StoreHeaderText"
-$btnStoreEdit          = Find "BtnStoreEdit"
-$btnStoreImport        = Find "BtnStoreImport"
-$btnStoreExport        = Find "BtnStoreExport"
+$storeCategoriesPanel    = Find "StoreCategoriesPanel"
+$storeCategoryArea       = Find "StoreCategoryArea"
+$storeCategoryAppsPanel  = Find "StoreCategoryAppsPanel"
+$storeCategoryBack       = Find "StoreCategoryBack"
+$storeCategoryName       = Find "StoreCategoryName"
+$storeHeaderText         = Find "StoreHeaderText"
+$storeSearchBox          = Find "StoreSearchBox"
+$storeSearchPlaceholder  = Find "StoreSearchPlaceholder"
+$storeSearchClear        = Find "StoreSearchClear"
+$storeSearchArea         = Find "StoreSearchArea"
+$storeSearchHeader       = Find "StoreSearchHeader"
+$storeSearchCuratedPanel = Find "StoreSearchCuratedPanel"
+$btnStoreSearchWinget    = Find "BtnStoreSearchWinget"
+$storeSearchWingetStatus = Find "StoreSearchWingetStatus"
+$storeSearchWingetPanel  = Find "StoreSearchWingetPanel"
 
 # Tiny accent palette for letter badges, drawn from the theme.
 $script:storeBadgeBrushKeys = @("AccentBrush", "SuccessBrush", "WarningBrush", "DangerBrush")
@@ -1905,7 +1540,12 @@ function New-CategoryTile {
 }
 
 function New-AppCard {
-    param([string]$Name, [string]$Id, [string]$Subtitle = "", [string]$Source)
+    param(
+        [string]$Name, [string]$Id, [string]$Subtitle = "",
+        [string]$Source, [string]$Description,
+        [switch]$SkipIconFetch,      # true for raw winget search results - their icons are too expensive to fetch at bulk render time
+        [switch]$SkipMeta            # true for raw winget search results - skip description/publisher fetch on detail panel open
+    )
 
     $border              = New-Object System.Windows.Controls.Border
     $border.SetResourceReference(
@@ -1925,23 +1565,29 @@ function New-AppCard {
     $rc1 = New-Object System.Windows.Controls.ColumnDefinition; $rc1.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
     $row.ColumnDefinitions.Add($rc0); $row.ColumnDefinitions.Add($rc1)
 
-    $badge        = New-LoadingBadge -Size 36
+    if ($SkipIconFetch) {
+        # Letter badge directly - no async icon fetch (avoids N winget-show calls
+        # when rendering big winget search result lists).
+        $badge = New-LetterBadge -Name $Name -Id $Id -Size 36
+    } else {
+        $badge = New-LoadingBadge -Size 36
+
+        # Kick off async icon fetch; swap to favicon when available, or fall
+        # back to the colored letter badge if the fetch fails.
+        $capturedBadge = $badge
+        $capturedName  = $Name
+        $capturedId    = $Id
+        Get-AppIconAsync -Id $Id -Name $Name -Source $Source -OnReady ({
+            param($iconPath)
+            if ($iconPath) {
+                Swap-BadgeToIcon -Target $capturedBadge -Path $iconPath -Size 36
+            } else {
+                Set-BadgeToLetter -Target $capturedBadge -Name $capturedName -Id $capturedId -Size 36
+            }
+        }.GetNewClosure())
+    }
     $badge.Margin = [System.Windows.Thickness]::new(0, 0, 12, 0)
     [System.Windows.Controls.Grid]::SetColumn($badge, 0)
-
-    # Kick off async icon fetch; swap to favicon when available, or fall
-    # back to the colored letter badge if the fetch fails.
-    $capturedBadge = $badge
-    $capturedName  = $Name
-    $capturedId    = $Id
-    Get-AppIconAsync -Id $Id -Name $Name -Source $Source -OnReady ({
-        param($iconPath)
-        if ($iconPath) {
-            Swap-BadgeToIcon -Target $capturedBadge -Path $iconPath -Size 36
-        } else {
-            Set-BadgeToLetter -Target $capturedBadge -Name $capturedName -Id $capturedId -Size 36
-        }
-    }.GetNewClosure())
 
     $textStack = New-Object System.Windows.Controls.StackPanel
     $textStack.VerticalAlignment = "Center"
@@ -1969,11 +1615,11 @@ function New-AppCard {
     $border.Child = $row
 
     # Click anywhere on the card opens the detail panel
-    $border.Tag = @{ Id = $Id; Name = $Name; Source = $Source }
+    $border.Tag = @{ Id = $Id; Name = $Name; Source = $Source; Description = $Description; SkipMeta = [bool]$SkipMeta }
     $border.Add_MouseLeftButtonUp({
         param($s, $e)
         $info = $s.Tag
-        Show-AppDetailPanel -Id $info.Id -Name $info.Name -Source $info.Source
+        Show-AppDetailPanel -Id $info.Id -Name $info.Name -Source $info.Source -Description $info.Description -SkipMeta:$info.SkipMeta
     })
 
     return $border
@@ -2389,8 +2035,12 @@ function Parse-WingetShowOutput {
 function Set-AppDetailMeta {
     param([string]$Id, [hashtable]$Meta)
     if ($global:appDetailCurrentId -ne $Id) { return }  # Panel moved on
-    if ($Meta.Version)     { $appDetailVersion.Text     = "v" + $Meta.Version }
-    if ($Meta.Publisher)   { $appDetailPublisher.Text   = $Meta.Publisher }
+    if ($Meta.Version)   { $appDetailVersion.Text   = "v" + $Meta.Version }
+    if ($Meta.Publisher) { $appDetailPublisher.Text = $Meta.Publisher }
+
+    # Don't overwrite a hardcoded curated description with the fetched manifest copy.
+    if ($global:appDetailDescriptionLocked) { return }
+
     if ($Meta.Description) {
         $appDetailDescription.Text = $Meta.Description
     } else {
@@ -2399,7 +2049,7 @@ function Set-AppDetailMeta {
 }
 
 function Show-AppDetailPanel {
-    param([string]$Id, [string]$Name, [string]$Source)
+    param([string]$Id, [string]$Name, [string]$Source, [string]$Description, [switch]$SkipMeta)
 
     $global:appDetailCurrentId = $Id
 
@@ -2409,7 +2059,21 @@ function Show-AppDetailPanel {
     $appDetailPublisher.Text   = ""
     $appDetailVersion.Text     = ""
     $appDetailSource.Text      = if ($Source) { $Source } else { "winget" }
-    $appDetailDescription.Text = "Loading..."
+
+    # Description resolution:
+    # - Hardcoded curated description: render instantly, lock against overwrite
+    # - SkipMeta (winget search result): empty + no fetch (collapses the spacer)
+    # - Else: "Loading..." placeholder while async winget-show runs
+    if ($Description) {
+        $appDetailDescription.Text         = $Description
+        $global:appDetailDescriptionLocked = $true
+    } elseif ($SkipMeta) {
+        $appDetailDescription.Text         = ""
+        $global:appDetailDescriptionLocked = $true
+    } else {
+        $appDetailDescription.Text         = "Loading..."
+        $global:appDetailDescriptionLocked = $false
+    }
 
     # Icon: cached icon -> embed immediately; otherwise show a loading
     # placeholder and async-swap to favicon (or letter fallback on failure).
@@ -2444,6 +2108,11 @@ function Show-AppDetailPanel {
 
     $appDetailPanel.Visibility = "Visible"
 
+    # If we already have a hardcoded description we don't need winget-show at all
+    # for this panel - the icon path has its own (independent) meta lookup when
+    # the favicon isn't on disk.
+    if ($global:appDetailDescriptionLocked) { return }
+
     # Route through the serial meta coordinator so we never duplicate
     # 'winget show' for the same id (cards request the same data).
     $detailExpectedId = $Id
@@ -2459,8 +2128,9 @@ function Show-AppDetailPanel {
 }
 
 function Hide-AppDetailPanel {
-    $global:appDetailCurrentId = $null
-    $appDetailPanel.Visibility = "Collapsed"
+    $global:appDetailCurrentId         = $null
+    $global:appDetailDescriptionLocked = $false
+    $appDetailPanel.Visibility         = "Collapsed"
 }
 
 $appDetailClose.Add_Click({ Hide-AppDetailPanel })
@@ -2481,6 +2151,7 @@ function Show-StoreLanding {
     $storeCategoriesPanel.Children.Clear()
     $storeHeaderText.Text       = "Browse"
     $storeCategoryArea.Visibility = "Collapsed"
+    $storeSearchArea.Visibility = "Collapsed"
     $storeCategoriesPanel.Visibility = "Visible"
 
     # Group merged quick installs by category, fall back to "Other"
@@ -2502,43 +2173,145 @@ function Show-StoreCategory {
     $storeCategoryName.Text       = $Category
     $storeHeaderText.Text         = "Browse"
     $storeCategoriesPanel.Visibility = "Collapsed"
+    $storeSearchArea.Visibility = "Collapsed"
     $storeCategoryArea.Visibility = "Visible"
 
     foreach ($qi in (Get-MergedQuickInstalls)) {
         $cat = if ([string]::IsNullOrWhiteSpace($qi.Category)) { "Other" } else { [string]$qi.Category }
         if ($cat -ne $Category) { continue }
         $sub  = if ($qi.IsCurated) { "Curated - " + $qi.Id } else { $qi.Id }
-        $src  = if ($qi.ContainsKey("Source")) { [string]$qi.Source } else { $null }
-        $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub -Source $src
+        $src  = if ($qi.ContainsKey("Source"))      { [string]$qi.Source }      else { $null }
+        $desc = if ($qi.ContainsKey("Description")) { [string]$qi.Description } else { $null }
+        $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub -Source $src -Description $desc
         $storeCategoryAppsPanel.Children.Add($card) | Out-Null
     }
 }
 
-$storeCategoryBack.Add_Click({ Hide-AppDetailPanel; Show-StoreLanding })
+# Live curated-first search. Empty query returns to the landing view; non-empty
+# filters Get-MergedQuickInstalls and shows the matches as cards. A "Search
+# winget" button below lets the user opt into a slower full registry query.
+$script:storeSearchCuratedHits = @{}   # Id -> $true (so winget de-dup can skip)
 
-# Edit list button toggles the legacy PkgSection_Quick panel
-$btnStoreEdit.Add_Click({
-    if ($pkgSectionStore.Visibility -ne "Visible") { return }
-    $quick = Find "PkgSection_Quick"
-    if ($quick.Visibility -eq "Visible") {
-        $quick.Visibility = "Collapsed"
-        $btnStoreEdit.Content = "Edit list"
+function Show-StoreSearch {
+    param([string]$Query)
+
+    Hide-AppDetailPanel
+
+    $q = ($Query | ForEach-Object { $_ }).Trim()
+    if ([string]::IsNullOrWhiteSpace($q)) { Show-StoreLanding; return }
+
+    $storeCategoriesPanel.Visibility = "Collapsed"
+    $storeCategoryArea.Visibility    = "Collapsed"
+    $storeSearchArea.Visibility      = "Visible"
+    $storeSearchCuratedPanel.Children.Clear()
+    $storeSearchWingetPanel.Children.Clear()
+    $storeSearchWingetStatus.Visibility = "Collapsed"
+    $script:storeSearchCuratedHits = @{}
+
+    $qLower = $q.ToLower()
+    $matches = @(Get-MergedQuickInstalls | Where-Object {
+        ($_.Name -and $_.Name.ToLower().Contains($qLower)) -or
+        ($_.Id   -and $_.Id.ToLower().Contains($qLower))   -or
+        ($_.Category -and $_.Category.ToLower().Contains($qLower))
+    })
+
+    if ($matches.Count -eq 0) {
+        $storeSearchHeader.Text = "No matches in the curated catalog for '" + $q + "'"
     } else {
-        $quick.Visibility = "Visible"
-        $btnStoreEdit.Content = "Done"
-        # Force quick-install panel into edit mode so user sees full controls
-        if (-not $script:quickInstallEditMode) {
-            $script:quickInstallEditMode = $true
-            Update-QuickInstalls
+        $word = if ($matches.Count -eq 1) { "match" } else { "matches" }
+        $storeSearchHeader.Text = [string]$matches.Count + " curated " + $word + " for '" + $q + "'"
+        foreach ($qi in $matches) {
+            $sub  = if ($qi.IsCurated) { "Curated - " + $qi.Id } else { $qi.Id }
+            $src  = if ($qi.ContainsKey("Source"))      { [string]$qi.Source }      else { $null }
+            $desc = if ($qi.ContainsKey("Description")) { [string]$qi.Description } else { $null }
+            $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub -Source $src -Description $desc
+            $storeSearchCuratedPanel.Children.Add($card) | Out-Null
+            $script:storeSearchCuratedHits[[string]$qi.Id] = $true
         }
     }
-})
 
-# Delegate Import/Export to the existing handlers on PkgSection_Quick buttons
-$btnStoreImport.Add_Click({ (Find "BtnImportBundles").RaiseEvent(
-    (New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Button]::ClickEvent))) })
-$btnStoreExport.Add_Click({ (Find "BtnExportBundles").RaiseEvent(
-    (New-Object System.Windows.RoutedEventArgs ([System.Windows.Controls.Button]::ClickEvent))) })
+    $btnStoreSearchWinget.Content = "Search winget for '" + $q + "'"
+    $btnStoreSearchWinget.IsEnabled = $true
+    $btnStoreSearchWinget.Tag = $q
+}
+
+function Search-StoreWinget {
+    param([string]$Query)
+    if ([string]::IsNullOrWhiteSpace($Query)) { return }
+
+    $storeSearchWingetPanel.Children.Clear()
+    $storeSearchWingetStatus.Visibility = "Visible"
+    $storeSearchWingetStatus.Text       = "Searching winget..."
+    $btnStoreSearchWinget.IsEnabled     = $false
+    Set-BusyStatus "Searching winget..."
+
+    Start-ScyJob `
+        -Variables @{ wingetQuery = $Query } `
+        -Context   @{ Query = $Query } `
+        -Work {
+            param($emit)
+            $raw   = & winget search $wingetQuery --accept-source-agreements 2>&1
+            $lines = @($raw | ForEach-Object { [string]$_ })
+            return @{ Lines = $lines }
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            Set-ReadyStatus
+            $btnStoreSearchWinget.IsEnabled = $true
+
+            if ($err) {
+                $storeSearchWingetStatus.Text = "winget error: " + $err.Exception.Message
+                return
+            }
+
+            $rows = @(Get-WingetRows $result.Lines)
+            $added = 0
+            foreach ($row in $rows) {
+                $name = if ($row.Count -gt 0) { $row[0].Trim() } else { "" }
+                $id   = if ($row.Count -gt 1) { $row[1].Trim() } else { "" }
+                if (-not $name -or -not $id) { continue }
+                if ($name -eq "Name" -or $name -match '^-+$') { continue }
+                if ($script:storeSearchCuratedHits.ContainsKey($id)) { continue }
+                $card = New-AppCard -Name $name -Id $id -Subtitle $id -SkipIconFetch -SkipMeta
+                $storeSearchWingetPanel.Children.Add($card) | Out-Null
+                $added++
+            }
+
+            if ($added -eq 0) {
+                $storeSearchWingetStatus.Text = "No additional results from winget."
+            } else {
+                $word = if ($added -eq 1) { "result" } else { "results" }
+                $storeSearchWingetStatus.Text = [string]$added + " more " + $word + " from winget"
+            }
+        } | Out-Null
+}
+
+$storeSearchBox.Add_GotFocus({ $storeSearchPlaceholder.Visibility = "Collapsed" })
+$storeSearchBox.Add_LostFocus({
+    if ([string]::IsNullOrWhiteSpace($storeSearchBox.Text)) {
+        $storeSearchPlaceholder.Visibility = "Visible"
+    }
+})
+$storeSearchBox.Add_TextChanged({
+    $q = $storeSearchBox.Text
+    $storeSearchClear.Visibility = if ($q.Length -gt 0) { "Visible" } else { "Collapsed" }
+    Show-StoreSearch -Query $q
+})
+$storeSearchBox.Add_KeyDown({
+    param($s, $e)
+    if ($e.Key -eq [System.Windows.Input.Key]::Return -and $btnStoreSearchWinget.IsEnabled) {
+        Search-StoreWinget -Query $storeSearchBox.Text
+    }
+})
+$storeSearchClear.Add_Click({
+    $storeSearchBox.Text = ""
+    $storeSearchPlaceholder.Visibility = "Visible"
+    $storeSearchClear.Visibility       = "Collapsed"
+    Show-StoreLanding
+})
+$btnStoreSearchWinget.Add_Click({ Search-StoreWinget -Query $storeSearchBox.Text })
+
+$storeCategoryBack.Add_Click({ Hide-AppDetailPanel; Show-StoreLanding })
 
 # Refresh landing on startup, after the legacy Update-QuickInstalls has run.
 $window.Dispatcher.BeginInvoke([action]{

@@ -904,31 +904,40 @@
 
                                         <!-- LEFT: browse area (tiles or category cards) -->
                                         <StackPanel Grid.Column="0">
-                                            <!-- Header row: title + manage buttons -->
-                                            <Grid Margin="0,0,0,14">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <DockPanel VerticalAlignment="Center">
-                                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                                    <TextBlock x:Name="StoreHeaderText" Text="Browse" FontSize="14"
-                                                               FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                                               VerticalAlignment="Center"/>
-                                                </DockPanel>
-                                                <Button x:Name="BtnStoreEdit" Grid.Column="1"
-                                                        Content="Edit list" Margin="0,0,6,0"
-                                                        Style="{StaticResource SecondaryButton}"/>
-                                                <Button x:Name="BtnStoreImport" Grid.Column="2"
-                                                        Content="Import" Margin="0,0,6,0"
-                                                        Style="{StaticResource SecondaryButton}"/>
-                                                <Button x:Name="BtnStoreExport" Grid.Column="3"
-                                                        Content="Export"
-                                                        Style="{StaticResource SecondaryButton}"/>
-                                            </Grid>
+                                            <!-- Header row: title only (manage actions live in Settings > Groups) -->
+                                            <DockPanel VerticalAlignment="Center" Margin="0,0,0,12">
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock x:Name="StoreHeaderText" Text="Browse" FontSize="14"
+                                                           FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </DockPanel>
+
+                                            <!-- Search input (curated-first; winget on demand) -->
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                    Padding="10,0" Margin="0,0,0,14">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock x:Name="StoreSearchPlaceholder"
+                                                               Text="Search apps..."
+                                                               Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                    <TextBox x:Name="StoreSearchBox"
+                                                             Background="Transparent" BorderThickness="0"
+                                                             Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                             CaretBrush="{DynamicResource FgBrush}" Padding="0,8"
+                                                             SelectionBrush="{DynamicResource AccentBrush}"/>
+                                                    <Button x:Name="StoreSearchClear" Grid.Column="1"
+                                                            Content="&#xD7;" FontSize="14" Visibility="Collapsed"
+                                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                            Foreground="{DynamicResource MutedText}" Padding="4,0"
+                                                            VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
 
                                             <!-- Landing: WrapPanel of category tiles -->
                                             <WrapPanel x:Name="StoreCategoriesPanel"/>
@@ -951,6 +960,23 @@
                                                 </Grid>
                                                 <WrapPanel x:Name="StoreCategoryAppsPanel"/>
                                             </StackPanel>
+
+                                            <!-- Search results view (curated matches first, winget on demand) -->
+                                            <StackPanel x:Name="StoreSearchArea" Visibility="Collapsed">
+                                                <TextBlock x:Name="StoreSearchHeader" Text=""
+                                                           FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource MutedText}"
+                                                           Margin="0,0,0,8"/>
+                                                <WrapPanel x:Name="StoreSearchCuratedPanel"/>
+                                                <Button x:Name="BtnStoreSearchWinget"
+                                                        Content="Search winget for more results"
+                                                        Style="{StaticResource SecondaryButton}"
+                                                        HorizontalAlignment="Left" Margin="0,4,0,12"/>
+                                                <TextBlock x:Name="StoreSearchWingetStatus" Text=""
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}"
+                                                           Margin="0,0,0,8" Visibility="Collapsed"/>
+                                                <WrapPanel x:Name="StoreSearchWingetPanel"/>
+                                            </StackPanel>
                                         </StackPanel>
 
                                         <!-- RIGHT: app detail side panel (Collapsed by default) -->
@@ -960,15 +986,15 @@
                                                 BorderBrush="{DynamicResource BorderBrush}"
                                                 BorderThickness="1,0,0,0"
                                                 Margin="14,0,0,0" Padding="18,16,18,16">
-                                            <Grid>
+                                            <Grid VerticalAlignment="Top">
                                                 <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="Auto"/>
-                                                    <RowDefinition Height="*"/>
-                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>   <!-- 0 close -->
+                                                    <RowDefinition Height="Auto"/>   <!-- 1 icon -->
+                                                    <RowDefinition Height="Auto"/>   <!-- 2 name -->
+                                                    <RowDefinition Height="Auto"/>   <!-- 3 publisher/id -->
+                                                    <RowDefinition Height="Auto"/>   <!-- 4 version/source -->
+                                                    <RowDefinition Height="Auto"/>   <!-- 5 description (shrinks when empty) -->
+                                                    <RowDefinition Height="Auto"/>   <!-- 6 action (sits right under previous row) -->
                                                 </Grid.RowDefinitions>
 
                                                 <!-- Close button (top right) -->
@@ -1037,180 +1063,8 @@
                                     </Grid>
                                 </Border>
 
-                                <!-- Search & Install -->
-                                <Border x:Name="PkgSection_Search">
-                                <StackPanel>
-                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
-                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                        Padding="16,14" Margin="0,0,0,12">
-                                    <StackPanel>
-                                        <DockPanel Margin="0,0,0,10">
-                                            <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                                    Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                            <TextBlock Text="Search &amp; install" FontSize="14"
-                                                       FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                                       VerticalAlignment="Center"/>
-                                        </DockPanel>
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="8"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                    Padding="10,0">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock x:Name="SearchPlaceholder"
-                                                               Text="Search winget for apps (e.g. Firefox, 7-Zip)..."
-                                                               Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                               VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                                    <TextBox x:Name="InstallSearchBox"
-                                                             Background="Transparent" BorderThickness="0"
-                                                             Foreground="{DynamicResource FgBrush}" FontSize="12"
-                                                             CaretBrush="{DynamicResource FgBrush}" Padding="0,8"
-                                                             SelectionBrush="{DynamicResource AccentBrush}"/>
-                                                    <Button x:Name="InstallSearchClear" Grid.Column="1"
-                                                            Content="&#xD7;" FontSize="14" Visibility="Collapsed"
-                                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                                            Foreground="{DynamicResource MutedText}" Padding="4,0"
-                                                            VerticalAlignment="Center"/>
-                                                </Grid>
-                                            </Border>
-                                            <Button x:Name="BtnSearchPackage" Grid.Column="2"
-                                                    Content="Search" Style="{StaticResource ActionButton}"/>
-                                        </Grid>
-                                        <TextBlock x:Name="SearchStatus" Text=""
-                                                   FontSize="11" Foreground="{DynamicResource MutedText}"
-                                                   Margin="0,0,0,4"/>
-                                        <Border x:Name="SearchResultsBorder" Visibility="Collapsed"
-                                                Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
-                                            <StackPanel>
-                                                <Grid Margin="12,8">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock x:Name="SearchResultsLabel" Text="0 results"
-                                                               FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                                               VerticalAlignment="Center"/>
-                                                    <ComboBox x:Name="QuickInstallCategoryBox" Grid.Column="1"
-                                                              IsEditable="True" MinWidth="120" Margin="0,0,6,0"
-                                                              ToolTip="Category for quick install"/>
-                                                    <Button x:Name="BtnAddToQuickInstalls" Grid.Column="2"
-                                                            Content="+ Quick install" Margin="0,0,6,0"
-                                                            Style="{StaticResource ActionButton}" IsEnabled="False"/>
-                                                    <Button x:Name="BtnAddToBundle" Grid.Column="3"
-                                                            Content="+ Bundle" Margin="0,0,6,0"
-                                                            Style="{StaticResource ActionButton}" IsEnabled="False"/>
-                                                    <Button x:Name="BtnInstallSelected" Grid.Column="4"
-                                                            Content="Install selected"
-                                                            Style="{StaticResource ActionButton}" IsEnabled="False"/>
-                                                </Grid>
-                                                <Border Height="1" Background="{DynamicResource BorderBrush}"/>
-                                                <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto">
-                                                    <StackPanel x:Name="SearchResultsPanel" Margin="8,6,8,6"/>
-                                                </ScrollViewer>
-                                            </StackPanel>
-                                        </Border>
-                                    </StackPanel>
-                                </Border>
-
-                                <!-- Installed apps (hidden until List Installed clicked) -->
-                                <Border x:Name="InstalledCard" Background="{DynamicResource Surface2Brush}"
-                                        CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1" Padding="16,14" Margin="0,8,0,0" Visibility="Collapsed">
-                                    <StackPanel>
-                                        <Grid Margin="0,0,0,10">
-                                            <DockPanel VerticalAlignment="Center">
-                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                                <TextBlock Text="Installed apps" FontSize="14"
-                                                           FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                                           VerticalAlignment="Center"/>
-                                            </DockPanel>
-                                            <TextBlock x:Name="InstalledCountLabel" Text=""
-                                                       HorizontalAlignment="Right" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center"/>
-                                        </Grid>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                Padding="10,0" Margin="0,0,0,8">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock x:Name="InstalledFilterPlaceholder"
-                                                           Text="Filter by name or ID..."
-                                                           Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                           VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                                <TextBox x:Name="InstalledFilterBox"
-                                                         Background="Transparent" BorderThickness="0"
-                                                         Foreground="{DynamicResource FgBrush}" FontSize="12"
-                                                         CaretBrush="{DynamicResource FgBrush}" Padding="0,8"
-                                                         SelectionBrush="{DynamicResource AccentBrush}"/>
-                                                <Button x:Name="InstalledFilterClear" Grid.Column="1"
-                                                        Content="&#xD7;" FontSize="14" Visibility="Collapsed"
-                                                        Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                                        Foreground="{DynamicResource MutedText}" Padding="4,0"
-                                                        VerticalAlignment="Center"/>
-                                            </Grid>
-                                        </Border>
-                                        <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">
-                                            <StackPanel x:Name="InstalledPanel"/>
-                                        </ScrollViewer>
-                                    </StackPanel>
-                                </Border>
-                                </StackPanel>
-                                </Border>
-
-                                <!-- Quick Install (edit list panel - hidden by default, toggled by BtnStoreEdit) -->
-                                <Border x:Name="PkgSection_Quick" Visibility="Collapsed">
-                                <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
-                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                        Padding="16,14" Margin="0,0,0,12">
-                                    <StackPanel>
-                                        <Grid Margin="0,0,0,10">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <DockPanel VerticalAlignment="Center">
-                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                                <TextBlock Text="Quick install" FontSize="14"
-                                                           FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                                           VerticalAlignment="Center"/>
-                                            </DockPanel>
-                                            <Button x:Name="BtnQuickInstallSelected" Grid.Column="1"
-                                                    Content="Install" Margin="0,0,6,0"
-                                                    Style="{StaticResource ActionButton}" IsEnabled="False"/>
-                                            <Button x:Name="BtnImportBundles" Grid.Column="2"
-                                                    Content="Import" Margin="0,0,6,0"
-                                                    Style="{StaticResource SecondaryButton}"/>
-                                            <Button x:Name="BtnExportBundles" Grid.Column="3"
-                                                    Content="Export" Margin="0,0,6,0"
-                                                    Style="{StaticResource SecondaryButton}"/>
-                                            <Button x:Name="BtnEditQuickInstalls" Grid.Column="4"
-                                                    Content="Edit" Style="{StaticResource ActionButton}"/>
-                                        </Grid>
-                                        <StackPanel x:Name="QuickInstallsPanel"/>
-                                    </StackPanel>
-                                </Border>
-                                </Border>
+                                <!-- (Search lives in the Store browse card above; -->
+                                <!--  Quick install management lives in Settings > Groups) -->
 
                                 <!-- Local installers -->
                                 <Border x:Name="PkgSection_Local">
@@ -4742,6 +4596,7 @@
 
                             <!-- Groups management -->
                             <Border x:Name="SettingsSection_Groups" Visibility="Collapsed">
+                            <StackPanel>
                             <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                     Padding="16,14" Margin="0,0,0,12">
@@ -4803,6 +4658,45 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
+
+                            <!-- Quick installs management (moved out of Apps tab) -->
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Padding="16,14" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <DockPanel VerticalAlignment="Center">
+                                            <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                    Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                            <TextBlock Text="Quick installs" FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                        <Button x:Name="BtnQuickInstallSelected" Grid.Column="1"
+                                                Content="Install" Margin="0,0,6,0"
+                                                Style="{StaticResource ActionButton}" IsEnabled="False"/>
+                                        <Button x:Name="BtnImportBundles" Grid.Column="2"
+                                                Content="Import" Margin="0,0,6,0"
+                                                Style="{StaticResource SecondaryButton}"/>
+                                        <Button x:Name="BtnExportBundles" Grid.Column="3"
+                                                Content="Export" Margin="0,0,6,0"
+                                                Style="{StaticResource SecondaryButton}"/>
+                                        <Button x:Name="BtnEditQuickInstalls" Grid.Column="4"
+                                                Content="Edit" Style="{StaticResource ActionButton}"/>
+                                    </Grid>
+                                    <TextBlock Text="Your saved quick installs plus the curated catalog. Click Edit to hide entries or reassign categories."
+                                               FontSize="11" Foreground="{DynamicResource MutedText}"
+                                               Margin="0,0,0,12" TextWrapping="Wrap"/>
+                                    <StackPanel x:Name="QuickInstallsPanel"/>
+                                </StackPanel>
+                            </Border>
+                            </StackPanel>
                             </Border>
 
                             <!-- Settings Backup -->
