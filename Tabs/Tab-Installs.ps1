@@ -123,122 +123,122 @@ $script:defaultQuickCategories = @(
 #                 present, the async winget-show description does not overwrite it
 $script:curatedApps = @(
     # Browsers
-    @{ Name = "Firefox";                  Id = "Mozilla.Firefox";                   Category = "Browsers";       Description = "Open-source web browser from Mozilla." }
-    @{ Name = "Brave";                    Id = "Brave.Brave";                       Category = "Browsers";       Description = "Chromium browser with built-in ad and tracker blocking." }
-    @{ Name = "Zen";                      Id = "Zen-Team.Zen-Browser";              Category = "Browsers";       Description = "Firefox-based browser with workspaces and focus features." }
-    @{ Name = "Helium";                   Id = "imputnet.helium";                   Category = "Browsers";       Description = "Lightweight Chromium fork focused on speed and privacy." }
-    @{ Name = "Vivaldi";                  Id = "Vivaldi.Vivaldi";                   Category = "Browsers";       Description = "Highly customizable Chromium browser with tab stacking and built-in tools." }
-    @{ Name = "LibreWolf";                Id = "LibreWolf.LibreWolf";               Category = "Browsers";       Description = "Hardened Firefox fork with privacy-first defaults." }
-    @{ Name = "Tor Browser";              Id = "TorProject.TorBrowser";             Category = "Browsers";       Description = "Routes traffic through the Tor network for anonymous browsing." }
+    @{ Name = "Firefox";                  Id = "Mozilla.Firefox";                   Category = "Browsers";       Homepage = "mozilla.org";              Description = "Open-source web browser from Mozilla." }
+    @{ Name = "Brave";                    Id = "Brave.Brave";                       Category = "Browsers";       Homepage = "brave.com";                Description = "Chromium browser with built-in ad and tracker blocking." }
+    @{ Name = "Zen";                      Id = "Zen-Team.Zen-Browser";              Category = "Browsers";       Homepage = "zen-browser.app";          Description = "Firefox-based browser with workspaces and focus features." }
+    @{ Name = "Helium";                   Id = "imputnet.helium";                   Category = "Browsers";       Homepage = "helium.computer";          Description = "Lightweight Chromium fork focused on speed and privacy." }
+    @{ Name = "Vivaldi";                  Id = "Vivaldi.Vivaldi";                   Category = "Browsers";       Homepage = "vivaldi.com";              Description = "Highly customizable Chromium browser with tab stacking and built-in tools." }
+    @{ Name = "LibreWolf";                Id = "LibreWolf.LibreWolf";               Category = "Browsers";       Homepage = "librewolf.net";            Description = "Hardened Firefox fork with privacy-first defaults." }
+    @{ Name = "Tor Browser";              Id = "TorProject.TorBrowser";             Category = "Browsers";       Homepage = "torproject.org";           Description = "Routes traffic through the Tor network for anonymous browsing." }
 
     # Communication
-    @{ Name = "Discord";                  Id = "Discord.Discord";                   Category = "Communication";  Description = "Voice, video, and text chat for communities." }
-    @{ Name = "Element";                  Id = "Element.Element";                   Category = "Communication";  Description = "Matrix client for end-to-end encrypted team chat." }
-    @{ Name = "Signal";                   Id = "OpenWhisperSystems.Signal";         Category = "Communication";  Description = "End-to-end encrypted messenger with voice and video calls." }
-    @{ Name = "Telegram";                 Id = "Telegram.TelegramDesktop";          Category = "Communication";  Description = "Cloud-based messenger with channels, bots, and large groups." }
-    @{ Name = "Thunderbird";              Id = "Mozilla.Thunderbird";               Category = "Communication";  Description = "Mozilla's open-source email, calendar, and feed client." }
-    @{ Name = "SimpleX Chat";             Id = "SimpleXChat.SimpleX-Desktop";       Category = "Communication";  Description = "Messenger that requires no user IDs or phone numbers." }
+    @{ Name = "Discord";                  Id = "Discord.Discord";                   Category = "Communication";  Homepage = "discord.com";              Description = "Voice, video, and text chat for communities." }
+    @{ Name = "Element";                  Id = "Element.Element";                   Category = "Communication";  Homepage = "element.io";               Description = "Matrix client for end-to-end encrypted team chat." }
+    @{ Name = "Signal";                   Id = "OpenWhisperSystems.Signal";         Category = "Communication";  Homepage = "signal.org";               Description = "End-to-end encrypted messenger with voice and video calls." }
+    @{ Name = "Telegram";                 Id = "Telegram.TelegramDesktop";          Category = "Communication";  Homepage = "telegram.org";             Description = "Cloud-based messenger with channels, bots, and large groups." }
+    @{ Name = "Thunderbird";              Id = "Mozilla.Thunderbird";               Category = "Communication";  Homepage = "thunderbird.net";          Description = "Mozilla's open-source email, calendar, and feed client." }
+    @{ Name = "SimpleX Chat";             Id = "SimpleXChat.SimpleX-Desktop";       Category = "Communication";  Homepage = "simplex.chat";             Description = "Messenger that requires no user IDs or phone numbers." }
 
     # Media
-    @{ Name = "VLC";                      Id = "VideoLAN.VLC";                      Category = "Media";          Description = "Plays nearly any audio and video format." }
-    @{ Name = "Spotify";                  Id = "Spotify.Spotify";                   Category = "Media";          Description = "Music streaming client." }
-    @{ Name = "MusicBee";                 Id = "MusicBee.MusicBee";                 Category = "Media";          Description = "Local music library player with rich tagging." }
-    @{ Name = "OBS Studio";               Id = "OBSProject.OBSStudio";              Category = "Media";          Description = "Live streaming and screen recording." }
-    @{ Name = "GIMP";                     Id = "GIMP.GIMP";                         Category = "Media";          Description = "Open-source raster image editor." }
-    @{ Name = "Audacity";                 Id = "Audacity.Audacity";                 Category = "Media";          Description = "Multi-track audio recording and editing." }
-    @{ Name = "HandBrake";                Id = "HandBrake.HandBrake";               Category = "Media";          Description = "Video transcoder for converting between formats." }
-    @{ Name = "Inkscape";                 Id = "Inkscape.Inkscape";                 Category = "Media";          Description = "Vector graphics editor." }
-    @{ Name = "Krita";                    Id = "KDE.Krita";                         Category = "Media";          Description = "Digital painting and illustration." }
-    @{ Name = "Blender";                  Id = "BlenderFoundation.Blender";         Category = "Media";          Description = "3D modeling, animation, and rendering suite." }
-    @{ Name = "mpv";                      Id = "shinchiro.mpv";                     Category = "Media";          Description = "Minimalist scriptable media player." }
-    @{ Name = "Plex";                     Id = "Plex.Plex";                         Category = "Media";          Description = "Client for the Plex media server." }
-    @{ Name = "Jellyfin Media Player";    Id = "Jellyfin.JellyfinMediaPlayer";      Category = "Media";          Description = "Client for the open-source Jellyfin media server." }
-    @{ Name = "DaVinci Resolve";          Id = "BlackmagicDesign.DaVinciResolve";   Category = "Media";          Description = "Professional video editing and color grading." }
-    @{ Name = "Emby";                     Id = "9NBLGGH4T70L";                      Category = "Media";          Source = "msstore"; Description = "Client for the Emby media server." }
+    @{ Name = "VLC";                      Id = "VideoLAN.VLC";                      Category = "Media";          Homepage = "videolan.org";             Description = "Plays nearly any audio and video format." }
+    @{ Name = "Spotify";                  Id = "Spotify.Spotify";                   Category = "Media";          Homepage = "spotify.com";              Description = "Music streaming client." }
+    @{ Name = "MusicBee";                 Id = "MusicBee.MusicBee";                 Category = "Media";          Homepage = "getmusicbee.com";          Description = "Local music library player with rich tagging." }
+    @{ Name = "OBS Studio";               Id = "OBSProject.OBSStudio";              Category = "Media";          Homepage = "obsproject.com";           Description = "Live streaming and screen recording." }
+    @{ Name = "GIMP";                     Id = "GIMP.GIMP";                         Category = "Media";          Homepage = "gimp.org";                 Description = "Open-source raster image editor." }
+    @{ Name = "Audacity";                 Id = "Audacity.Audacity";                 Category = "Media";          Homepage = "audacityteam.org";         Description = "Multi-track audio recording and editing." }
+    @{ Name = "HandBrake";                Id = "HandBrake.HandBrake";               Category = "Media";          Homepage = "handbrake.fr";             Description = "Video transcoder for converting between formats." }
+    @{ Name = "Inkscape";                 Id = "Inkscape.Inkscape";                 Category = "Media";          Homepage = "inkscape.org";             Description = "Vector graphics editor." }
+    @{ Name = "Krita";                    Id = "KDE.Krita";                         Category = "Media";          Homepage = "krita.org";                Description = "Digital painting and illustration." }
+    @{ Name = "Blender";                  Id = "BlenderFoundation.Blender";         Category = "Media";          Homepage = "blender.org";              Description = "3D modeling, animation, and rendering suite." }
+    @{ Name = "mpv";                      Id = "shinchiro.mpv";                     Category = "Media";          Homepage = "mpv.io";                   Description = "Minimalist scriptable media player." }
+    @{ Name = "Plex";                     Id = "Plex.Plex";                         Category = "Media";          Homepage = "plex.tv";                  Description = "Client for the Plex media server." }
+    @{ Name = "Jellyfin Media Player";    Id = "Jellyfin.JellyfinMediaPlayer";      Category = "Media";          Homepage = "jellyfin.org";             Description = "Client for the open-source Jellyfin media server." }
+    @{ Name = "DaVinci Resolve";          Id = "BlackmagicDesign.DaVinciResolve";   Category = "Media";          Homepage = "blackmagicdesign.com";     Description = "Professional video editing and color grading." }
+    @{ Name = "Emby";                     Id = "9NBLGGH4T70L";                      Category = "Media";          Source = "msstore"; Homepage = "emby.media";  Description = "Client for the Emby media server." }
 
     # Utilities
-    @{ Name = "7-Zip";                    Id = "7zip.7zip";                         Category = "Utilities";      Description = "High-ratio file archiver." }
-    @{ Name = "Notepad++";                Id = "Notepad++.Notepad++";               Category = "Utilities";      Description = "Lightweight tabbed text and code editor." }
-    @{ Name = "Everything";               Id = "voidtools.Everything";              Category = "Utilities";      Description = "Instant filename search across the file system." }
-    @{ Name = "PowerToys";                Id = "Microsoft.PowerToys";               Category = "Utilities";      Description = "Microsoft's set of power-user utilities for Windows." }
-    @{ Name = "ShareX";                   Id = "ShareX.ShareX";                     Category = "Utilities";      Description = "Screenshot, screen recorder, and upload automation." }
-    @{ Name = "qBittorrent";              Id = "qBittorrent.qBittorrent";           Category = "Utilities";      Description = "Open-source BitTorrent client." }
-    @{ Name = "WizTree";                  Id = "AntibodySoftware.WizTree";          Category = "Utilities";      Description = "Fast disk space visualizer using the NTFS MFT." }
-    @{ Name = "File Pilot";               Id = "FilePilot.FilePilot";               Category = "Utilities";      Description = "Modern, very fast Windows file manager." }
-    @{ Name = "Ditto";                    Id = "Ditto.Ditto";                       Category = "Utilities";      Description = "Clipboard history manager." }
-    @{ Name = "CrystalDiskInfo";          Id = "CrystalDewWorld.CrystalDiskInfo";   Category = "Utilities";      Description = "Drive health monitor reading S.M.A.R.T. data." }
-    @{ Name = "Greenshot";                Id = "Greenshot.Greenshot";               Category = "Utilities";      Description = "Lightweight screenshot tool with annotation." }
-    @{ Name = "Flow Launcher";            Id = "Flow-Launcher.Flow-Launcher";       Category = "Utilities";      Description = "Quick app and file launcher (Alfred-style)." }
-    @{ Name = "AutoHotkey";               Id = "AutoHotkey.AutoHotkey";             Category = "Utilities";      Description = "Scripting language for keyboard, mouse, and UI automation." }
-    @{ Name = "NanaZip";                  Id = "M2Team.NanaZip";                    Category = "Utilities";      Description = "Modern 7-Zip fork with extra format support." }
-    @{ Name = "Files";                    Id = "Files-Community.Files";             Category = "Utilities";      Description = "Tabbed modern file explorer for Windows." }
-    @{ Name = "Rufus";                    Id = "Rufus.Rufus";                       Category = "Utilities";      Description = "Creates bootable USB drives from ISO files." }
+    @{ Name = "7-Zip";                    Id = "7zip.7zip";                         Category = "Utilities";      Homepage = "7-zip.org";                Description = "High-ratio file archiver." }
+    @{ Name = "Notepad++";                Id = "Notepad++.Notepad++";               Category = "Utilities";      Homepage = "notepad-plus-plus.org";    Description = "Lightweight tabbed text and code editor." }
+    @{ Name = "Everything";               Id = "voidtools.Everything";              Category = "Utilities";      Homepage = "voidtools.com";            Description = "Instant filename search across the file system." }
+    @{ Name = "PowerToys";                Id = "Microsoft.PowerToys";               Category = "Utilities";                                              Description = "Microsoft's set of power-user utilities for Windows." }
+    @{ Name = "ShareX";                   Id = "ShareX.ShareX";                     Category = "Utilities";      Homepage = "getsharex.com";            Description = "Screenshot, screen recorder, and upload automation." }
+    @{ Name = "qBittorrent";              Id = "qBittorrent.qBittorrent";           Category = "Utilities";      Homepage = "qbittorrent.org";          Description = "Open-source BitTorrent client." }
+    @{ Name = "WizTree";                  Id = "AntibodySoftware.WizTree";          Category = "Utilities";      Homepage = "antibodysoftware.com";     Description = "Fast disk space visualizer using the NTFS MFT." }
+    @{ Name = "File Pilot";               Id = "FilePilot.FilePilot";               Category = "Utilities";      Homepage = "filepilot.tech";           Description = "Modern, very fast Windows file manager." }
+    @{ Name = "Ditto";                    Id = "Ditto.Ditto";                       Category = "Utilities";                                              Description = "Clipboard history manager." }
+    @{ Name = "CrystalDiskInfo";          Id = "CrystalDewWorld.CrystalDiskInfo";   Category = "Utilities";      Homepage = "crystalmark.info";         Description = "Drive health monitor reading S.M.A.R.T. data." }
+    @{ Name = "Greenshot";                Id = "Greenshot.Greenshot";               Category = "Utilities";      Homepage = "getgreenshot.org";         Description = "Lightweight screenshot tool with annotation." }
+    @{ Name = "Flow Launcher";            Id = "Flow-Launcher.Flow-Launcher";       Category = "Utilities";      Homepage = "flowlauncher.com";         Description = "Quick app and file launcher (Alfred-style)." }
+    @{ Name = "AutoHotkey";               Id = "AutoHotkey.AutoHotkey";             Category = "Utilities";      Homepage = "autohotkey.com";           Description = "Scripting language for keyboard, mouse, and UI automation." }
+    @{ Name = "NanaZip";                  Id = "M2Team.NanaZip";                    Category = "Utilities";                                              Description = "Modern 7-Zip fork with extra format support." }
+    @{ Name = "Files";                    Id = "Files-Community.Files";             Category = "Utilities";      Homepage = "files.community";          Description = "Tabbed modern file explorer for Windows." }
+    @{ Name = "Rufus";                    Id = "Rufus.Rufus";                       Category = "Utilities";      Homepage = "rufus.ie";                 Description = "Creates bootable USB drives from ISO files." }
 
     # Development
-    @{ Name = "Visual Studio Code";       Id = "Microsoft.VisualStudioCode";        Category = "Development";    Description = "Cross-platform code editor from Microsoft." }
-    @{ Name = "Git";                      Id = "Git.Git";                           Category = "Development";    Description = "Distributed version control." }
-    @{ Name = "Windows Terminal";         Id = "Microsoft.WindowsTerminal";         Category = "Development";    Description = "Modern terminal for Cmd, PowerShell, and WSL." }
-    @{ Name = "Node.js LTS";              Id = "OpenJS.NodeJS.LTS";                 Category = "Development";    Description = "JavaScript runtime built on V8 (long-term-support release)." }
-    @{ Name = "Python 3.12";              Id = "Python.Python.3.12";                Category = "Development";    Description = "Python interpreter and tooling." }
-    @{ Name = "Docker Desktop";           Id = "Docker.DockerDesktop";              Category = "Development";    Description = "Run and manage containers on Windows." }
-    @{ Name = "JetBrains Toolbox";        Id = "JetBrains.Toolbox";                 Category = "Development";    Description = "Installer and manager for JetBrains IDEs." }
-    @{ Name = "Sublime Text";             Id = "SublimeHQ.SublimeText.4";           Category = "Development";    Description = "Fast multi-language code editor." }
-    @{ Name = "Postman";                  Id = "Postman.Postman";                   Category = "Development";    Description = "HTTP API client for testing and team collaboration." }
-    @{ Name = "Insomnia";                 Id = "Insomnia.Insomnia";                 Category = "Development";    Description = "Open-source REST, GraphQL, and gRPC API client." }
-    @{ Name = "Neovim";                   Id = "Neovim.Neovim";                     Category = "Development";    Description = "Modernized Vim with embedded scripting and async plugins." }
-    @{ Name = "Cursor";                   Id = "Anysphere.Cursor";                  Category = "Development";    Description = "AI-powered code editor based on VS Code." }
-    @{ Name = "Zed";                      Id = "Zed.Zed";                           Category = "Development";    Description = "Fast, collaborative code editor written in Rust." }
-    @{ Name = "GitHub Desktop";           Id = "GitHub.GitHubDesktop";              Category = "Development";    Description = "Visual Git client for GitHub repositories." }
-    @{ Name = "GitHub CLI";               Id = "GitHub.cli";                        Category = "Development";    Description = "Command-line tool for GitHub workflows." }
-    @{ Name = "DBeaver";                  Id = "dbeaver.dbeaver";                   Category = "Development";    Description = "Universal database GUI for SQL and NoSQL engines." }
-    @{ Name = "MongoDB Compass";          Id = "MongoDB.Compass.Community";         Category = "Development";    Description = "Official GUI for MongoDB databases." }
+    @{ Name = "Visual Studio Code";       Id = "Microsoft.VisualStudioCode";        Category = "Development";    Homepage = "code.visualstudio.com";    Description = "Cross-platform code editor from Microsoft." }
+    @{ Name = "Git";                      Id = "Git.Git";                           Category = "Development";    Homepage = "git-scm.com";              Description = "Distributed version control." }
+    @{ Name = "Windows Terminal";         Id = "Microsoft.WindowsTerminal";         Category = "Development";                                              Description = "Modern terminal for Cmd, PowerShell, and WSL." }
+    @{ Name = "Node.js LTS";              Id = "OpenJS.NodeJS.LTS";                 Category = "Development";    Homepage = "nodejs.org";               Description = "JavaScript runtime built on V8 (long-term-support release)." }
+    @{ Name = "Python 3.12";              Id = "Python.Python.3.12";                Category = "Development";    Homepage = "python.org";               Description = "Python interpreter and tooling." }
+    @{ Name = "Docker Desktop";           Id = "Docker.DockerDesktop";              Category = "Development";    Homepage = "docker.com";               Description = "Run and manage containers on Windows." }
+    @{ Name = "JetBrains Toolbox";        Id = "JetBrains.Toolbox";                 Category = "Development";    Homepage = "jetbrains.com";            Description = "Installer and manager for JetBrains IDEs." }
+    @{ Name = "Sublime Text";             Id = "SublimeHQ.SublimeText.4";           Category = "Development";    Homepage = "sublimetext.com";          Description = "Fast multi-language code editor." }
+    @{ Name = "Postman";                  Id = "Postman.Postman";                   Category = "Development";    Homepage = "postman.com";              Description = "HTTP API client for testing and team collaboration." }
+    @{ Name = "Insomnia";                 Id = "Insomnia.Insomnia";                 Category = "Development";    Homepage = "insomnia.rest";            Description = "Open-source REST, GraphQL, and gRPC API client." }
+    @{ Name = "Neovim";                   Id = "Neovim.Neovim";                     Category = "Development";    Homepage = "neovim.io";                Description = "Modernized Vim with embedded scripting and async plugins." }
+    @{ Name = "Cursor";                   Id = "Anysphere.Cursor";                  Category = "Development";    Homepage = "cursor.com";               Description = "AI-powered code editor based on VS Code." }
+    @{ Name = "Zed";                      Id = "Zed.Zed";                           Category = "Development";    Homepage = "zed.dev";                  Description = "Fast, collaborative code editor written in Rust." }
+    @{ Name = "GitHub Desktop";           Id = "GitHub.GitHubDesktop";              Category = "Development";    Homepage = "desktop.github.com";       Description = "Visual Git client for GitHub repositories." }
+    @{ Name = "GitHub CLI";               Id = "GitHub.cli";                        Category = "Development";    Homepage = "cli.github.com";           Description = "Command-line tool for GitHub workflows." }
+    @{ Name = "DBeaver";                  Id = "dbeaver.dbeaver";                   Category = "Development";    Homepage = "dbeaver.io";               Description = "Universal database GUI for SQL and NoSQL engines." }
+    @{ Name = "MongoDB Compass";          Id = "MongoDB.Compass.Community";         Category = "Development";    Homepage = "mongodb.com";              Description = "Official GUI for MongoDB databases." }
 
     # Gaming
-    @{ Name = "Steam";                    Id = "Valve.Steam";                       Category = "Gaming";         Description = "Valve's game store and library." }
-    @{ Name = "Epic Games Launcher";      Id = "EpicGames.EpicGamesLauncher";       Category = "Gaming";         Description = "Game store and library from Epic." }
-    @{ Name = "GOG Galaxy";               Id = "GOG.Galaxy";                        Category = "Gaming";         Description = "DRM-free game library and unified launcher." }
-    @{ Name = "Heroic Games Launcher";    Id = "HeroicGamesLauncher.HeroicGamesLauncher"; Category = "Gaming";   Description = "Open-source launcher for Epic, GOG, and Amazon Games." }
-    @{ Name = "Battle.net";               Id = "Blizzard.BattleNet";                Category = "Gaming";         Description = "Blizzard's game launcher." }
-    @{ Name = "EA Desktop";               Id = "ElectronicArts.EADesktop";          Category = "Gaming";         Description = "EA's game store and launcher." }
-    @{ Name = "Ubisoft Connect";          Id = "Ubisoft.Connect";                   Category = "Gaming";         Description = "Ubisoft's game launcher and store." }
-    @{ Name = "itch.io";                  Id = "itchio.itch";                       Category = "Gaming";         Description = "Indie game and asset store with built-in updates." }
-    @{ Name = "Prism Launcher";           Id = "PrismLauncher.PrismLauncher";       Category = "Gaming";         Description = "Open-source Minecraft launcher with instance profiles and mod support." }
-    @{ Name = "DS4Windows";               Id = "Ryochan7.DS4Windows";               Category = "Gaming";         Description = "Use DualShock 4 and DualSense controllers on Windows." }
-    @{ Name = "Vortex";                   Id = "Nexus-Mods.Vortex";                 Category = "Gaming";         Description = "Nexus Mods' game mod manager." }
+    @{ Name = "Steam";                    Id = "Valve.Steam";                       Category = "Gaming";         Homepage = "steampowered.com";         Description = "Valve's game store and library." }
+    @{ Name = "Epic Games Launcher";      Id = "EpicGames.EpicGamesLauncher";       Category = "Gaming";         Homepage = "epicgames.com";            Description = "Game store and library from Epic." }
+    @{ Name = "GOG Galaxy";               Id = "GOG.Galaxy";                        Category = "Gaming";         Homepage = "gog.com";                  Description = "DRM-free game library and unified launcher." }
+    @{ Name = "Heroic Games Launcher";    Id = "HeroicGamesLauncher.HeroicGamesLauncher"; Category = "Gaming";   Homepage = "heroicgameslauncher.com";  Description = "Open-source launcher for Epic, GOG, and Amazon Games." }
+    @{ Name = "Battle.net";               Id = "Blizzard.BattleNet";                Category = "Gaming";         Homepage = "battle.net";               Description = "Blizzard's game launcher." }
+    @{ Name = "EA Desktop";               Id = "ElectronicArts.EADesktop";          Category = "Gaming";         Homepage = "ea.com";                   Description = "EA's game store and launcher." }
+    @{ Name = "Ubisoft Connect";          Id = "Ubisoft.Connect";                   Category = "Gaming";         Homepage = "ubisoft.com";              Description = "Ubisoft's game launcher and store." }
+    @{ Name = "itch.io";                  Id = "itchio.itch";                       Category = "Gaming";         Homepage = "itch.io";                  Description = "Indie game and asset store with built-in updates." }
+    @{ Name = "Prism Launcher";           Id = "PrismLauncher.PrismLauncher";       Category = "Gaming";         Homepage = "prismlauncher.org";        Description = "Open-source Minecraft launcher with instance profiles and mod support." }
+    @{ Name = "DS4Windows";               Id = "Ryochan7.DS4Windows";               Category = "Gaming";                                                  Description = "Use DualShock 4 and DualSense controllers on Windows." }
+    @{ Name = "Vortex";                   Id = "Nexus-Mods.Vortex";                 Category = "Gaming";         Homepage = "nexusmods.com";            Description = "Nexus Mods' game mod manager." }
 
     # Productivity (LibreOffice moved to Office)
-    @{ Name = "Obsidian";                 Id = "Obsidian.Obsidian";                 Category = "Productivity";   Description = "Markdown-based personal knowledge base." }
-    @{ Name = "Notion";                   Id = "Notion.Notion";                     Category = "Productivity";   Description = "Notes, docs, and lightweight databases." }
-    @{ Name = "Joplin";                   Id = "JoplinApp.Joplin";                  Category = "Productivity";   Description = "Open-source notes and to-do with end-to-end encryption." }
-    @{ Name = "Logseq";                   Id = "Logseq.Logseq";                     Category = "Productivity";   Description = "Local-first outliner and knowledge graph." }
-    @{ Name = "Anki";                     Id = "Anki.Anki";                         Category = "Productivity";   Description = "Spaced-repetition flashcards." }
-    @{ Name = "Calibre";                  Id = "calibre.calibre";                   Category = "Productivity";   Description = "E-book library manager and converter." }
-    @{ Name = "Standard Notes";           Id = "StandardNotes.StandardNotes";       Category = "Productivity";   Description = "Encrypted note-taking with cross-platform sync." }
+    @{ Name = "Obsidian";                 Id = "Obsidian.Obsidian";                 Category = "Productivity";   Homepage = "obsidian.md";              Description = "Markdown-based personal knowledge base." }
+    @{ Name = "Notion";                   Id = "Notion.Notion";                     Category = "Productivity";   Homepage = "notion.so";                Description = "Notes, docs, and lightweight databases." }
+    @{ Name = "Joplin";                   Id = "JoplinApp.Joplin";                  Category = "Productivity";   Homepage = "joplinapp.org";            Description = "Open-source notes and to-do with end-to-end encryption." }
+    @{ Name = "Logseq";                   Id = "Logseq.Logseq";                     Category = "Productivity";   Homepage = "logseq.com";               Description = "Local-first outliner and knowledge graph." }
+    @{ Name = "Anki";                     Id = "Anki.Anki";                         Category = "Productivity";   Homepage = "ankiweb.net";              Description = "Spaced-repetition flashcards." }
+    @{ Name = "Calibre";                  Id = "calibre.calibre";                   Category = "Productivity";   Homepage = "calibre-ebook.com";        Description = "E-book library manager and converter." }
+    @{ Name = "Standard Notes";           Id = "StandardNotes.StandardNotes";       Category = "Productivity";   Homepage = "standardnotes.com";        Description = "Encrypted note-taking with cross-platform sync." }
 
     # Security
-    @{ Name = "Bitwarden";                Id = "Bitwarden.Bitwarden";               Category = "Security";       Description = "Open-source password manager with cloud sync." }
-    @{ Name = "Malwarebytes";             Id = "Malwarebytes.Malwarebytes";         Category = "Security";       Description = "Anti-malware scanner." }
-    @{ Name = "KeePassXC";                Id = "KeePassXCTeam.KeePassXC";           Category = "Security";       Description = "Local-first password manager (KeePass-compatible)." }
-    @{ Name = "Cryptomator";              Id = "Cryptomator.Cryptomator";           Category = "Security";       Description = "Encrypts files in any cloud storage folder." }
-    @{ Name = "VeraCrypt";                Id = "IDRIX.VeraCrypt";                   Category = "Security";       Description = "Disk and container encryption (TrueCrypt successor)." }
-    @{ Name = "WireGuard";                Id = "WireGuard.WireGuard";               Category = "Security";       Description = "Modern, fast VPN tunnel." }
-    @{ Name = "Tailscale";                Id = "tailscale.tailscale";               Category = "Security";       Description = "Zero-config mesh VPN built on WireGuard." }
+    @{ Name = "Bitwarden";                Id = "Bitwarden.Bitwarden";               Category = "Security";       Homepage = "bitwarden.com";            Description = "Open-source password manager with cloud sync." }
+    @{ Name = "Malwarebytes";             Id = "Malwarebytes.Malwarebytes";         Category = "Security";       Homepage = "malwarebytes.com";         Description = "Anti-malware scanner." }
+    @{ Name = "KeePassXC";                Id = "KeePassXCTeam.KeePassXC";           Category = "Security";       Homepage = "keepassxc.org";            Description = "Local-first password manager (KeePass-compatible)." }
+    @{ Name = "Cryptomator";              Id = "Cryptomator.Cryptomator";           Category = "Security";       Homepage = "cryptomator.org";          Description = "Encrypts files in any cloud storage folder." }
+    @{ Name = "VeraCrypt";                Id = "IDRIX.VeraCrypt";                   Category = "Security";       Homepage = "veracrypt.fr";             Description = "Disk and container encryption (TrueCrypt successor)." }
+    @{ Name = "WireGuard";                Id = "WireGuard.WireGuard";               Category = "Security";       Homepage = "wireguard.com";            Description = "Modern, fast VPN tunnel." }
+    @{ Name = "Tailscale";                Id = "tailscale.tailscale";               Category = "Security";       Homepage = "tailscale.com";            Description = "Zero-config mesh VPN built on WireGuard." }
 
     # Network
-    @{ Name = "Wireshark";                Id = "WiresharkFoundation.Wireshark";     Category = "Network";        Description = "Network protocol analyzer." }
-    @{ Name = "PuTTY";                    Id = "PuTTY.PuTTY";                       Category = "Network";        Description = "SSH and serial terminal client." }
-    @{ Name = "WinSCP";                   Id = "WinSCP.WinSCP";                     Category = "Network";        Description = "SFTP, FTP, and SCP file transfer client." }
-    @{ Name = "FileZilla";                Id = "TimKosse.FileZilla.Client";         Category = "Network";        Description = "Cross-platform FTP, FTPS, and SFTP client." }
+    @{ Name = "Wireshark";                Id = "WiresharkFoundation.Wireshark";     Category = "Network";        Homepage = "wireshark.org";            Description = "Network protocol analyzer." }
+    @{ Name = "PuTTY";                    Id = "PuTTY.PuTTY";                       Category = "Network";        Homepage = "putty.org";                Description = "SSH and serial terminal client." }
+    @{ Name = "WinSCP";                   Id = "WinSCP.WinSCP";                     Category = "Network";        Homepage = "winscp.net";               Description = "SFTP, FTP, and SCP file transfer client." }
+    @{ Name = "FileZilla";                Id = "TimKosse.FileZilla.Client";         Category = "Network";        Homepage = "filezilla-project.org";    Description = "Cross-platform FTP, FTPS, and SFTP client." }
 
     # Cloud & Sync
-    @{ Name = "Syncthing";                Id = "Syncthing.Syncthing";               Category = "Cloud & Sync";   Description = "Peer-to-peer continuous file sync." }
-    @{ Name = "Nextcloud Desktop";        Id = "Nextcloud.NextcloudDesktop";        Category = "Cloud & Sync";   Description = "Sync client for self-hosted Nextcloud servers." }
-    @{ Name = "Dropbox";                  Id = "Dropbox.Dropbox";                   Category = "Cloud & Sync";   Description = "File sync and sharing." }
-    @{ Name = "MEGA Sync";                Id = "MEGALimited.MEGASync";              Category = "Cloud & Sync";   Description = "Encrypted cloud storage sync client." }
+    @{ Name = "Syncthing";                Id = "Syncthing.Syncthing";               Category = "Cloud & Sync";   Homepage = "syncthing.net";            Description = "Peer-to-peer continuous file sync." }
+    @{ Name = "Nextcloud Desktop";        Id = "Nextcloud.NextcloudDesktop";        Category = "Cloud & Sync";   Homepage = "nextcloud.com";            Description = "Sync client for self-hosted Nextcloud servers." }
+    @{ Name = "Dropbox";                  Id = "Dropbox.Dropbox";                   Category = "Cloud & Sync";   Homepage = "dropbox.com";              Description = "File sync and sharing." }
+    @{ Name = "MEGA Sync";                Id = "MEGALimited.MEGASync";              Category = "Cloud & Sync";   Homepage = "mega.io";                  Description = "Encrypted cloud storage sync client." }
 
     # Office (LibreOffice moved here from Productivity)
-    @{ Name = "LibreOffice";              Id = "TheDocumentFoundation.LibreOffice"; Category = "Office";         Description = "Free office suite with Writer, Calc, Impress, and more." }
-    @{ Name = "OnlyOffice DesktopEditors"; Id = "ONLYOFFICE.DesktopEditors";        Category = "Office";         Description = "MS-Office-compatible office suite." }
+    @{ Name = "LibreOffice";              Id = "TheDocumentFoundation.LibreOffice"; Category = "Office";         Homepage = "libreoffice.org";          Description = "Free office suite with Writer, Calc, Impress, and more." }
+    @{ Name = "OnlyOffice DesktopEditors"; Id = "ONLYOFFICE.DesktopEditors";        Category = "Office";         Homepage = "onlyoffice.com";           Description = "MS-Office-compatible office suite." }
 )
 
 function Get-MergedQuickInstalls {
@@ -1675,6 +1675,7 @@ $script:appMetaCache = $script:metaState.Cache
 
 function Start-MetaFetchJob {
     param([string]$Id)
+    if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("Start-MetaFetchJob " + $Id) }
 
     # Spawn winget show as a plain Process and let it exit, then read the
     # stdout buffer in one go. Avoids the ~300ms runspace creation cost that
@@ -1717,30 +1718,38 @@ function Start-MetaFetchJob {
             $p     = $Sender
             $state = $msg.State
             try {
+                if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("subscriber action fired for " + $msg.Id) }
                 $stdout = $p.StandardOutput.ReadToEnd()
                 $lines  = $stdout -split "`r?`n"
                 $meta   = $null
                 try { $meta = Parse-WingetShowOutput -Lines $lines } catch {}
                 if ($meta) { $state.Cache[$msg.Id] = $meta }
+                if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("meta parsed for " + $msg.Id + " hasMeta=" + [string]([bool]$meta) + " hasHomepage=" + [string]([bool]($meta -and $meta.Homepage))) }
 
                 if ($state.Pending.ContainsKey($msg.Id)) {
                     $cbs = $state.Pending[$msg.Id]
                     $state.Pending.Remove($msg.Id) | Out-Null
-                    foreach ($cb in $cbs) { try { & $cb $meta $null } catch {} }
+                    foreach ($cb in $cbs) { try { & $cb $meta $null } catch { if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("meta cb threw: " + $_.Exception.Message) } } }
                 }
+                if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("post-cb. Queue.Count=" + [string]$state.Queue.Count) }
                 $state.Active[0] = $false
 
                 if ($state.Queue.Count -gt 0) {
                     $nextId       = $state.Queue.Dequeue()
                     $state.Active[0] = $true
+                    if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("dequeued next: " + $nextId) }
                     $drainAction = { Start-MetaFetchJob -Id $nextId }.GetNewClosure()
                     $msg.Win.Dispatcher.BeginInvoke([action]$drainAction,
                         [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
+                    if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("BeginInvoke posted for " + $nextId) }
                 }
+            } catch {
+                if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("ACTION THREW: " + $_.Exception.Message) }
             } finally {
                 if ($state.Sources.ContainsKey($msg.Id)) { $state.Sources.Remove($msg.Id) | Out-Null }
                 Unregister-Event -SourceIdentifier $msg.SourceId -ErrorAction SilentlyContinue
                 try { $p.Dispose() } catch {}
+                if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("finally done for " + $msg.Id) }
             }
         } | Out-Null
 
@@ -1825,9 +1834,9 @@ function Get-CachedIconPath {
 
 # Pending icon callbacks per Id, so multiple cards waiting on the same Id
 # are all notified by a single fetch.
-$script:iconPendingCallbacks = @{}
+$global:iconPendingCallbacks = @{}
 # Set of Ids we've already tried this session that returned nothing.
-$script:iconFailedThisSession = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$global:iconFailedThisSession = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 
 function Load-ImageFromCache {
     param([string]$Path)
@@ -1859,11 +1868,12 @@ function Get-DomainFromMeta {
 
 function Invoke-IconCallbacks {
     param([string]$Id, [string]$Path)
-    if (-not $script:iconPendingCallbacks.ContainsKey($Id)) { return }
-    $cbs = $script:iconPendingCallbacks[$Id]
-    $script:iconPendingCallbacks.Remove($Id) | Out-Null
+    if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("Invoke-IconCallbacks " + $Id + " path=" + [string]$Path + " hasPending=" + [string]$global:iconPendingCallbacks.ContainsKey($Id)) }
+    if (-not $global:iconPendingCallbacks.ContainsKey($Id)) { return }
+    $cbs = $global:iconPendingCallbacks[$Id]
+    $global:iconPendingCallbacks.Remove($Id) | Out-Null
     foreach ($cb in $cbs) {
-        try { & $cb $Path } catch {}
+        try { & $cb $Path } catch { if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("icon cb threw: " + $_.Exception.Message) } }
     }
 }
 
@@ -1901,7 +1911,7 @@ function Fetch-FaviconAsync {
             if ($ok) {
                 Invoke-IconCallbacks -Id $ctx.Id -Path $ctx.OutPath
             } else {
-                $script:iconFailedThisSession.Add($ctx.Id) | Out-Null
+                $global:iconFailedThisSession.Add($ctx.Id) | Out-Null
                 Invoke-IconCallbacks -Id $ctx.Id -Path $null
             }
         } | Out-Null
@@ -1912,7 +1922,8 @@ function Get-AppIconAsync {
         [Parameter(Mandatory)][string]$Id,
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)][scriptblock]$OnReady,
-        [string]$Source
+        [string]$Source,
+        [switch]$Force               # bypass the auto-fetch-disable toggle (used by bulk fetch)
     )
 
     # Disk cache hit -> defer callback to a Background tick so a burst of
@@ -1929,31 +1940,37 @@ function Get-AppIconAsync {
         return
     }
 
-    # Already failed this session - don't keep retrying
-    if ($script:iconFailedThisSession.Contains($Id)) {
+    # Auto-fetch disabled in Settings -> just report no icon, never spawn winget.
+    if (-not $Force -and $script:disableAutoIconFetch) {
+        & $OnReady $null
+        return
+    }
+
+    # Already failed this session - don't keep retrying (Force bypasses for explicit retry)
+    if (-not $Force -and $global:iconFailedThisSession.Contains($Id)) {
         & $OnReady $null
         return
     }
 
     # Coalesce concurrent requests for the same Id
-    if ($script:iconPendingCallbacks.ContainsKey($Id)) {
-        $script:iconPendingCallbacks[$Id].Add($OnReady) | Out-Null
+    if ($global:iconPendingCallbacks.ContainsKey($Id)) {
+        $global:iconPendingCallbacks[$Id].Add($OnReady) | Out-Null
         return
     }
-    $script:iconPendingCallbacks[$Id] = [System.Collections.Generic.List[scriptblock]]::new()
-    $script:iconPendingCallbacks[$Id].Add($OnReady) | Out-Null
+    $global:iconPendingCallbacks[$Id] = [System.Collections.Generic.List[scriptblock]]::new()
+    $global:iconPendingCallbacks[$Id].Add($OnReady) | Out-Null
 
     # Route meta lookup through the serial coordinator
     Get-AppMetaAsync -Id $Id -Source $Source -OnReady ({
         param($meta, $err)
         if ($err -or -not $meta) {
-            $script:iconFailedThisSession.Add($Id) | Out-Null
+            $global:iconFailedThisSession.Add($Id) | Out-Null
             Invoke-IconCallbacks -Id $Id -Path $null
             return
         }
         $domain = Get-DomainFromMeta -Meta $meta
         if (-not $domain) {
-            $script:iconFailedThisSession.Add($Id) | Out-Null
+            $global:iconFailedThisSession.Add($Id) | Out-Null
             Invoke-IconCallbacks -Id $Id -Path $null
             return
         }
@@ -2236,18 +2253,18 @@ function Show-StoreSearch {
     $script:storeSearchCuratedHits = @{}
 
     $qLower = $q.ToLower()
-    $matches = @(Get-MergedQuickInstalls | Where-Object {
+    $hits = @(Get-MergedQuickInstalls | Where-Object {
         ($_.Name -and $_.Name.ToLower().Contains($qLower)) -or
         ($_.Id   -and $_.Id.ToLower().Contains($qLower))   -or
         ($_.Category -and $_.Category.ToLower().Contains($qLower))
     })
 
-    if ($matches.Count -eq 0) {
+    if ($hits.Count -eq 0) {
         $storeSearchHeader.Text = "No matches in the curated catalog for '" + $q + "'"
     } else {
-        $word = if ($matches.Count -eq 1) { "match" } else { "matches" }
-        $storeSearchHeader.Text = [string]$matches.Count + " curated " + $word + " for '" + $q + "'"
-        foreach ($qi in $matches) {
+        $word = if ($hits.Count -eq 1) { "match" } else { "matches" }
+        $storeSearchHeader.Text = [string]$hits.Count + " curated " + $word + " for '" + $q + "'"
+        foreach ($qi in $hits) {
             $sub  = if ($qi.IsCurated) { "Curated - " + $qi.Id } else { $qi.Id }
             $src  = if ($qi.ContainsKey("Source"))      { [string]$qi.Source }      else { $null }
             $desc = if ($qi.ContainsKey("Description")) { [string]$qi.Description } else { $null }
@@ -2344,6 +2361,148 @@ $storeCategoryBack.Add_Click({ Hide-AppDetailPanel; Show-StoreLanding })
 $window.Dispatcher.BeginInvoke([action]{
     Show-StoreLanding
 }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
+
+
+# ─────────────────────────────────────────────────────────────────
+# Bulk icon prefetch (Settings > Groups > Icon cache > "Fetch all icons now")
+# Bypasses winget show entirely (it takes minutes per call on cold source
+# caches). Instead derives a publisher domain from the winget Id and asks
+# Google's favicon service directly, falling back .com -> .org -> .io if
+# the response is the small "no icon found" globe. All downloads run inside
+# one background runspace, serially, so the UI thread isn't blocked by N
+# runspace creations.
+# ─────────────────────────────────────────────────────────────────
+
+$btnFetchAllIcons         = Find "BtnFetchAllIcons"
+$btnClearIconCache        = Find "BtnClearIconCache"
+$iconFetchProgressBorder  = Find "IconFetchProgressBorder"
+$iconFetchProgressBar     = Find "IconFetchProgressBar"
+$iconFetchProgressLabel   = Find "IconFetchProgressLabel"
+
+$btnClearIconCache.Add_Click({
+    $dir = Get-ScyIconCacheDir
+    try {
+        Get-ChildItem -Path $dir -Filter "*.png" -ErrorAction SilentlyContinue |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+    } catch {}
+    # Drop in-memory state so re-fetches aren't blocked by the "failed this session" flag.
+    $global:iconFailedThisSession.Clear()
+    $global:iconPendingCallbacks.Clear()
+    $iconFetchProgressBorder.Visibility = "Visible"
+    $iconFetchProgressBar.Maximum       = 1
+    $iconFetchProgressBar.Value         = 0
+    $iconFetchProgressLabel.Text        = "Icon cache cleared. Click 'Fetch all icons now' to repopulate."
+    if (Get-Command Show-StoreLanding -ErrorAction SilentlyContinue) {
+        if ($storeCategoryArea.Visibility -eq "Visible") {
+            Show-StoreCategory -Category $storeCategoryName.Text
+        } elseif ($storeSearchArea.Visibility -ne "Visible") {
+            Show-StoreLanding
+        }
+    }
+})
+
+$btnFetchAllIcons.Add_Click({
+    # Only fetch apps that ship an explicit Homepage. Without one we'd have
+    # to guess from the winget Id and the heuristic ended up grabbing the
+    # publisher's logo (Microsoft, KDE, Mozilla, etc.) instead of the
+    # product's icon - confusing.
+    $todoApps = @($script:curatedApps | Where-Object {
+        $_.ContainsKey("Homepage") -and
+        -not [string]::IsNullOrWhiteSpace($_.Homepage) -and
+        -not (Test-Path (Get-CachedIconPath -Id $_.Id))
+    })
+
+    $iconFetchProgressBorder.Visibility = "Visible"
+
+    if ($todoApps.Count -eq 0) {
+        $iconFetchProgressLabel.Text = "All curated icons with a known homepage are already cached."
+        $iconFetchProgressBar.Maximum = 1
+        $iconFetchProgressBar.Value   = 1
+        return
+    }
+
+    # Build (Id, Domain, OutPath) tuples from the curated Homepage field
+    $todo = New-Object System.Collections.ArrayList
+    foreach ($app in $todoApps) {
+        $appId = [string]$app.Id
+        $hp    = [string]$app.Homepage
+        # Normalize: accept bare domains or full URLs
+        if ($hp -notmatch '^https?://') { $hp = "https://" + $hp }
+        $domain = $null
+        try { $domain = ([Uri]$hp).Host } catch {}
+        if ([string]::IsNullOrWhiteSpace($domain)) { continue }
+        [void]$todo.Add(@{
+            Id     = $appId
+            Domain = $domain
+            Out    = Get-CachedIconPath -Id $appId
+        })
+    }
+    if ($todo.Count -eq 0) {
+        $iconFetchProgressLabel.Text = "No curated homepages to fetch."
+        $iconFetchProgressBar.Maximum = 1
+        $iconFetchProgressBar.Value   = 1
+        return
+    }
+
+    $state = @{ Total = $todo.Count; Done = 0 }
+    $bar   = $iconFetchProgressBar
+    $label = $iconFetchProgressLabel
+    $btn   = $btnFetchAllIcons
+    $catArea    = $storeCategoryArea
+    $catName    = $storeCategoryName
+    $searchArea = $storeSearchArea
+
+    $bar.Maximum   = $state.Total
+    $bar.Value     = 0
+    $label.Text    = "0 / " + [string]$state.Total + " icons"
+    $btn.IsEnabled = $false
+
+    Start-ScyJob `
+        -Variables @{ items = $todo } `
+        -Context   @{ Total = $state.Total } `
+        -Work {
+            param($emit)
+            $wc = New-Object System.Net.WebClient
+            $wc.Headers.Add('User-Agent', 'Mozilla/5.0 Scy')
+            foreach ($item in $items) {
+                $ok = $false
+                try {
+                    $url = "https://www.google.com/s2/favicons?domain=" + $item.Domain + "&sz=64"
+                    $wc.DownloadFile($url, $item.Out)
+                    $fi = Get-Item $item.Out -ErrorAction SilentlyContinue
+                    # Google returns a ~150-200 byte generic globe when the domain has no
+                    # favicon. Reject those - the curated app won't get a wrong-looking icon.
+                    if ($fi -and $fi.Length -gt 400) { $ok = $true }
+                    elseif ($fi) { Remove-Item $item.Out -Force -ErrorAction SilentlyContinue }
+                } catch {}
+                & $emit @{ Id = $item.Id; Ok = $ok }
+            }
+            try { $wc.Dispose() } catch {}
+            return @{ Total = $items.Count }
+        } `
+        -OnLine ({
+            param($line, $ctx)
+            $state.Done = [int]$state.Done + 1
+            $bar.Value  = $state.Done
+            $label.Text = [string]$state.Done + " / " + [string]$ctx.Total + " icons"
+        }.GetNewClosure()) `
+        -OnComplete ({
+            param($result, $err, $ctx)
+            $btn.IsEnabled = $true
+            if ($err) {
+                $label.Text = "Bulk fetch error: " + $err.Exception.Message
+                return
+            }
+            $label.Text = "Done. " + [string]$ctx.Total + " icon(s) processed."
+            if (Get-Command Show-StoreLanding -ErrorAction SilentlyContinue) {
+                if ($catArea.Visibility -eq "Visible") {
+                    Show-StoreCategory -Category $catName.Text
+                } elseif ($searchArea.Visibility -ne "Visible") {
+                    Show-StoreLanding
+                }
+            }
+        }.GetNewClosure()) | Out-Null
+})
 
 
 # ─────────────────────────────────────────────────────────────────

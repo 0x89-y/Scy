@@ -219,6 +219,7 @@ function Save-Settings {
             AutoCheckSelfUpdate = $script:autoCheckSelfUpdate
             RememberWindowPosition = $script:rememberWindowPosition
             ExperimentalSidebarTabs = $script:experimentalSidebarTabs
+            DisableAutoIconFetch    = $script:disableAutoIconFetch
             SpeedTestServer    = $script:speedTestServer
             WindowGeometry     = $script:windowGeometry
             QuickInstalls      = @($script:quickInstalls | ForEach-Object { @{Name=$_.Name; Id=$_.Id; Category=$_.Category} })
@@ -258,6 +259,7 @@ $script:autoCheckUpdates   = $false
 $script:autoCheckSelfUpdate = $false
 $script:rememberWindowPosition = $false
 $script:experimentalSidebarTabs = $false
+$script:disableAutoIconFetch    = $true   # default ON - user opts in via Settings > Groups > Icon cache
 $script:rememberCleanTargets   = $false
 $script:autoScanLocalInstallers    = $false
 $script:rememberLocalInstallers    = $false
@@ -279,6 +281,7 @@ if (Test-Path $script:settingsFile) {
         if ($null -ne $saved.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$saved.AutoCheckSelfUpdate }
         if ($null -ne $saved.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$saved.RememberWindowPosition }
         if ($null -ne $saved.ExperimentalSidebarTabs) { $script:experimentalSidebarTabs = [bool]$saved.ExperimentalSidebarTabs }
+        if ($null -ne $saved.DisableAutoIconFetch)    { $script:disableAutoIconFetch    = [bool]$saved.DisableAutoIconFetch }
         if ($saved.SpeedTestServer)              { $script:speedTestServer    = [string]$saved.SpeedTestServer }
         if ($saved.WindowGeometry) {
             $wg = $saved.WindowGeometry
@@ -670,6 +673,11 @@ foreach ($colorKey in $script:customColorKeys) {
 # ── Sidebar tabs (experimental) toggle ───────────────────────────
 (Find "ToggleSidebarTabs").Add_Checked({   $script:experimentalSidebarTabs = $true;  Save-Settings; Apply-SidebarLayout })
 (Find "ToggleSidebarTabs").Add_Unchecked({ $script:experimentalSidebarTabs = $false; Save-Settings; Apply-SidebarLayout })
+
+# ── Disable auto icon fetch toggle ───────────────────────────────
+(Find "ToggleDisableAutoIconFetch").IsChecked = $script:disableAutoIconFetch
+(Find "ToggleDisableAutoIconFetch").Add_Checked({   $script:disableAutoIconFetch = $true;  Save-Settings })
+(Find "ToggleDisableAutoIconFetch").Add_Unchecked({ $script:disableAutoIconFetch = $false; Save-Settings })
 
 (Find "ToggleRememberCleanTargets").Add_Checked({   $script:rememberCleanTargets = $true;  Save-Settings })
 (Find "ToggleRememberCleanTargets").Add_Unchecked({ $script:rememberCleanTargets = $false; Save-Settings })
