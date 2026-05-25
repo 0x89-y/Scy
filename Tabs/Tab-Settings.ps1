@@ -456,19 +456,25 @@ function Apply-TabContextMenus {
         $menu.Items.Add($hide) | Out-Null
         $item.ContextMenu = $menu
 
-        # Only open the menu when the click actually landed on the tab header,
-        # not on the tab's body content (which inherits ContextMenu via the logical tree).
-        # Skip this filter for descendant context menus that bubble through.
+        # Walk up from the directly-hit element. Three outcomes:
+        #   - hit a descendant with its own ContextMenu first -> bail; let
+        #     the descendant's menu open (we'd otherwise stomp it because
+        #     ContextMenuOpening is a routed event and bubbles).
+        #   - reach a TabPanel -> click is in the tab strip; allow our menu.
+        #   - reach the TabItem with neither -> click is in the body; suppress.
         $item.Add_ContextMenuOpening({
             param($s, $e)
-            if ($e.Source -ne $s) { return }
             $hit = [System.Windows.Input.Mouse]::DirectlyOver -as [System.Windows.DependencyObject]
-            $inHeader = $false
+            $allow = $false
             while ($hit) {
-                if ($hit -is [System.Windows.Controls.Primitives.TabPanel]) { $inHeader = $true; break }
+                if ($hit -eq $s) { break }
+                if ($hit -is [System.Windows.FrameworkElement] -and $null -ne $hit.ContextMenu) {
+                    return     # descendant menu wins
+                }
+                if ($hit -is [System.Windows.Controls.Primitives.TabPanel]) { $allow = $true; break }
                 $hit = [System.Windows.Media.VisualTreeHelper]::GetParent($hit)
             }
-            if (-not $inHeader) { $e.Handled = $true }
+            if (-not $allow) { $e.Handled = $true }
         })
     }
 }

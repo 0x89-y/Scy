@@ -1544,7 +1544,8 @@ function New-AppCard {
         [string]$Name, [string]$Id, [string]$Subtitle = "",
         [string]$Source, [string]$Description,
         [switch]$SkipIconFetch,      # true for raw winget search results - their icons are too expensive to fetch at bulk render time
-        [switch]$SkipMeta            # true for raw winget search results - skip description/publisher fetch on detail panel open
+        [switch]$SkipMeta,           # true for raw winget search results - skip description/publisher fetch on detail panel open
+        [switch]$IsCurated           # attaches right-click "Hide app" context menu
     )
 
     $border              = New-Object System.Windows.Controls.Border
@@ -1621,6 +1622,32 @@ function New-AppCard {
         $info = $s.Tag
         Show-AppDetailPanel -Id $info.Id -Name $info.Name -Source $info.Source -Description $info.Description -SkipMeta:$info.SkipMeta
     })
+
+    # Right-click on a curated card -> Hide app from the Store catalog.
+    if ($IsCurated) {
+        $menu = New-Object System.Windows.Controls.ContextMenu
+        $hide = New-Object System.Windows.Controls.MenuItem
+        $hide.Header = "Hide app"
+        $hide.Tag    = $Id
+        $hide.Add_Click({
+            param($s, $e)
+            $hideId = [string]$s.Tag
+            if (-not ($script:hiddenCuratedApps -contains $hideId)) {
+                $script:hiddenCuratedApps.Add($hideId) | Out-Null
+                Save-Settings
+                # Re-render the current view so the card disappears.
+                if ($storeSearchArea.Visibility -eq "Visible") {
+                    Show-StoreSearch -Query $storeSearchBox.Text
+                } elseif ($storeCategoryArea.Visibility -eq "Visible") {
+                    Show-StoreCategory -Category $storeCategoryName.Text
+                } else {
+                    Show-StoreLanding
+                }
+            }
+        })
+        $menu.Items.Add($hide) | Out-Null
+        $border.ContextMenu = $menu
+    }
 
     return $border
 }
@@ -2182,7 +2209,7 @@ function Show-StoreCategory {
         $sub  = if ($qi.IsCurated) { "Curated - " + $qi.Id } else { $qi.Id }
         $src  = if ($qi.ContainsKey("Source"))      { [string]$qi.Source }      else { $null }
         $desc = if ($qi.ContainsKey("Description")) { [string]$qi.Description } else { $null }
-        $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub -Source $src -Description $desc
+        $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub -Source $src -Description $desc -IsCurated:$qi.IsCurated
         $storeCategoryAppsPanel.Children.Add($card) | Out-Null
     }
 }
@@ -2224,7 +2251,7 @@ function Show-StoreSearch {
             $sub  = if ($qi.IsCurated) { "Curated - " + $qi.Id } else { $qi.Id }
             $src  = if ($qi.ContainsKey("Source"))      { [string]$qi.Source }      else { $null }
             $desc = if ($qi.ContainsKey("Description")) { [string]$qi.Description } else { $null }
-            $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub -Source $src -Description $desc
+            $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub -Source $src -Description $desc -IsCurated:$qi.IsCurated
             $storeSearchCuratedPanel.Children.Add($card) | Out-Null
             $script:storeSearchCuratedHits[[string]$qi.Id] = $true
         }
