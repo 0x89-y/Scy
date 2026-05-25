@@ -406,43 +406,132 @@ $script:selectedQuickItems = [System.Collections.Generic.List[hashtable]]::new()
 
 $script:quickInstallEditMode = $false
 
-$script:defaultQuickCategories = @("Development", "Communication", "Media", "Utilities", "Gaming", "Productivity", "Security", "Browsers")
+$script:defaultQuickCategories = @(
+    "Browsers", "Communication", "Media", "Utilities", "Development", "Gaming",
+    "Productivity", "Security", "Network", "Cloud & Sync", "Office"
+)
 
+# Optional Source field on a curated entry routes the install / winget show
+# calls through that winget source (default "winget" when omitted). Used for
+# msstore-only apps like Emby.
 $script:curatedApps = @(
-    @{ Name = "Firefox";              Id = "Mozilla.Firefox";                   Category = "Browsers" }
-    @{ Name = "Brave";                Id = "Brave.Brave";                       Category = "Browsers" }
-    @{ Name = "Zen";                  Id = "Zen-Team.Zen-Browser";              Category = "Browsers" }
-    @{ Name = "Helium";               Id = "imputnet.helium";                   Category = "Browsers" }
-    @{ Name = "Discord";              Id = "Discord.Discord";                   Category = "Communication" }
-    @{ Name = "Element";              Id = "Element.Element";                   Category = "Communication" }
-    @{ Name = "Signal";               Id = "OpenWhisperSystems.Signal";         Category = "Communication" }
-    @{ Name = "Telegram";             Id = "Telegram.TelegramDesktop";          Category = "Communication" }
-    @{ Name = "Thunderbird";          Id = "Mozilla.Thunderbird";               Category = "Communication" }
-    @{ Name = "VLC";                  Id = "VideoLAN.VLC";                      Category = "Media" }
-    @{ Name = "Spotify";              Id = "Spotify.Spotify";                   Category = "Media" }
-    @{ Name = "MusicBee";             Id = "MusicBee.MusicBee";                 Category = "Media" }
-    @{ Name = "OBS Studio";           Id = "OBSProject.OBSStudio";              Category = "Media" }
-    @{ Name = "GIMP";                 Id = "GIMP.GIMP";                         Category = "Media" }
-    @{ Name = "Audacity";             Id = "Audacity.Audacity";                 Category = "Media" }
-    @{ Name = "HandBrake";            Id = "HandBrake.HandBrake";               Category = "Media" }
-    @{ Name = "7-Zip";                Id = "7zip.7zip";                         Category = "Utilities" }
-    @{ Name = "Notepad++";            Id = "Notepad++.Notepad++";               Category = "Utilities" }
-    @{ Name = "Everything";           Id = "voidtools.Everything";              Category = "Utilities" }
-    @{ Name = "PowerToys";            Id = "Microsoft.PowerToys";               Category = "Utilities" }
-    @{ Name = "ShareX";               Id = "ShareX.ShareX";                     Category = "Utilities" }
-    @{ Name = "qBittorrent";          Id = "qBittorrent.qBittorrent";           Category = "Utilities" }
-    @{ Name = "WizTree";              Id = "AntibodySoftware.WizTree";          Category = "Utilities" }
-    @{ Name = "Visual Studio Code";   Id = "Microsoft.VisualStudioCode";        Category = "Development" }
-    @{ Name = "Git";                  Id = "Git.Git";                           Category = "Development" }
-    @{ Name = "Windows Terminal";     Id = "Microsoft.WindowsTerminal";         Category = "Development" }
-    @{ Name = "Steam";                Id = "Valve.Steam";                       Category = "Gaming" }
-    @{ Name = "Epic Games Launcher";  Id = "EpicGames.EpicGamesLauncher";       Category = "Gaming" }
-    @{ Name = "GOG Galaxy";           Id = "GOG.Galaxy";                        Category = "Gaming" }
-    @{ Name = "Obsidian";             Id = "Obsidian.Obsidian";                 Category = "Productivity" }
-    @{ Name = "LibreOffice";          Id = "TheDocumentFoundation.LibreOffice"; Category = "Productivity" }
-    @{ Name = "Bitwarden";            Id = "Bitwarden.Bitwarden";               Category = "Security" }
-    @{ Name = "Malwarebytes";         Id = "Malwarebytes.Malwarebytes";         Category = "Security" }
-    @{ Name = "KeePassXC";            Id = "KeePassXCTeam.KeePassXC";           Category = "Security" }
+    # Browsers
+    @{ Name = "Firefox";                  Id = "Mozilla.Firefox";                   Category = "Browsers" }
+    @{ Name = "Brave";                    Id = "Brave.Brave";                       Category = "Browsers" }
+    @{ Name = "Zen";                      Id = "Zen-Team.Zen-Browser";              Category = "Browsers" }
+    @{ Name = "Helium";                   Id = "imputnet.helium";                   Category = "Browsers" }
+    @{ Name = "Vivaldi";                  Id = "Vivaldi.Vivaldi";                   Category = "Browsers" }
+    @{ Name = "LibreWolf";                Id = "LibreWolf.LibreWolf";               Category = "Browsers" }
+    @{ Name = "Tor Browser";              Id = "TorProject.TorBrowser";             Category = "Browsers" }
+
+    # Communication
+    @{ Name = "Discord";                  Id = "Discord.Discord";                   Category = "Communication" }
+    @{ Name = "Element";                  Id = "Element.Element";                   Category = "Communication" }
+    @{ Name = "Signal";                   Id = "OpenWhisperSystems.Signal";         Category = "Communication" }
+    @{ Name = "Telegram";                 Id = "Telegram.TelegramDesktop";          Category = "Communication" }
+    @{ Name = "Thunderbird";              Id = "Mozilla.Thunderbird";               Category = "Communication" }
+    @{ Name = "SimpleX Chat";             Id = "SimpleXChat.SimpleX-Desktop";       Category = "Communication" }
+
+    # Media
+    @{ Name = "VLC";                      Id = "VideoLAN.VLC";                      Category = "Media" }
+    @{ Name = "Spotify";                  Id = "Spotify.Spotify";                   Category = "Media" }
+    @{ Name = "MusicBee";                 Id = "MusicBee.MusicBee";                 Category = "Media" }
+    @{ Name = "OBS Studio";               Id = "OBSProject.OBSStudio";              Category = "Media" }
+    @{ Name = "GIMP";                     Id = "GIMP.GIMP";                         Category = "Media" }
+    @{ Name = "Audacity";                 Id = "Audacity.Audacity";                 Category = "Media" }
+    @{ Name = "HandBrake";                Id = "HandBrake.HandBrake";               Category = "Media" }
+    @{ Name = "Inkscape";                 Id = "Inkscape.Inkscape";                 Category = "Media" }
+    @{ Name = "Krita";                    Id = "KDE.Krita";                         Category = "Media" }
+    @{ Name = "Blender";                  Id = "BlenderFoundation.Blender";         Category = "Media" }
+    @{ Name = "mpv";                      Id = "shinchiro.mpv";                     Category = "Media" }
+    @{ Name = "Plex";                     Id = "Plex.Plex";                         Category = "Media" }
+    @{ Name = "Jellyfin Media Player";    Id = "Jellyfin.JellyfinMediaPlayer";      Category = "Media" }
+    @{ Name = "DaVinci Resolve";          Id = "BlackmagicDesign.DaVinciResolve";   Category = "Media" }
+    @{ Name = "Emby";                     Id = "9NBLGGH4T70L";                      Category = "Media";       Source = "msstore" }
+
+    # Utilities
+    @{ Name = "7-Zip";                    Id = "7zip.7zip";                         Category = "Utilities" }
+    @{ Name = "Notepad++";                Id = "Notepad++.Notepad++";               Category = "Utilities" }
+    @{ Name = "Everything";               Id = "voidtools.Everything";              Category = "Utilities" }
+    @{ Name = "PowerToys";                Id = "Microsoft.PowerToys";               Category = "Utilities" }
+    @{ Name = "ShareX";                   Id = "ShareX.ShareX";                     Category = "Utilities" }
+    @{ Name = "qBittorrent";              Id = "qBittorrent.qBittorrent";           Category = "Utilities" }
+    @{ Name = "WizTree";                  Id = "AntibodySoftware.WizTree";          Category = "Utilities" }
+    @{ Name = "File Pilot";               Id = "FilePilot.FilePilot";               Category = "Utilities" }
+    @{ Name = "Ditto";                    Id = "Ditto.Ditto";                       Category = "Utilities" }
+    @{ Name = "CrystalDiskInfo";          Id = "CrystalDewWorld.CrystalDiskInfo";   Category = "Utilities" }
+    @{ Name = "Greenshot";                Id = "Greenshot.Greenshot";               Category = "Utilities" }
+    @{ Name = "Flow Launcher";            Id = "Flow-Launcher.Flow-Launcher";       Category = "Utilities" }
+    @{ Name = "AutoHotkey";               Id = "AutoHotkey.AutoHotkey";             Category = "Utilities" }
+    @{ Name = "NanaZip";                  Id = "M2Team.NanaZip";                    Category = "Utilities" }
+    @{ Name = "Files";                    Id = "Files-Community.Files";             Category = "Utilities" }
+    @{ Name = "Rufus";                    Id = "Rufus.Rufus";                       Category = "Utilities" }
+
+    # Development
+    @{ Name = "Visual Studio Code";       Id = "Microsoft.VisualStudioCode";        Category = "Development" }
+    @{ Name = "Git";                      Id = "Git.Git";                           Category = "Development" }
+    @{ Name = "Windows Terminal";         Id = "Microsoft.WindowsTerminal";         Category = "Development" }
+    @{ Name = "Node.js LTS";              Id = "OpenJS.NodeJS.LTS";                 Category = "Development" }
+    @{ Name = "Python 3.12";              Id = "Python.Python.3.12";                Category = "Development" }
+    @{ Name = "Docker Desktop";           Id = "Docker.DockerDesktop";              Category = "Development" }
+    @{ Name = "JetBrains Toolbox";        Id = "JetBrains.Toolbox";                 Category = "Development" }
+    @{ Name = "Sublime Text";             Id = "SublimeHQ.SublimeText.4";           Category = "Development" }
+    @{ Name = "Postman";                  Id = "Postman.Postman";                   Category = "Development" }
+    @{ Name = "Insomnia";                 Id = "Insomnia.Insomnia";                 Category = "Development" }
+    @{ Name = "Neovim";                   Id = "Neovim.Neovim";                     Category = "Development" }
+    @{ Name = "Cursor";                   Id = "Anysphere.Cursor";                  Category = "Development" }
+    @{ Name = "Zed";                      Id = "Zed.Zed";                           Category = "Development" }
+    @{ Name = "GitHub Desktop";           Id = "GitHub.GitHubDesktop";              Category = "Development" }
+    @{ Name = "GitHub CLI";               Id = "GitHub.cli";                        Category = "Development" }
+    @{ Name = "DBeaver";                  Id = "dbeaver.dbeaver";                   Category = "Development" }
+    @{ Name = "MongoDB Compass";          Id = "MongoDB.Compass.Community";         Category = "Development" }
+
+    # Gaming
+    @{ Name = "Steam";                    Id = "Valve.Steam";                       Category = "Gaming" }
+    @{ Name = "Epic Games Launcher";      Id = "EpicGames.EpicGamesLauncher";       Category = "Gaming" }
+    @{ Name = "GOG Galaxy";               Id = "GOG.Galaxy";                        Category = "Gaming" }
+    @{ Name = "Heroic Games Launcher";    Id = "HeroicGamesLauncher.HeroicGamesLauncher"; Category = "Gaming" }
+    @{ Name = "Battle.net";               Id = "Blizzard.BattleNet";                Category = "Gaming" }
+    @{ Name = "EA Desktop";               Id = "ElectronicArts.EADesktop";          Category = "Gaming" }
+    @{ Name = "Ubisoft Connect";          Id = "Ubisoft.Connect";                   Category = "Gaming" }
+    @{ Name = "itch.io";                  Id = "itchio.itch";                       Category = "Gaming" }
+    @{ Name = "Prism Launcher";           Id = "PrismLauncher.PrismLauncher";       Category = "Gaming" }
+    @{ Name = "DS4Windows";               Id = "Ryochan7.DS4Windows";               Category = "Gaming" }
+    @{ Name = "Vortex";                   Id = "Nexus-Mods.Vortex";                 Category = "Gaming" }
+
+    # Productivity (LibreOffice moved to Office)
+    @{ Name = "Obsidian";                 Id = "Obsidian.Obsidian";                 Category = "Productivity" }
+    @{ Name = "Notion";                   Id = "Notion.Notion";                     Category = "Productivity" }
+    @{ Name = "Joplin";                   Id = "JoplinApp.Joplin";                  Category = "Productivity" }
+    @{ Name = "Logseq";                   Id = "Logseq.Logseq";                     Category = "Productivity" }
+    @{ Name = "Anki";                     Id = "Anki.Anki";                         Category = "Productivity" }
+    @{ Name = "Calibre";                  Id = "calibre.calibre";                   Category = "Productivity" }
+    @{ Name = "Standard Notes";           Id = "StandardNotes.StandardNotes";       Category = "Productivity" }
+
+    # Security
+    @{ Name = "Bitwarden";                Id = "Bitwarden.Bitwarden";               Category = "Security" }
+    @{ Name = "Malwarebytes";             Id = "Malwarebytes.Malwarebytes";         Category = "Security" }
+    @{ Name = "KeePassXC";                Id = "KeePassXCTeam.KeePassXC";           Category = "Security" }
+    @{ Name = "Cryptomator";              Id = "Cryptomator.Cryptomator";           Category = "Security" }
+    @{ Name = "VeraCrypt";                Id = "IDRIX.VeraCrypt";                   Category = "Security" }
+    @{ Name = "WireGuard";                Id = "WireGuard.WireGuard";               Category = "Security" }
+    @{ Name = "Tailscale";                Id = "tailscale.tailscale";               Category = "Security" }
+
+    # Network (new)
+    @{ Name = "Wireshark";                Id = "WiresharkFoundation.Wireshark";     Category = "Network" }
+    @{ Name = "PuTTY";                    Id = "PuTTY.PuTTY";                       Category = "Network" }
+    @{ Name = "WinSCP";                   Id = "WinSCP.WinSCP";                     Category = "Network" }
+    @{ Name = "FileZilla";                Id = "TimKosse.FileZilla.Client";         Category = "Network" }
+
+    # Cloud & Sync (new)
+    @{ Name = "Syncthing";                Id = "Syncthing.Syncthing";               Category = "Cloud & Sync" }
+    @{ Name = "Nextcloud Desktop";        Id = "Nextcloud.NextcloudDesktop";        Category = "Cloud & Sync" }
+    @{ Name = "Dropbox";                  Id = "Dropbox.Dropbox";                   Category = "Cloud & Sync" }
+    @{ Name = "MEGA Sync";                Id = "MEGALimited.MEGASync";              Category = "Cloud & Sync" }
+
+    # Office (new; LibreOffice moved here from Productivity)
+    @{ Name = "LibreOffice";              Id = "TheDocumentFoundation.LibreOffice"; Category = "Office" }
+    @{ Name = "OnlyOffice DesktopEditors"; Id = "ONLYOFFICE.DesktopEditors";        Category = "Office" }
 )
 
 function Get-MergedQuickInstalls {
@@ -452,14 +541,16 @@ function Get-MergedQuickInstalls {
     $merged = [System.Collections.Generic.List[hashtable]]::new()
 
     foreach ($qi in $script:quickInstalls) {
-        $merged.Add(@{ Name = $qi.Name; Id = $qi.Id; Category = $qi.Category; IsCurated = $false })
+        $src = if ($qi.PSObject.Properties["Source"]) { [string]$qi.Source } else { $null }
+        $merged.Add(@{ Name = $qi.Name; Id = $qi.Id; Category = $qi.Category; IsCurated = $false; Source = $src })
     }
 
     foreach ($c in $script:curatedApps) {
         if ($userIds.Contains([string]$c.Id)) { continue }
         if ($c.Id -in $script:hiddenCuratedApps) { continue }
         if ($c.Category -in $script:hiddenDefaultInstallCategories) { continue }
-        $merged.Add(@{ Name = $c.Name; Id = $c.Id; Category = $c.Category; IsCurated = $true })
+        $src = if ($c.ContainsKey("Source")) { [string]$c.Source } else { $null }
+        $merged.Add(@{ Name = $c.Name; Id = $c.Id; Category = $c.Category; IsCurated = $true; Source = $src })
     }
     return $merged
 }
@@ -1719,7 +1810,7 @@ function Set-BadgeToLetter {
 }
 
 function Install-StoreSingleApp {
-    param([string]$Id, [string]$Name, $TriggerButton)
+    param([string]$Id, [string]$Name, $TriggerButton, [string]$Source)
 
     if ($script:installInProgress) { return }
     $script:installInProgress = $true
@@ -1733,12 +1824,16 @@ function Install-StoreSingleApp {
                      -Text ("Installing " + $Name + "...") -Value $null -Max 1
 
     Start-ScyJob `
-        -Variables @{ wingetId = $Id } `
+        -Variables @{ wingetId = $Id; wingetSrc = $Source } `
         -Context   @{ Name = $Name; Btn = $TriggerButton } `
         -Work {
             param($emit)
             & $emit ("Installing " + $wingetId)
-            & winget install --id $wingetId --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+            if ($wingetSrc) {
+                & winget install --id $wingetId --source $wingetSrc --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+            } else {
+                & winget install --id $wingetId --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+            }
             return @{ ExitCode = $LASTEXITCODE; Id = $wingetId }
         } `
         -OnLine {
@@ -1810,7 +1905,7 @@ function New-CategoryTile {
 }
 
 function New-AppCard {
-    param([string]$Name, [string]$Id, [string]$Subtitle = "")
+    param([string]$Name, [string]$Id, [string]$Subtitle = "", [string]$Source)
 
     $border              = New-Object System.Windows.Controls.Border
     $border.SetResourceReference(
@@ -1839,7 +1934,7 @@ function New-AppCard {
     $capturedBadge = $badge
     $capturedName  = $Name
     $capturedId    = $Id
-    Get-AppIconAsync -Id $Id -Name $Name -OnReady ({
+    Get-AppIconAsync -Id $Id -Name $Name -Source $Source -OnReady ({
         param($iconPath)
         if ($iconPath) {
             Swap-BadgeToIcon -Target $capturedBadge -Path $iconPath -Size 36
@@ -1874,11 +1969,11 @@ function New-AppCard {
     $border.Child = $row
 
     # Click anywhere on the card opens the detail panel
-    $border.Tag = @{ Id = $Id; Name = $Name }
+    $border.Tag = @{ Id = $Id; Name = $Name; Source = $Source }
     $border.Add_MouseLeftButtonUp({
         param($s, $e)
         $info = $s.Tag
-        Show-AppDetailPanel -Id $info.Id -Name $info.Name
+        Show-AppDetailPanel -Id $info.Id -Name $info.Name -Source $info.Source
     })
 
     return $border
@@ -1900,6 +1995,7 @@ $script:metaState = @{
     Pending  = @{}                                                          # id -> List[scriptblock]
     Queue    = [System.Collections.Generic.Queue[string]]::new()
     Active   = @($false)                                                    # use [0] for mutable bool
+    Sources  = @{}                                                          # id -> winget source (e.g. "msstore"); absent = default
 }
 # Back-compat aliases so the rest of the file can keep reading $script:appMetaCache etc.
 $script:appMetaCache = $script:metaState.Cache
@@ -1913,9 +2009,14 @@ function Start-MetaFetchJob {
     # Register-ObjectEvent so the handler runs on the engine thread (with a
     # runspace available); raw .NET delegates would crash because the .NET
     # thread pool has no PowerShell runspace.
+    $src = $null
+    if ($script:metaState.Sources.ContainsKey($Id)) { $src = [string]$script:metaState.Sources[$Id] }
+    $wingetArgs = "show --id `"$Id`" --accept-source-agreements"
+    if ($src) { $wingetArgs = "show --id `"$Id`" --source $src --accept-source-agreements" }
+
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName               = "winget"
-    $psi.Arguments              = "show --id `"$Id`" --accept-source-agreements"
+    $psi.Arguments              = $wingetArgs
     $psi.UseShellExecute        = $false
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError  = $true
@@ -1964,6 +2065,7 @@ function Start-MetaFetchJob {
                         [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
                 }
             } finally {
+                if ($state.Sources.ContainsKey($msg.Id)) { $state.Sources.Remove($msg.Id) | Out-Null }
                 Unregister-Event -SourceIdentifier $msg.SourceId -ErrorAction SilentlyContinue
                 try { $p.Dispose() } catch {}
             }
@@ -1978,6 +2080,7 @@ function Start-MetaFetchJob {
             $script:metaState.Pending.Remove($Id) | Out-Null
             foreach ($cb in $cbs) { try { & $cb $null $_ } catch {} }
         }
+        if ($script:metaState.Sources.ContainsKey($Id)) { $script:metaState.Sources.Remove($Id) | Out-Null }
         $script:metaState.Active[0] = $false
     }
 }
@@ -1985,7 +2088,8 @@ function Start-MetaFetchJob {
 function Get-AppMetaAsync {
     param(
         [Parameter(Mandatory)][string]$Id,
-        [Parameter(Mandatory)][scriptblock]$OnReady
+        [Parameter(Mandatory)][scriptblock]$OnReady,
+        [string]$Source
     )
 
     # In-memory cache hit -> defer to a Background dispatcher tick so a burst
@@ -1999,6 +2103,11 @@ function Get-AppMetaAsync {
         $window.Dispatcher.BeginInvoke([action]$action,
             [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
         return
+    }
+
+    # Record source for this id so Start-MetaFetchJob picks the right --source flag
+    if ($Source -and -not $script:metaState.Sources.ContainsKey($Id)) {
+        $script:metaState.Sources[$Id] = $Source
     }
 
     # Coalesce: same id already in flight or queued
@@ -2129,7 +2238,8 @@ function Get-AppIconAsync {
     param(
         [Parameter(Mandatory)][string]$Id,
         [Parameter(Mandatory)][string]$Name,
-        [Parameter(Mandatory)][scriptblock]$OnReady
+        [Parameter(Mandatory)][scriptblock]$OnReady,
+        [string]$Source
     )
 
     # Disk cache hit -> defer callback to a Background tick so a burst of
@@ -2161,7 +2271,7 @@ function Get-AppIconAsync {
     $script:iconPendingCallbacks[$Id].Add($OnReady) | Out-Null
 
     # Route meta lookup through the serial coordinator
-    Get-AppMetaAsync -Id $Id -OnReady ({
+    Get-AppMetaAsync -Id $Id -Source $Source -OnReady ({
         param($meta, $err)
         if ($err -or -not $meta) {
             $script:iconFailedThisSession.Add($Id) | Out-Null
@@ -2289,7 +2399,7 @@ function Set-AppDetailMeta {
 }
 
 function Show-AppDetailPanel {
-    param([string]$Id, [string]$Name)
+    param([string]$Id, [string]$Name, [string]$Source)
 
     $global:appDetailCurrentId = $Id
 
@@ -2298,7 +2408,7 @@ function Show-AppDetailPanel {
     $appDetailId.Text          = $Id
     $appDetailPublisher.Text   = ""
     $appDetailVersion.Text     = ""
-    $appDetailSource.Text      = "winget"
+    $appDetailSource.Text      = if ($Source) { $Source } else { "winget" }
     $appDetailDescription.Text = "Loading..."
 
     # Icon: cached icon -> embed immediately; otherwise show a loading
@@ -2314,7 +2424,7 @@ function Show-AppDetailPanel {
         $capturedHost    = $appDetailIconHost
         $capturedName    = $Name
         $capturedId      = $Id
-        Get-AppIconAsync -Id $Id -Name $Name -OnReady ({
+        Get-AppIconAsync -Id $Id -Name $Name -Source $Source -OnReady ({
             param($iconPath)
             if ($global:appDetailCurrentId -ne $expectedId) { return }
             if ($iconPath) {
@@ -2330,14 +2440,14 @@ function Show-AppDetailPanel {
     $appDetailAction.Content   = "Install"
     $appDetailAction.IsEnabled = $true
     $appDetailAction.Style     = $window.Resources["ActionButton"]
-    $appDetailAction.Tag       = @{ Id = $Id; Name = $Name }
+    $appDetailAction.Tag       = @{ Id = $Id; Name = $Name; Source = $Source }
 
     $appDetailPanel.Visibility = "Visible"
 
     # Route through the serial meta coordinator so we never duplicate
     # 'winget show' for the same id (cards request the same data).
     $detailExpectedId = $Id
-    Get-AppMetaAsync -Id $Id -OnReady ({
+    Get-AppMetaAsync -Id $Id -Source $Source -OnReady ({
         param($meta, $err)
         if ($global:appDetailCurrentId -ne $detailExpectedId) { return }
         if ($err -or -not $meta) {
@@ -2359,7 +2469,7 @@ $appDetailAction.Add_Click({
     param($s, $e)
     $info = $s.Tag
     if (-not $info) { return }
-    Install-StoreSingleApp -Id $info.Id -Name $info.Name -TriggerButton $s
+    Install-StoreSingleApp -Id $info.Id -Name $info.Name -TriggerButton $s -Source $info.Source
 })
 
 # Hide the panel automatically when leaving the Store sub-tab.
@@ -2398,7 +2508,8 @@ function Show-StoreCategory {
         $cat = if ([string]::IsNullOrWhiteSpace($qi.Category)) { "Other" } else { [string]$qi.Category }
         if ($cat -ne $Category) { continue }
         $sub  = if ($qi.IsCurated) { "Curated - " + $qi.Id } else { $qi.Id }
-        $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub
+        $src  = if ($qi.ContainsKey("Source")) { [string]$qi.Source } else { $null }
+        $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub -Source $src
         $storeCategoryAppsPanel.Children.Add($card) | Out-Null
     }
 }
