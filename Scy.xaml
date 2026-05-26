@@ -1017,7 +1017,7 @@
                                                            Foreground="{DynamicResource FgBrush}"
                                                            TextWrapping="Wrap" Margin="0,0,0,4"/>
 
-                                                <!-- Publisher / Id -->
+                                                <!-- Publisher / Id / Homepage -->
                                                 <StackPanel Grid.Row="3" Margin="0,0,0,8">
                                                     <TextBlock x:Name="AppDetailPublisher"
                                                                Text="" FontSize="12"
@@ -1028,6 +1028,15 @@
                                                                FontFamily="Cascadia Mono, Consolas, Courier New"
                                                                Foreground="{DynamicResource MutedText}"
                                                                TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                                    <TextBlock x:Name="AppDetailHomepageHost"
+                                                               Visibility="Collapsed" FontSize="12"
+                                                               Margin="0,6,0,0" TextWrapping="Wrap">
+                                                        <Hyperlink x:Name="AppDetailHomepageLink"
+                                                                   Foreground="{DynamicResource AccentBrush}"
+                                                                   TextDecorations="None">
+                                                            <Run x:Name="AppDetailHomepageText" Text=""/>
+                                                        </Hyperlink>
+                                                    </TextBlock>
                                                 </StackPanel>
 
                                                 <!-- Version / Source row -->

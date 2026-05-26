@@ -250,7 +250,8 @@ function Get-MergedQuickInstalls {
     foreach ($qi in $script:quickInstalls) {
         $src  = if ($qi.PSObject.Properties["Source"])      { [string]$qi.Source }      else { $null }
         $desc = if ($qi.PSObject.Properties["Description"]) { [string]$qi.Description } else { $null }
-        $merged.Add(@{ Name = $qi.Name; Id = $qi.Id; Category = $qi.Category; IsCurated = $false; Source = $src; Description = $desc })
+        $hp   = if ($qi.PSObject.Properties["Homepage"])    { [string]$qi.Homepage }    else { $null }
+        $merged.Add(@{ Name = $qi.Name; Id = $qi.Id; Category = $qi.Category; IsCurated = $false; Source = $src; Description = $desc; Homepage = $hp })
     }
 
     foreach ($c in $script:curatedApps) {
@@ -259,7 +260,8 @@ function Get-MergedQuickInstalls {
         if ($c.Category -in $script:hiddenDefaultInstallCategories) { continue }
         $src  = if ($c.ContainsKey("Source"))      { [string]$c.Source }      else { $null }
         $desc = if ($c.ContainsKey("Description")) { [string]$c.Description } else { $null }
-        $merged.Add(@{ Name = $c.Name; Id = $c.Id; Category = $c.Category; IsCurated = $true; Source = $src; Description = $desc })
+        $hp   = if ($c.ContainsKey("Homepage"))    { [string]$c.Homepage }    else { $null }
+        $merged.Add(@{ Name = $c.Name; Id = $c.Id; Category = $c.Category; IsCurated = $true; Source = $src; Description = $desc; Homepage = $hp })
     }
     return $merged
 }
@@ -1542,7 +1544,7 @@ function New-CategoryTile {
 function New-AppCard {
     param(
         [string]$Name, [string]$Id, [string]$Subtitle = "",
-        [string]$Source, [string]$Description,
+        [string]$Source, [string]$Description, [string]$Homepage,
         [switch]$SkipIconFetch,      # true for raw winget search results - their icons are too expensive to fetch at bulk render time
         [switch]$SkipMeta,           # true for raw winget search results - skip description/publisher fetch on detail panel open
         [switch]$IsCurated           # attaches right-click "Hide app" context menu
@@ -1616,11 +1618,11 @@ function New-AppCard {
     $border.Child = $row
 
     # Click anywhere on the card opens the detail panel
-    $border.Tag = @{ Id = $Id; Name = $Name; Source = $Source; Description = $Description; SkipMeta = [bool]$SkipMeta }
+    $border.Tag = @{ Id = $Id; Name = $Name; Source = $Source; Description = $Description; Homepage = $Homepage; SkipMeta = [bool]$SkipMeta }
     $border.Add_MouseLeftButtonUp({
         param($s, $e)
         $info = $s.Tag
-        Show-AppDetailPanel -Id $info.Id -Name $info.Name -Source $info.Source -Description $info.Description -SkipMeta:$info.SkipMeta
+        Show-AppDetailPanel -Id $info.Id -Name $info.Name -Source $info.Source -Description $info.Description -Homepage $info.Homepage -SkipMeta:$info.SkipMeta
     })
 
     # Right-click on a curated card -> Hide app from the Store catalog.
@@ -1995,16 +1997,26 @@ function Swap-BadgeToIcon {
 
 
 # ── App detail side panel ────────────────────────────────────────
-$appDetailPanel       = Find "AppDetailPanel"
-$appDetailClose       = Find "AppDetailClose"
-$appDetailIconHost    = Find "AppDetailIconHost"
-$appDetailName        = Find "AppDetailName"
-$appDetailPublisher   = Find "AppDetailPublisher"
-$appDetailId          = Find "AppDetailId"
-$appDetailVersion     = Find "AppDetailVersion"
-$appDetailSource      = Find "AppDetailSource"
-$appDetailDescription = Find "AppDetailDescription"
-$appDetailAction      = Find "AppDetailAction"
+$appDetailPanel         = Find "AppDetailPanel"
+$appDetailClose         = Find "AppDetailClose"
+$appDetailIconHost      = Find "AppDetailIconHost"
+$appDetailName          = Find "AppDetailName"
+$appDetailPublisher     = Find "AppDetailPublisher"
+$appDetailId            = Find "AppDetailId"
+$appDetailHomepageHost  = Find "AppDetailHomepageHost"
+$appDetailHomepageLink  = Find "AppDetailHomepageLink"
+$appDetailHomepageText  = Find "AppDetailHomepageText"
+$appDetailVersion       = Find "AppDetailVersion"
+$appDetailSource        = Find "AppDetailSource"
+$appDetailDescription   = Find "AppDetailDescription"
+$appDetailAction        = Find "AppDetailAction"
+
+# Open homepage links in the user's default browser
+$appDetailHomepageLink.Add_RequestNavigate({
+    param($s, $e)
+    try { Start-Process $e.Uri.AbsoluteUri } catch {}
+    $e.Handled = $true
+})
 
 # Cache of parsed `winget show` results keyed by Id.
 $script:appMetaCache = @{}
@@ -2093,7 +2105,7 @@ function Set-AppDetailMeta {
 }
 
 function Show-AppDetailPanel {
-    param([string]$Id, [string]$Name, [string]$Source, [string]$Description, [switch]$SkipMeta)
+    param([string]$Id, [string]$Name, [string]$Source, [string]$Description, [string]$Homepage, [switch]$SkipMeta)
 
     $global:appDetailCurrentId = $Id
 
@@ -2103,6 +2115,21 @@ function Show-AppDetailPanel {
     $appDetailPublisher.Text   = ""
     $appDetailVersion.Text     = ""
     $appDetailSource.Text      = if ($Source) { $Source } else { "winget" }
+
+    # Homepage link (curated entries usually have one; hide for raw winget results)
+    if ($Homepage) {
+        $hpUrl = $Homepage
+        if ($hpUrl -notmatch '^https?://') { $hpUrl = "https://" + $hpUrl }
+        try {
+            $appDetailHomepageLink.NavigateUri = New-Object Uri($hpUrl)
+            $appDetailHomepageText.Text        = $hpUrl -replace '^https?://', ''
+            $appDetailHomepageHost.Visibility  = "Visible"
+        } catch {
+            $appDetailHomepageHost.Visibility  = "Collapsed"
+        }
+    } else {
+        $appDetailHomepageHost.Visibility = "Collapsed"
+    }
 
     # Description resolution:
     # - Hardcoded curated description: render instantly, lock against overwrite
@@ -2226,7 +2253,8 @@ function Show-StoreCategory {
         $sub  = if ($qi.IsCurated) { "Curated - " + $qi.Id } else { $qi.Id }
         $src  = if ($qi.ContainsKey("Source"))      { [string]$qi.Source }      else { $null }
         $desc = if ($qi.ContainsKey("Description")) { [string]$qi.Description } else { $null }
-        $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub -Source $src -Description $desc -IsCurated:$qi.IsCurated
+        $hp   = if ($qi.ContainsKey("Homepage"))    { [string]$qi.Homepage }    else { $null }
+        $card = New-AppCard -Name $qi.Name -Id $qi.Id -Subtitle $sub -Source $src -Description $desc -Homepage $hp -IsCurated:$qi.IsCurated
         $storeCategoryAppsPanel.Children.Add($card) | Out-Null
     }
 }
