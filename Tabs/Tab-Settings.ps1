@@ -1046,6 +1046,18 @@ $btnInstallSelfUpdate.Add_Click({
 
 # ── Groups management ─────────────────────────────────────────────
 function Render-GroupSettings {
+    # Refresh disclosure counts so the headers stay in sync after add/remove
+    $shortcutCount = $script:defaultShortcutGroups.Count + $script:customShortcutGroups.Count
+    $installCount  = $script:defaultQuickCategories.Count + $script:customInstallCategories.Count
+    $shortcutLabel = Find "ShortcutGroupsCount"
+    $installLabel  = Find "InstallCategoriesCount"
+    if ($shortcutLabel) {
+        $shortcutLabel.Text = if ($shortcutCount -eq 1) { "1 group" } else { [string]$shortcutCount + " groups" }
+    }
+    if ($installLabel) {
+        $installLabel.Text = if ($installCount -eq 1) { "1 category" } else { [string]$installCount + " categories" }
+    }
+
     # -- Shortcut groups --
     $sgPanel = Find "SettingsShortcutGroupsPanel"
     $sgPanel.Children.Clear()
@@ -1402,3 +1414,29 @@ function Render-GroupSettings {
 })
 
 Render-GroupSettings
+
+# ── Settings > Groups disclosure headers (collapsed by default) ───
+function Toggle-GroupDisclosure {
+    param([System.Windows.Controls.Border]$Header, $Content, $Chevron)
+    if ($Content.Visibility -eq "Visible") {
+        $Content.Visibility = "Collapsed"
+        $Chevron.Text       = [string][char]0x25B8   # right-pointing triangle
+    } else {
+        $Content.Visibility = "Visible"
+        $Chevron.Text       = [string][char]0x25BE   # down-pointing triangle
+    }
+}
+
+$shortcutGroupsHeader     = Find "ShortcutGroupsHeader"
+$shortcutGroupsContent    = Find "ShortcutGroupsContent"
+$shortcutGroupsChevron    = Find "ShortcutGroupsChevron"
+$installCategoriesHeader  = Find "InstallCategoriesHeader"
+$installCategoriesContent = Find "InstallCategoriesContent"
+$installCategoriesChevron = Find "InstallCategoriesChevron"
+
+$shortcutGroupsHeader.Add_MouseLeftButtonUp({
+    Toggle-GroupDisclosure -Header $shortcutGroupsHeader -Content $shortcutGroupsContent -Chevron $shortcutGroupsChevron
+})
+$installCategoriesHeader.Add_MouseLeftButtonUp({
+    Toggle-GroupDisclosure -Header $installCategoriesHeader -Content $installCategoriesContent -Chevron $installCategoriesChevron
+})

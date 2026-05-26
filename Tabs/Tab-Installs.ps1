@@ -470,708 +470,234 @@ function Show-QuickInstallConfirmDialog {
 }
 
 function Update-QuickInstalls {
-    Refresh-QuickInstallCategories
-    $panel   = Find "QuickInstallsPanel"
-    $editBtn = Find "BtnEditQuickInstalls"
-    $panel.Children.Clear()
+    $curatedPanel = Find "CuratedAppsPanel"
+    $hiddenPanel  = Find "HiddenAppsPanel"
+    $customPanel  = Find "CustomAppsPanel"
+    if (-not $curatedPanel -or -not $hiddenPanel -or -not $customPanel) { return }
 
-    if ($script:quickInstallEditMode) {
-        $editBtn.Content   = "Done"
+    $curatedPanel.Children.Clear()
+    $hiddenPanel.Children.Clear()
+    $customPanel.Children.Clear()
 
-        # Restore-hidden affordance: only shown when at least one curated app has been hidden
-        if ($script:hiddenCuratedApps.Count -gt 0) {
-            $restoreRow = New-Object System.Windows.Controls.Grid
-            $rc0 = New-Object System.Windows.Controls.ColumnDefinition; $rc0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
-            $rc1 = New-Object System.Windows.Controls.ColumnDefinition; $rc1.Width = [System.Windows.GridLength]::Auto
-            $restoreRow.ColumnDefinitions.Add($rc0); $restoreRow.ColumnDefinitions.Add($rc1)
-            $restoreRow.Margin = [System.Windows.Thickness]::new(0, 0, 0, 10)
+    # User QuickInstalls take precedence over curated ones with the same Id
+    $userIds = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($qi in $script:quickInstalls) { [void]$userIds.Add([string]$qi.Id) }
 
-            $restoreLabel = New-Object System.Windows.Controls.TextBlock
-            $restoreLabel.Text              = "Curated hidden: " + [string]$script:hiddenCuratedApps.Count
-            $restoreLabel.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-            $restoreLabel.FontSize          = 11
-            $restoreLabel.VerticalAlignment = "Center"
-            [System.Windows.Controls.Grid]::SetColumn($restoreLabel, 0)
+    $curated = @($script:curatedApps | Where-Object {
+        -not ($userIds.Contains([string]$_.Id)) -and
+        -not ($_.Id -in $script:hiddenCuratedApps) -and
+        -not ($_.Category -in $script:hiddenDefaultInstallCategories)
+    } | Sort-Object Name)
 
-            $restoreBtn = New-Object System.Windows.Controls.Button
-            $restoreBtn.Content = "Restore all"
-            $restoreBtn.Style   = $window.Resources["SecondaryButton"]
-            $restoreBtn.Add_Click({
-                $script:hiddenCuratedApps.Clear()
+    $hidden = @($script:curatedApps | Where-Object {
+        $_.Id -in $script:hiddenCuratedApps
+    } | Sort-Object Name)
+
+    $custom = @($script:quickInstalls | Sort-Object Name)
+
+    foreach ($app in $curated) {
+        $row = New-QuickInstallsRow -Name $app.Name -Id $app.Id -Action "Hide" -OnAction {
+            param($id)
+            if (-not ($script:hiddenCuratedApps -contains $id)) {
+                $script:hiddenCuratedApps.Add($id) | Out-Null
                 Save-Settings
                 Update-QuickInstalls
-            })
-            [System.Windows.Controls.Grid]::SetColumn($restoreBtn, 1)
-
-            $restoreRow.Children.Add($restoreLabel) | Out-Null
-            $restoreRow.Children.Add($restoreBtn)   | Out-Null
-            $panel.Children.Add($restoreRow)        | Out-Null
-        }
-
-        foreach ($qi in (Get-MergedQuickInstalls)) {
-            $name = $qi.Name
-            $id   = $qi.Id
-
-            $row = New-Object System.Windows.Controls.Grid
-            $c0  = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
-            $c1  = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = [System.Windows.GridLength]::Auto
-            $c2  = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = New-Object System.Windows.GridLength(120)
-            $c3  = New-Object System.Windows.Controls.ColumnDefinition; $c3.Width = [System.Windows.GridLength]::Auto
-            $row.ColumnDefinitions.Add($c0); $row.ColumnDefinitions.Add($c1)
-            $row.ColumnDefinitions.Add($c2); $row.ColumnDefinitions.Add($c3)
-            $row.Margin = [System.Windows.Thickness]::new(0, 0, 0, 4)
-
-            $nameBlock = New-Object System.Windows.Controls.TextBlock
-            $nameBlock.Text              = if ($qi.IsCurated) { [char]0x2605 + "  " + $name } else { $name }
-            $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-            $nameBlock.FontSize          = 12
-            $nameBlock.VerticalAlignment = "Center"
-            [System.Windows.Controls.Grid]::SetColumn($nameBlock, 0)
-
-            $idBlock = New-Object System.Windows.Controls.TextBlock
-            $idBlock.Text              = $id
-            $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-            $idBlock.FontSize          = 11
-            $idBlock.Margin            = [System.Windows.Thickness]::new(10, 0, 10, 0)
-            $idBlock.VerticalAlignment = "Center"
-            [System.Windows.Controls.Grid]::SetColumn($idBlock, 1)
-
-            $row.Children.Add($nameBlock) | Out-Null
-            $row.Children.Add($idBlock)   | Out-Null
-
-            if ($qi.IsCurated) {
-                $curLabel = New-Object System.Windows.Controls.TextBlock
-                $curLabel.Text              = "Curated"
-                $curLabel.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-                $curLabel.FontSize          = 11
-                $curLabel.VerticalAlignment = "Center"
-                $curLabel.Margin            = [System.Windows.Thickness]::new(0, 0, 10, 0)
-                [System.Windows.Controls.Grid]::SetColumn($curLabel, 2)
-
-                $hideBtn         = New-Object System.Windows.Controls.Button
-                $hideBtn.Content = "Hide"
-                $hideBtn.Style   = $window.Resources["SecondaryButton"]
-                $hideBtn.Tag     = $id
-                $hideBtn.Add_Click({
-                    param($s, $e)
-                    $idToHide = [string]$s.Tag
-                    if ($idToHide -notin $script:hiddenCuratedApps) {
-                        $script:hiddenCuratedApps.Add($idToHide)
-                        Save-Settings
-                        Update-QuickInstalls
-                    }
-                })
-                [System.Windows.Controls.Grid]::SetColumn($hideBtn, 3)
-
-                $row.Children.Add($curLabel) | Out-Null
-                $row.Children.Add($hideBtn)  | Out-Null
-                $panel.Children.Add($row)    | Out-Null
-                continue
-            }
-
-            $catBox                   = New-Object System.Windows.Controls.ComboBox
-            $catBox.IsEditable        = $true
-            $catBox.FontSize          = 11
-            $catBox.VerticalAlignment = "Center"
-            $catBox.Margin            = [System.Windows.Thickness]::new(0, 0, 10, 0)
-            $catBox.ToolTip           = "Category (select or type new)"
-            # Resolve back to the live $script:quickInstalls entry so edits persist
-            $liveQi = $null
-            foreach ($liveCandidate in $script:quickInstalls) {
-                if ($liveCandidate.Id -eq $qi.Id) { $liveQi = $liveCandidate; break }
-            }
-            $catBox.Tag               = $liveQi
-            # Populate with all categories (defaults + custom)
-            foreach ($cat in (Get-AllQuickCategories)) { $catBox.Items.Add($cat) | Out-Null }
-            $catBox.Items.Add("+ New group...") | Out-Null
-            $catBox.Text = if ($qi.Category) { $qi.Category } else { "" }
-            $catBox.Add_SelectionChanged({
-                param($s, $e)
-                if ($s.SelectedItem -eq "+ New group...") {
-                    Ensure-VisualBasic; $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Category name:", "New Category", "")
-                    if (-not [string]::IsNullOrWhiteSpace($gName)) {
-                        $gName = $gName.Trim()
-                        if ($gName -notin (Get-AllQuickCategories)) {
-                            $script:customInstallCategories.Add($gName)
-                            Save-Settings
-                            if ((Get-Command Render-GroupSettings -ErrorAction SilentlyContinue)) { Render-GroupSettings }
-                        }
-                        $s.Tag.Category = $gName
-                        $s.Text = $gName
-                    } else {
-                        $s.SelectedIndex = -1
-                    }
-                } elseif ($s.SelectedItem) {
-                    $s.Tag.Category = $s.SelectedItem
-                }
-            })
-            # Also handle typed text via the editable TextBox
-            $catBox.AddHandler(
-                [System.Windows.Controls.Primitives.TextBoxBase]::TextChangedEvent,
-                [System.Windows.RoutedEventHandler]{
-                    param($s, $e)
-                    $combo = $s
-                    while ($combo -and $combo -isnot [System.Windows.Controls.ComboBox]) {
-                        $combo = [System.Windows.Media.VisualTreeHelper]::GetParent($combo)
-                    }
-                    if ($combo) { $combo.Tag.Category = $combo.Text }
-                }
-            )
-            [System.Windows.Controls.Grid]::SetColumn($catBox, 2)
-
-            $removeBtn         = New-Object System.Windows.Controls.Button
-            $removeBtn.Content = "Remove"
-            $removeBtn.Style      = $window.Resources["SecondaryButton"]
-            $removeBtn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "DangerBrush")
-            $removeBtn.Tag        = $id
-            $removeBtn.Add_Click({
-                param($s, $e)
-                $idToRemove = $s.Tag
-                $idx = -1
-                for ($i = 0; $i -lt $script:quickInstalls.Count; $i++) {
-                    if ($script:quickInstalls[$i].Id -eq $idToRemove) { $idx = $i; break }
-                }
-                if ($idx -ge 0) {
-                    $script:quickInstalls.RemoveAt($idx)
-                    Save-Settings
-                    Update-QuickInstalls
-                }
-            })
-            [System.Windows.Controls.Grid]::SetColumn($removeBtn, 3)
-
-            $row.Children.Add($catBox)    | Out-Null
-            $row.Children.Add($removeBtn) | Out-Null
-            $panel.Children.Add($row)     | Out-Null
-        }
-
-        # Bundles section in edit mode
-        $sepLine            = New-Object System.Windows.Controls.Border
-        $sepLine.Height     = 1
-        $sepLine.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BorderBrush")
-        $sepLine.Margin     = [System.Windows.Thickness]::new(0, 10, 0, 10)
-        $panel.Children.Add($sepLine) | Out-Null
-
-        $bEditHeader            = New-Object System.Windows.Controls.TextBlock
-        $bEditHeader.Text       = "Bundles"
-        $bEditHeader.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-        $bEditHeader.FontSize   = 11
-        $bEditHeader.FontWeight = "SemiBold"
-        $bEditHeader.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 8)
-        $panel.Children.Add($bEditHeader) | Out-Null
-
-        foreach ($bndl in $script:quickBundles) {
-            $capturedBndl = $bndl
-
-            $bCard             = New-Object System.Windows.Controls.Border
-            $bCard.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
-            $bCard.CornerRadius = [System.Windows.CornerRadius]::new(4)
-            $bCard.Padding     = [System.Windows.Thickness]::new(10, 8, 10, 8)
-            $bCard.Margin      = [System.Windows.Thickness]::new(0, 0, 0, 6)
-
-            $bCardStack = New-Object System.Windows.Controls.StackPanel
-
-            # Name / desc / remove row
-            $hRow = New-Object System.Windows.Controls.Grid
-            $hc0  = New-Object System.Windows.Controls.ColumnDefinition; $hc0.Width = New-Object System.Windows.GridLength(130)
-            $hc1  = New-Object System.Windows.Controls.ColumnDefinition; $hc1.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
-            $hc2  = New-Object System.Windows.Controls.ColumnDefinition; $hc2.Width = [System.Windows.GridLength]::Auto
-            $hRow.ColumnDefinitions.Add($hc0); $hRow.ColumnDefinitions.Add($hc1); $hRow.ColumnDefinitions.Add($hc2)
-            $hRow.Margin = [System.Windows.Thickness]::new(0, 0, 0, 6)
-
-            $nameBox                 = New-Object System.Windows.Controls.TextBox
-            $nameBox.Text            = $bndl.Name
-            $nameBox.FontSize        = 12
-            $nameBox.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
-            $nameBox.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty, "InputBgBrush")
-            $nameBox.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
-            $nameBox.BorderThickness = [System.Windows.Thickness]::new(1)
-            $nameBox.Padding         = [System.Windows.Thickness]::new(6, 3, 6, 3)
-            $nameBox.Margin          = [System.Windows.Thickness]::new(0, 0, 8, 0)
-            $nameBox.ToolTip         = "Bundle name"
-            $nameBox.Tag             = $bndl
-            $nameBox.Add_TextChanged({ param($s, $e); $s.Tag.Name = $s.Text })
-            [System.Windows.Controls.Grid]::SetColumn($nameBox, 0)
-
-            $descBox                 = New-Object System.Windows.Controls.TextBox
-            $descBox.Text            = if ($bndl.Description) { $bndl.Description } else { "" }
-            $descBox.FontSize        = 11
-            $descBox.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
-            $descBox.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty, "InputBgBrush")
-            $descBox.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
-            $descBox.BorderThickness = [System.Windows.Thickness]::new(1)
-            $descBox.Padding         = [System.Windows.Thickness]::new(6, 3, 6, 3)
-            $descBox.Margin          = [System.Windows.Thickness]::new(0, 0, 8, 0)
-            $descBox.ToolTip         = "Description"
-            $descBox.Tag             = $bndl
-            $descBox.Add_TextChanged({ param($s, $e); $s.Tag.Description = $s.Text })
-            [System.Windows.Controls.Grid]::SetColumn($descBox, 1)
-
-            $removeBndlBtn          = New-Object System.Windows.Controls.Button
-            $removeBndlBtn.Content  = "Remove"
-            $removeBndlBtn.Style    = $window.Resources["SecondaryButton"]
-            $removeBndlBtn.Foreground = $window.Resources["DangerBrush"]
-            $removeBndlBtn.Tag      = $capturedBndl.Name
-            $removeBndlBtn.Add_Click({
-                param($s, $e)
-                $nameToRemove = $s.Tag
-                $idx = -1
-                for ($i = 0; $i -lt $script:quickBundles.Count; $i++) {
-                    if ($script:quickBundles[$i].Name -eq $nameToRemove) { $idx = $i; break }
-                }
-                if ($idx -ge 0) {
-                    $script:quickBundles.RemoveAt($idx)
-                    Save-Settings
-                    Update-QuickInstalls
-                }
-            })
-            [System.Windows.Controls.Grid]::SetColumn($removeBndlBtn, 2)
-
-            $hRow.Children.Add($nameBox)      | Out-Null
-            $hRow.Children.Add($descBox)      | Out-Null
-            $hRow.Children.Add($removeBndlBtn) | Out-Null
-            $bCardStack.Children.Add($hRow)   | Out-Null
-
-            # App rows inside the bundle
-            foreach ($app in @($bndl.Apps)) {
-                $capturedApp  = $app
-                $capturedBndlForApp = $bndl
-
-                $appRow = New-Object System.Windows.Controls.Grid
-                $arc0   = New-Object System.Windows.Controls.ColumnDefinition; $arc0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
-                $arc1   = New-Object System.Windows.Controls.ColumnDefinition; $arc1.Width = [System.Windows.GridLength]::Auto
-                $arc2   = New-Object System.Windows.Controls.ColumnDefinition; $arc2.Width = [System.Windows.GridLength]::Auto
-                $appRow.ColumnDefinitions.Add($arc0); $appRow.ColumnDefinitions.Add($arc1); $appRow.ColumnDefinitions.Add($arc2)
-                $appRow.Margin = [System.Windows.Thickness]::new(8, 0, 0, 2)
-
-                $appNameBlock                  = New-Object System.Windows.Controls.TextBlock
-                $appNameBlock.Text             = $app.Name
-                $appNameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-                $appNameBlock.FontSize         = 11
-                $appNameBlock.VerticalAlignment = "Center"
-                [System.Windows.Controls.Grid]::SetColumn($appNameBlock, 0)
-
-                $appIdBlock                  = New-Object System.Windows.Controls.TextBlock
-                $appIdBlock.Text             = $app.Id
-                $appIdBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-                $appIdBlock.FontSize         = 10
-                $appIdBlock.Margin           = [System.Windows.Thickness]::new(8, 0, 10, 0)
-                $appIdBlock.VerticalAlignment = "Center"
-                [System.Windows.Controls.Grid]::SetColumn($appIdBlock, 1)
-
-                $removeAppBtn           = New-Object System.Windows.Controls.Button
-                $removeAppBtn.Content   = "×"
-                $removeAppBtn.Style     = $window.Resources["SecondaryButton"]
-                $removeAppBtn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
-                $removeAppBtn.Padding   = [System.Windows.Thickness]::new(6, 1, 6, 1)
-                $removeAppBtn.Add_Click(({
-                    $capturedBndlForApp.Apps.Remove($capturedApp) | Out-Null
-                    Save-Settings
-                    Update-QuickInstalls
-                }.GetNewClosure()))
-                [System.Windows.Controls.Grid]::SetColumn($removeAppBtn, 2)
-
-                $appRow.Children.Add($appNameBlock) | Out-Null
-                $appRow.Children.Add($appIdBlock)   | Out-Null
-                $appRow.Children.Add($removeAppBtn) | Out-Null
-                $bCardStack.Children.Add($appRow)   | Out-Null
-            }
-
-            $bCard.Child = $bCardStack
-            $panel.Children.Add($bCard) | Out-Null
-        }
-
-        $newBundleBtn                     = New-Object System.Windows.Controls.Button
-        $newBundleBtn.Content             = "+ New Bundle"
-        $newBundleBtn.Style               = $window.Resources["ActionButton"]
-        $newBundleBtn.Margin              = [System.Windows.Thickness]::new(0, 4, 0, 0)
-        $newBundleBtn.HorizontalAlignment = "Left"
-        $newBundleBtn.Add_Click({
-            Ensure-VisualBasic; $bName = [Microsoft.VisualBasic.Interaction]::InputBox("Bundle name:", "New Bundle", "")
-            if ([string]::IsNullOrWhiteSpace($bName)) { return }
-            if ($script:quickBundles | Where-Object { $_.Name -eq $bName }) {
-                Show-ThemedDialog "A bundle named '$bName' already exists." "Duplicate" "OK" "Warning"
-                return
-            }
-            Ensure-VisualBasic; $bDesc = [Microsoft.VisualBasic.Interaction]::InputBox("Description (optional):", "Bundle Description", "")
-            $script:quickBundles.Add(@{
-                Name        = $bName
-                Description = $bDesc
-                Apps        = [System.Collections.Generic.List[hashtable]]::new()
-            })
-            Save-Settings
-            Update-QuickInstalls
-        })
-        $panel.Children.Add($newBundleBtn) | Out-Null
-
-    } else {
-        $editBtn.Content = "Edit"
-
-        # Capture script-scoped references so they are accessible inside .GetNewClosure() handlers
-        $selItems = $script:selectedQuickItems
-
-        # Group by category; items with no category go to "Uncategorized"
-        $groups = [ordered]@{}
-        foreach ($qi in (Get-MergedQuickInstalls)) {
-            $cat = if ($qi.Category) { $qi.Category } else { "Uncategorized" }
-            if (-not $groups.Contains($cat)) {
-                $groups[$cat] = [System.Collections.Generic.List[hashtable]]::new()
-            }
-            $groups[$cat].Add($qi)
-        }
-
-        # Named categories alphabetically, Uncategorized last
-        $named   = @($groups.Keys | Where-Object { $_ -ne "Uncategorized" } | Sort-Object)
-        $allCats = if ($groups.Contains("Uncategorized")) { $named + @("Uncategorized") } else { $named }
-
-        # Build 2-column grid
-        $twoColGrid = New-Object System.Windows.Controls.Grid
-        $col0 = New-Object System.Windows.Controls.ColumnDefinition; $col0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-        $colG = New-Object System.Windows.Controls.ColumnDefinition; $colG.Width = [System.Windows.GridLength]::new(8)
-        $col2 = New-Object System.Windows.Controls.ColumnDefinition; $col2.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-        $twoColGrid.ColumnDefinitions.Add($col0)
-        $twoColGrid.ColumnDefinitions.Add($colG)
-        $twoColGrid.ColumnDefinitions.Add($col2)
-
-        $leftCol  = New-Object System.Windows.Controls.StackPanel; $leftCol.VerticalAlignment  = "Top"
-        $rightCol = New-Object System.Windows.Controls.StackPanel; $rightCol.VerticalAlignment = "Top"
-        [System.Windows.Controls.Grid]::SetColumn($leftCol,  0)
-        [System.Windows.Controls.Grid]::SetColumn($rightCol, 2)
-        $twoColGrid.Children.Add($leftCol)  | Out-Null
-        $twoColGrid.Children.Add($rightCol) | Out-Null
-        $panel.Children.Add($twoColGrid) | Out-Null
-
-        $colIdx = 0
-
-        # ── Category cards ────────────────────────────────────────
-        foreach ($cat in $allCats) {
-            if (-not $groups.Contains($cat) -or $groups[$cat].Count -eq 0) { continue }
-
-            $border              = New-Object System.Windows.Controls.Border
-            $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
-            $border.CornerRadius = [System.Windows.CornerRadius]::new(6)
-            $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-            $border.BorderThickness = [System.Windows.Thickness]::new(1)
-            $border.Padding      = [System.Windows.Thickness]::new(14, 12, 14, 12)
-            $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 8)
-
-            $cardStack = New-Object System.Windows.Controls.StackPanel
-
-            $header = New-Object System.Windows.Controls.TextBlock
-            $header.Text = $cat
-            $header.FontSize = 11
-            $header.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-            $header.Margin = [System.Windows.Thickness]::new(0, 0, 0, 8)
-            $cardStack.Children.Add($header) | Out-Null
-
-            $itemsPanel = New-Object System.Windows.Controls.StackPanel
-            $cardStack.Children.Add($itemsPanel) | Out-Null
-            $border.Child = $cardStack
-
-            if ($colIdx % 2 -eq 0) { $leftCol.Children.Add($border)  | Out-Null }
-            else                   { $rightCol.Children.Add($border) | Out-Null }
-            $colIdx++
-
-            $isFirstItem = $true
-            foreach ($qi in $groups[$cat]) {
-                $qiName = $qi.Name
-                $qiId   = $qi.Id
-
-                if (-not $isFirstItem) {
-                    $sep = New-Object System.Windows.Shapes.Rectangle
-                    $sep.Height = 1
-                    $sep.SetResourceReference([System.Windows.Shapes.Rectangle]::FillProperty, "BorderBrush")
-                    $itemsPanel.Children.Add($sep) | Out-Null
-                }
-                $isFirstItem = $false
-
-                $btn = New-Object System.Windows.Controls.Button
-                $btn.Style = $window.FindResource("ShortcutRowButton")
-
-                $rowGrid = New-Object System.Windows.Controls.Grid
-                $starCol = New-Object System.Windows.Controls.ColumnDefinition; $starCol.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-                $autoCol = New-Object System.Windows.Controls.ColumnDefinition; $autoCol.Width = [System.Windows.GridLength]::Auto
-                $rowGrid.ColumnDefinitions.Add($starCol)
-                $rowGrid.ColumnDefinitions.Add($autoCol)
-
-                $nameBlock = New-Object System.Windows.Controls.TextBlock
-                $nameBlock.Text = if ($qi.IsCurated) { [char]0x2605 + "  " + $qiName } else { $qiName }
-                $nameBlock.FontSize = 12
-                $nameBlock.VerticalAlignment = "Center"
-                if ($qi.IsCurated) { $nameBlock.ToolTip = "Curated: click to install, or use Edit to hide" }
-                [System.Windows.Controls.Grid]::SetColumn($nameBlock, 0)
-
-                $idBlock = New-Object System.Windows.Controls.TextBlock
-                $idBlock.Text = $qiId
-                $idBlock.FontSize = 11
-                $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-                $idBlock.VerticalAlignment = "Center"
-                [System.Windows.Controls.Grid]::SetColumn($idBlock, 1)
-
-                $rowGrid.Children.Add($nameBlock) | Out-Null
-                $rowGrid.Children.Add($idBlock)   | Out-Null
-                $btn.Content = $rowGrid
-
-                $capturedNameBlock = $nameBlock
-                if ($null -ne ($selItems | Where-Object { $_.Key -eq $qiId } | Select-Object -First 1)) {
-                    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
-                } else {
-                    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-                }
-
-                $btn.Add_Click(({
-                    $existingIdx = -1
-                    for ($i = 0; $i -lt $selItems.Count; $i++) {
-                        if ($selItems[$i].Key -eq $qiId) { $existingIdx = $i; break }
-                    }
-                    if ($existingIdx -ge 0) {
-                        $selItems.RemoveAt($existingIdx)
-                        $capturedNameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-                    } else {
-                        $selItems.Add(@{Key=$qiId; Type="App"; Name=$qiName; Id=$qiId})
-                        $capturedNameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
-                    }
-                    Update-QuickInstallSelectedState
-                }.GetNewClosure()))
-
-                # ── Right-click context menu ──────────────────────────
-                $ctxMenu = New-Object System.Windows.Controls.ContextMenu
-
-                # Hide (curated) / Remove (user)
-                $hideMi = New-Object System.Windows.Controls.MenuItem
-                $hideMi.Header = if ($qi.IsCurated) { "Hide" } else { "Remove" }
-                $hideMi.Tag    = $qi
-                $hideMi.Add_Click({
-                    param($s, $e)
-                    $app = $s.Tag
-                    if ($app.IsCurated) {
-                        if ([string]$app.Id -notin $script:hiddenCuratedApps) {
-                            $script:hiddenCuratedApps.Add([string]$app.Id)
-                            Save-Settings
-                            Update-QuickInstalls
-                        }
-                    } else {
-                        for ($i = 0; $i -lt $script:quickInstalls.Count; $i++) {
-                            if ($script:quickInstalls[$i].Id -eq $app.Id) {
-                                $script:quickInstalls.RemoveAt($i)
-                                Save-Settings
-                                Update-QuickInstalls
-                                break
-                            }
-                        }
-                    }
-                })
-                $ctxMenu.Items.Add($hideMi) | Out-Null
-
-                # Change category (user apps only — curated have fixed categories)
-                if (-not $qi.IsCurated) {
-                    $liveQi = $null
-                    foreach ($lc in $script:quickInstalls) {
-                        if ($lc.Id -eq $qi.Id) { $liveQi = $lc; break }
-                    }
-                    if ($liveQi) {
-                        $catSub = New-Object System.Windows.Controls.MenuItem
-                        $catSub.Header = "Change category"
-                        foreach ($cat in (Get-AllQuickCategories)) {
-                            $cmi = New-Object System.Windows.Controls.MenuItem
-                            $cmi.Header    = $cat
-                            $cmi.IsEnabled = ($liveQi.Category -ne $cat)
-                            $cmi.Tag       = @{ LiveQi = $liveQi; Category = $cat }
-                            $cmi.Add_Click({
-                                param($s, $e)
-                                $s.Tag.LiveQi.Category = $s.Tag.Category
-                                Save-Settings
-                                Update-QuickInstalls
-                            })
-                            $catSub.Items.Add($cmi) | Out-Null
-                        }
-                        $newCatMi = New-Object System.Windows.Controls.MenuItem
-                        $newCatMi.Header = "+ New category..."
-                        $newCatMi.Tag    = $liveQi
-                        $newCatMi.Add_Click({
-                            param($s, $e)
-                            Ensure-VisualBasic
-                            $g = [Microsoft.VisualBasic.Interaction]::InputBox("Category name:", "New Category", "")
-                            if (-not [string]::IsNullOrWhiteSpace($g)) {
-                                $g = $g.Trim()
-                                if ($g -notin (Get-AllQuickCategories)) {
-                                    $script:customInstallCategories.Add($g)
-                                    if (Get-Command Render-GroupSettings -ErrorAction SilentlyContinue) { Render-GroupSettings }
-                                }
-                                $s.Tag.Category = $g
-                                Save-Settings
-                                Update-QuickInstalls
-                            }
-                        })
-                        $catSub.Items.Add($newCatMi) | Out-Null
-                        $ctxMenu.Items.Add($catSub) | Out-Null
-                    }
-                }
-
-                # Add to bundle
-                $bundleSub = New-Object System.Windows.Controls.MenuItem
-                $bundleSub.Header = "Add to bundle"
-                if ($script:quickBundles.Count -eq 0) {
-                    $emptyMi = New-Object System.Windows.Controls.MenuItem
-                    $emptyMi.Header    = "(no bundles yet)"
-                    $emptyMi.IsEnabled = $false
-                    $bundleSub.Items.Add($emptyMi) | Out-Null
-                } else {
-                    foreach ($b in $script:quickBundles) {
-                        $alreadyIn = $false
-                        foreach ($a in @($b.Apps)) { if ($a.Id -eq $qi.Id) { $alreadyIn = $true; break } }
-                        $bmi = New-Object System.Windows.Controls.MenuItem
-                        $bmi.Header    = $b.Name
-                        $bmi.IsEnabled = -not $alreadyIn
-                        $bmi.Tag       = @{ Bundle = $b; AppName = $qi.Name; AppId = $qi.Id }
-                        $bmi.Add_Click({
-                            param($s, $e)
-                            $s.Tag.Bundle.Apps.Add(@{ Name = $s.Tag.AppName; Id = $s.Tag.AppId })
-                            Save-Settings
-                            Update-QuickInstalls
-                        })
-                        $bundleSub.Items.Add($bmi) | Out-Null
-                    }
-                }
-                $newBundleMi = New-Object System.Windows.Controls.MenuItem
-                $newBundleMi.Header = "+ New bundle..."
-                $newBundleMi.Tag    = @{ AppName = $qi.Name; AppId = $qi.Id }
-                $newBundleMi.Add_Click({
-                    param($s, $e)
-                    Ensure-VisualBasic
-                    $bn = [Microsoft.VisualBasic.Interaction]::InputBox("Bundle name:", "New Bundle", "")
-                    if (-not [string]::IsNullOrWhiteSpace($bn)) {
-                        $bn = $bn.Trim()
-                        $exists = $false
-                        foreach ($eb in $script:quickBundles) { if ($eb.Name -eq $bn) { $exists = $true; break } }
-                        if (-not $exists) {
-                            $apps = [System.Collections.Generic.List[hashtable]]::new()
-                            $apps.Add(@{ Name = $s.Tag.AppName; Id = $s.Tag.AppId })
-                            $script:quickBundles.Add(@{ Name = $bn; Description = ""; Apps = $apps })
-                            Save-Settings
-                            Update-QuickInstalls
-                        }
-                    }
-                })
-                $bundleSub.Items.Add($newBundleMi) | Out-Null
-                $ctxMenu.Items.Add($bundleSub) | Out-Null
-
-                $btn.ContextMenu = $ctxMenu
-
-                $itemsPanel.Children.Add($btn) | Out-Null
             }
         }
-
-        # ── Bundles card ──────────────────────────────────────────
-        if ($script:quickBundles.Count -gt 0) {
-            $bBorder              = New-Object System.Windows.Controls.Border
-            $bBorder.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
-            $bBorder.CornerRadius = [System.Windows.CornerRadius]::new(6)
-            $bBorder.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-            $bBorder.BorderThickness = [System.Windows.Thickness]::new(1)
-            $bBorder.Padding      = [System.Windows.Thickness]::new(14, 12, 14, 12)
-            $bBorder.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 8)
-
-            $bCardStack = New-Object System.Windows.Controls.StackPanel
-            $bHeader = New-Object System.Windows.Controls.TextBlock
-            $bHeader.Text = "Bundles"
-            $bHeader.FontSize = 11
-            $bHeader.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-            $bHeader.Margin = [System.Windows.Thickness]::new(0, 0, 0, 8)
-            $bCardStack.Children.Add($bHeader) | Out-Null
-
-            $bItemsPanel = New-Object System.Windows.Controls.StackPanel
-            $bCardStack.Children.Add($bItemsPanel) | Out-Null
-            $bBorder.Child = $bCardStack
-
-            if ($colIdx % 2 -eq 0) { $leftCol.Children.Add($bBorder)  | Out-Null }
-            else                   { $rightCol.Children.Add($bBorder) | Out-Null }
-
-            $isFirstBundle = $true
-            foreach ($bndl in $script:quickBundles) {
-                $qBundle = $bndl
-
-                if (-not $isFirstBundle) {
-                    $bSep = New-Object System.Windows.Shapes.Rectangle
-                    $bSep.Height = 1
-                    $bSep.SetResourceReference([System.Windows.Shapes.Rectangle]::FillProperty, "BorderBrush")
-                    $bItemsPanel.Children.Add($bSep) | Out-Null
-                }
-                $isFirstBundle = $false
-
-                $bBtn = New-Object System.Windows.Controls.Button
-                $bBtn.Style = $window.FindResource("ShortcutRowButton")
-
-                $bRowGrid = New-Object System.Windows.Controls.Grid
-                $bStarCol = New-Object System.Windows.Controls.ColumnDefinition; $bStarCol.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-                $bAutoCol = New-Object System.Windows.Controls.ColumnDefinition; $bAutoCol.Width = [System.Windows.GridLength]::Auto
-                $bRowGrid.ColumnDefinitions.Add($bStarCol)
-                $bRowGrid.ColumnDefinitions.Add($bAutoCol)
-
-                $bNameBlock = New-Object System.Windows.Controls.TextBlock
-                $bNameBlock.Text = $bndl.Name
-                $bNameBlock.FontSize = 12
-                $bNameBlock.VerticalAlignment = "Center"
-                [System.Windows.Controls.Grid]::SetColumn($bNameBlock, 0)
-
-                $bDescBlock = New-Object System.Windows.Controls.TextBlock
-                $bDescBlock.Text = if ($bndl.Description) { $bndl.Description } else { "$($bndl.Apps.Count) apps" }
-                $bDescBlock.FontSize = 11
-                $bDescBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-                $bDescBlock.VerticalAlignment = "Center"
-                [System.Windows.Controls.Grid]::SetColumn($bDescBlock, 1)
-
-                $bRowGrid.Children.Add($bNameBlock) | Out-Null
-                $bRowGrid.Children.Add($bDescBlock) | Out-Null
-                $bBtn.Content = $bRowGrid
-
-                $capturedBNameBlock = $bNameBlock
-                if ($null -ne ($selItems | Where-Object { $_.Key -eq $qBundle.Name } | Select-Object -First 1)) {
-                    $bNameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
-                } else {
-                    $bNameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-                }
-
-                $bBtn.Add_Click(({
-                    $existingIdx = -1
-                    for ($i = 0; $i -lt $selItems.Count; $i++) {
-                        if ($selItems[$i].Key -eq $qBundle.Name) { $existingIdx = $i; break }
-                    }
-                    if ($existingIdx -ge 0) {
-                        $selItems.RemoveAt($existingIdx)
-                        $capturedBNameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-                    } else {
-                        $selItems.Add(@{Key=$qBundle.Name; Type="Bundle"; Name=$qBundle.Name; Bundle=$qBundle})
-                        $capturedBNameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
-                    }
-                    Update-QuickInstallSelectedState
-                }.GetNewClosure()))
-
-                $bItemsPanel.Children.Add($bBtn) | Out-Null
-            }
-        }
+        $curatedPanel.Children.Add($row) | Out-Null
     }
 
-    # Keep the Store landing in sync with QuickInstalls changes (edits, adds, removes)
+    foreach ($app in $hidden) {
+        $row = New-QuickInstallsRow -Name $app.Name -Id $app.Id -Action "Unhide" -OnAction {
+            param($id)
+            if ($script:hiddenCuratedApps -contains $id) {
+                $script:hiddenCuratedApps.Remove($id) | Out-Null
+                Save-Settings
+                Update-QuickInstalls
+            }
+        }
+        $hiddenPanel.Children.Add($row) | Out-Null
+    }
+
+    foreach ($app in $custom) {
+        $row = New-CustomAppRow -Entry $app
+        $customPanel.Children.Add($row) | Out-Null
+    }
+
+    # Header count badges
+    $curatedCountLabel = Find "CuratedAppsCount"
+    $hiddenCountLabel  = Find "HiddenAppsCount"
+    $customCountLabel  = Find "CustomAppsCount"
+    if ($curatedCountLabel) { $curatedCountLabel.Text = if ($curated.Count -eq 1) { "1 app" } else { [string]$curated.Count + " apps" } }
+    if ($hiddenCountLabel)  { $hiddenCountLabel.Text  = if ($hidden.Count -eq 1)  { "1 app" } else { [string]$hidden.Count  + " apps" } }
+    if ($customCountLabel)  { $customCountLabel.Text  = if ($custom.Count -eq 1)  { "1 app" } else { [string]$custom.Count  + " apps" } }
+
+    # Keep the Store landing in sync with QuickInstalls changes
     if (Get-Command Show-StoreLanding -ErrorAction SilentlyContinue) {
-        if ($storeCategoryArea.Visibility -ne "Visible") { Show-StoreLanding }
+        if ($storeCategoryArea.Visibility -ne "Visible" -and $storeSearchArea.Visibility -ne "Visible") {
+            Show-StoreLanding
+        }
     }
 }
 
-# -- Edit Quick Installs toggle -----------------------------------------------
-(Find "BtnEditQuickInstalls").Add_Click({
-    if ($script:quickInstallEditMode) { Save-Settings }
-    $script:quickInstallEditMode = -not $script:quickInstallEditMode
-    $script:selectedQuickItems.Clear()
-    Update-QuickInstalls
-    Update-QuickInstallSelectedState
-})
+function New-QuickInstallsRow {
+    param([string]$Name, [string]$Id, [string]$Action, [scriptblock]$OnAction)
 
-# -- Quick Install: confirm and install selected ------------------------------
-(Find "BtnQuickInstallSelected").Add_Click({
-    if ($script:selectedQuickItems.Count -eq 0) { return }
-    Show-QuickInstallConfirmDialog
-})
+    $border  = New-Object System.Windows.Controls.Border
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+    $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $border.BorderThickness = [System.Windows.Thickness]::new(1)
+    $border.CornerRadius    = [System.Windows.CornerRadius]::new(4)
+    $border.Padding         = [System.Windows.Thickness]::new(10, 6, 10, 6)
+    $border.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 4)
 
+    $grid = New-Object System.Windows.Controls.Grid
+    $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
+    $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = [System.Windows.GridLength]::Auto
+    $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1)
+
+    $stack = New-Object System.Windows.Controls.StackPanel
+    $stack.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($stack, 0)
+
+    $nameBlock = New-Object System.Windows.Controls.TextBlock
+    $nameBlock.Text       = $Name
+    $nameBlock.FontSize   = 12
+    $nameBlock.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+    $nameBlock.TextTrimming = "CharacterEllipsis"
+
+    $idBlock = New-Object System.Windows.Controls.TextBlock
+    $idBlock.Text       = $Id
+    $idBlock.FontSize   = 11
+    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+    $idBlock.TextTrimming = "CharacterEllipsis"
+    $idBlock.Margin     = [System.Windows.Thickness]::new(0, 2, 0, 0)
+
+    $stack.Children.Add($nameBlock) | Out-Null
+    $stack.Children.Add($idBlock)   | Out-Null
+
+    $btn = New-Object System.Windows.Controls.Button
+    $btn.Content = $Action
+    $btn.Style   = $window.Resources["SecondaryButton"]
+    $btn.Tag     = @{ Id = $Id; OnAction = $OnAction }
+    $btn.Margin  = [System.Windows.Thickness]::new(8, 0, 0, 0)
+    [System.Windows.Controls.Grid]::SetColumn($btn, 1)
+    $btn.Add_Click({
+        param($s, $e)
+        $info = $s.Tag
+        & $info.OnAction $info.Id
+    })
+
+    $grid.Children.Add($stack) | Out-Null
+    $grid.Children.Add($btn)   | Out-Null
+    $border.Child = $grid
+    return $border
+}
+
+function New-CustomAppRow {
+    param([hashtable]$Entry)
+
+    $border  = New-Object System.Windows.Controls.Border
+    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+    $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $border.BorderThickness = [System.Windows.Thickness]::new(1)
+    $border.CornerRadius    = [System.Windows.CornerRadius]::new(4)
+    $border.Padding         = [System.Windows.Thickness]::new(10, 6, 10, 6)
+    $border.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 4)
+
+    $grid = New-Object System.Windows.Controls.Grid
+    $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
+    $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = New-Object System.Windows.GridLength(140)
+    $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = [System.Windows.GridLength]::Auto
+    $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1); $grid.ColumnDefinitions.Add($c2)
+
+    $stack = New-Object System.Windows.Controls.StackPanel
+    $stack.VerticalAlignment = "Center"
+    [System.Windows.Controls.Grid]::SetColumn($stack, 0)
+
+    $nameBlock = New-Object System.Windows.Controls.TextBlock
+    $nameBlock.Text       = $Entry.Name
+    $nameBlock.FontSize   = 12
+    $nameBlock.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+    $nameBlock.TextTrimming = "CharacterEllipsis"
+
+    $idBlock = New-Object System.Windows.Controls.TextBlock
+    $idBlock.Text       = $Entry.Id
+    $idBlock.FontSize   = 11
+    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+    $idBlock.TextTrimming = "CharacterEllipsis"
+    $idBlock.Margin     = [System.Windows.Thickness]::new(0, 2, 0, 0)
+
+    $stack.Children.Add($nameBlock) | Out-Null
+    $stack.Children.Add($idBlock)   | Out-Null
+
+    $catBox = New-Object System.Windows.Controls.ComboBox
+    $catBox.IsEditable        = $true
+    $catBox.FontSize          = 11
+    $catBox.VerticalAlignment = "Center"
+    $catBox.Margin            = [System.Windows.Thickness]::new(8, 0, 8, 0)
+    foreach ($c in (Get-AllQuickCategories)) { $catBox.Items.Add($c) | Out-Null }
+    $catBox.Text = if ($Entry.Category) { [string]$Entry.Category } else { "" }
+    $catBox.Tag  = $Entry
+    $catBox.Add_LostFocus({
+        param($s, $e)
+        $live = $s.Tag
+        $newCat = [string]$s.Text
+        if ([string]$live.Category -ne $newCat) {
+            $live.Category = $newCat
+            Save-Settings
+            if (Get-Command Show-StoreLanding -ErrorAction SilentlyContinue) { Show-StoreLanding }
+        }
+    })
+    [System.Windows.Controls.Grid]::SetColumn($catBox, 1)
+
+    $btn = New-Object System.Windows.Controls.Button
+    $btn.Content = "Remove"
+    $btn.Style   = $window.Resources["SecondaryButton"]
+    $btn.Tag     = $Entry
+    [System.Windows.Controls.Grid]::SetColumn($btn, 2)
+    $btn.Add_Click({
+        param($s, $e)
+        $entry = $s.Tag
+        $script:quickInstalls.Remove($entry) | Out-Null
+        Save-Settings
+        Update-QuickInstalls
+    })
+
+    $grid.Children.Add($stack)  | Out-Null
+    $grid.Children.Add($catBox) | Out-Null
+    $grid.Children.Add($btn)    | Out-Null
+    $border.Child = $grid
+    return $border
+}
+
+# ── Settings > Groups > Quick installs disclosure headers (collapsed by default) ──
+$curatedAppsHeader   = Find "CuratedAppsHeader"
+$curatedAppsContent  = Find "CuratedAppsContent"
+$curatedAppsChevron  = Find "CuratedAppsChevron"
+$hiddenAppsHeader    = Find "HiddenAppsHeader"
+$hiddenAppsContent   = Find "HiddenAppsContent"
+$hiddenAppsChevron   = Find "HiddenAppsChevron"
+$customAppsHeader    = Find "CustomAppsHeader"
+$customAppsContent   = Find "CustomAppsContent"
+$customAppsChevron   = Find "CustomAppsChevron"
+
+function Toggle-QuickInstallsDisclosure {
+    param($Content, $Chevron)
+    if ($Content.Visibility -eq "Visible") {
+        $Content.Visibility = "Collapsed"
+        $Chevron.Text       = [string][char]0x25B8
+    } else {
+        $Content.Visibility = "Visible"
+        $Chevron.Text       = [string][char]0x25BE
+    }
+}
+
+$curatedAppsHeader.Add_MouseLeftButtonUp({ Toggle-QuickInstallsDisclosure -Content $curatedAppsContent -Chevron $curatedAppsChevron })
+$hiddenAppsHeader.Add_MouseLeftButtonUp({  Toggle-QuickInstallsDisclosure -Content $hiddenAppsContent  -Chevron $hiddenAppsChevron  })
+$customAppsHeader.Add_MouseLeftButtonUp({  Toggle-QuickInstallsDisclosure -Content $customAppsContent  -Chevron $customAppsChevron  })
 # (Removed: $btnAddToQuickInstalls and $btnAddToBundle handlers - they
 # operated on the deleted checkbox-row search UI. The new Store search uses
 # cards with single-app install via the detail panel.)
