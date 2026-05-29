@@ -173,6 +173,7 @@ $script:curatedApps = @(
     @{ Name = "NanaZip";                  Id = "M2Team.NanaZip";                    Category = "Utilities";                                              Description = "Modern 7-Zip fork with extra format support." }
     @{ Name = "Files";                    Id = "Files-Community.Files";             Category = "Utilities";      Homepage = "files.community";          Description = "Tabbed modern file explorer for Windows." }
     @{ Name = "Rufus";                    Id = "Rufus.Rufus";                       Category = "Utilities";      Homepage = "rufus.ie";                 Description = "Creates bootable USB drives from ISO files." }
+    @{ Name = "balenaEtcher";             Id = "Balena.Etcher";                     Category = "Utilities";      Homepage = "etcher.balena.io";         Description = "Flash OS images to SD cards and USB drives." }
 
     # Development
     @{ Name = "Visual Studio Code";       Id = "Microsoft.VisualStudioCode";        Category = "Development";    Homepage = "code.visualstudio.com";    Description = "Cross-platform code editor from Microsoft." }
@@ -688,10 +689,10 @@ function Toggle-QuickInstallsDisclosure {
     param($Content, $Chevron)
     if ($Content.Visibility -eq "Visible") {
         $Content.Visibility = "Collapsed"
-        $Chevron.Text       = [string][char]0x25B8
+        $Chevron.Text       = [string][char]0x25B6
     } else {
         $Content.Visibility = "Visible"
-        $Chevron.Text       = [string][char]0x25BE
+        $Chevron.Text       = [string][char]0x25BC
     }
 }
 
@@ -1914,7 +1915,64 @@ $storeCategoryBack.Add_Click({ Hide-AppDetailPanel; Show-StoreLanding })
 # Refresh landing on startup, after the legacy Update-QuickInstalls has run.
 $window.Dispatcher.BeginInvoke([action]{
     Show-StoreLanding
+    # Apply user's preferred default sub-tab once at startup (Settings > Apps & groups > App behavior)
+    if ($script:defaultAppsSubTab) {
+        $idx = switch ($script:defaultAppsSubTab) {
+            "Installed" { 1 }
+            "Updates"   { 2 }
+            default     { 0 }
+        }
+        Set-PkgSubNav $idx
+    }
 }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
+
+
+# ── In-app toast helper (Settings > General > Notify on long operations) ──
+# Uses a WPF Border overlay in the main window. The click handler and the
+# auto-hide timer are wired ONCE at script load, so neither relies on a
+# nested closure SessionState (which silently dropped function-scope lookups).
+$global:scyToast       = $window.FindName("ScyToast")
+$global:scyToastTitle  = $window.FindName("ScyToastTitle")
+$global:scyToastBody   = $window.FindName("ScyToastBody")
+$global:scyToastTimer  = New-Object System.Windows.Threading.DispatcherTimer
+$global:scyToastTimer.Interval = [TimeSpan]::FromSeconds(5)
+$global:scyToastTimer.Add_Tick({
+    try { $global:scyToastTimer.Stop() } catch {}
+    try { $global:scyToast.Visibility = "Collapsed" } catch {}
+})
+if ($global:scyToast) {
+    $global:scyToast.Add_PreviewMouseLeftButtonDown({
+        try { $global:scyToastTimer.Stop() } catch {}
+        try { $global:scyToast.Visibility = "Collapsed" } catch {}
+    })
+}
+
+function Show-ScyToast {
+    param([string]$Title, [string]$Body)
+    if (-not $script:enableNotifications) { return }
+    if (-not $global:scyToast) { return }
+
+    $titleText = [string]$Title
+    $bodyText  = [string]$Body
+
+    $render = {
+        try {
+            $global:scyToastTitle.Text = $titleText
+            $global:scyToastBody.Text  = $bodyText
+            $global:scyToast.Visibility = "Visible"
+            try { $global:scyToastTimer.Stop() } catch {}
+            $global:scyToastTimer.Start()
+        } catch {
+            Write-Host "Show-ScyToast render error: $_"
+        }
+    }.GetNewClosure()
+
+    if ($window.Dispatcher.CheckAccess()) {
+        & $render
+    } else {
+        $window.Dispatcher.BeginInvoke([action]$render, [System.Windows.Threading.DispatcherPriority]::Normal) | Out-Null
+    }
+}
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -2048,6 +2106,7 @@ $btnFetchAllIcons.Add_Click({
                 return
             }
             $label.Text = "Done. " + [string]$ctx.Total + " icon(s) processed."
+            Show-ScyToast -Title "Scy" -Body ("Icon fetch complete: " + [string]$ctx.Total + " icon(s) processed.")
             if (Get-Command Show-StoreLanding -ErrorAction SilentlyContinue) {
                 if ($catArea.Visibility -eq "Visible") {
                     Show-StoreCategory -Category $catName.Text
@@ -2276,9 +2335,13 @@ $script:pkgSearchClear.Add_Click({
         return
     }
 
-    $list    = ($selected | ForEach-Object { "  - " + $_.Id }) -join "`n"
-    $confirm = Show-ThemedDialog ("Uninstall " + [string]$selected.Count + " app(s)?`n`n" + $list) "Confirm Uninstall" "YesNo" "Warning"
-    if ($confirm -ne "Yes") { return }
+    # Settings > Apps & groups > App behavior > "Skip confirmation for single-app uninstalls"
+    $needsConfirm = -not ($selected.Count -eq 1 -and $script:skipSingleUninstallConfirm)
+    if ($needsConfirm) {
+        $list    = ($selected | ForEach-Object { "  - " + $_.Id }) -join "`n"
+        $confirm = Show-ThemedDialog ("Uninstall " + [string]$selected.Count + " app(s)?`n`n" + $list) "Confirm Uninstall" "YesNo" "Warning"
+        if ($confirm -ne "Yes") { return }
+    }
 
     $statusIndicator.Text       = "● Uninstalling..."
     $statusIndicator.Foreground = $window.Resources["WarningBrush"]
@@ -2317,4 +2380,7 @@ $script:pkgSearchClear.Add_Click({
 
     $statusIndicator.Text       = "● Ready"
     $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
+    if ($selected.Count -gt 1) {
+        Show-ScyToast -Title "Scy" -Body ("Uninstall complete: " + [string]$succeeded + " removed, " + [string]$failed + " failed.")
+    }
 })

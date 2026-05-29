@@ -38,7 +38,7 @@ $settingsNavGroups.Add_Click({     Set-SettingsSubNav 2 })
 $settingsNavBackup.Add_Click({     Set-SettingsSubNav 3 })
 
 # ── Collapsible settings cards ──────────────────────────────────
-foreach ($section in @("Updates", "General", "VisibleTabs", "LocalInstallers", "Credits")) {
+foreach ($section in @("Appearance", "Updates", "General", "VisibleTabs", "Credits", "Catalog", "Groups", "LocalInstallers", "AppUpdates", "AppBehavior", "IconCache", "Backup")) {
     $header  = Find "SettingsHeader_$section"
     $header.Tag = $section
     $header.Add_MouseLeftButtonUp({
@@ -220,6 +220,11 @@ function Save-Settings {
             RememberWindowPosition = $script:rememberWindowPosition
             ExperimentalSidebarTabs = $script:experimentalSidebarTabs
             DisableAutoIconFetch    = $script:disableAutoIconFetch
+            SkipSplash                  = $script:skipSplash
+            EnableNotifications         = $script:enableNotifications
+            SkipSingleUninstallConfirm  = $script:skipSingleUninstallConfirm
+            DefaultAppsSubTab           = $script:defaultAppsSubTab
+            DefaultTab                  = $script:defaultTab
             SpeedTestServer    = $script:speedTestServer
             WindowGeometry     = $script:windowGeometry
             QuickInstalls      = @($script:quickInstalls | ForEach-Object { @{Name=$_.Name; Id=$_.Id; Category=$_.Category} })
@@ -260,6 +265,11 @@ $script:autoCheckSelfUpdate = $false
 $script:rememberWindowPosition = $false
 $script:experimentalSidebarTabs = $false
 $script:disableAutoIconFetch    = $true   # default ON - user opts in via Settings > Groups > Icon cache
+$script:skipSplash                  = $false
+$script:enableNotifications         = $true
+$script:skipSingleUninstallConfirm  = $false
+$script:defaultAppsSubTab           = "Store"
+$script:defaultTab                  = "Apps"
 $script:rememberCleanTargets   = $false
 $script:autoScanLocalInstallers    = $false
 $script:rememberLocalInstallers    = $false
@@ -282,6 +292,11 @@ if (Test-Path $script:settingsFile) {
         if ($null -ne $saved.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$saved.RememberWindowPosition }
         if ($null -ne $saved.ExperimentalSidebarTabs) { $script:experimentalSidebarTabs = [bool]$saved.ExperimentalSidebarTabs }
         if ($null -ne $saved.DisableAutoIconFetch)    { $script:disableAutoIconFetch    = [bool]$saved.DisableAutoIconFetch }
+        if ($null -ne $saved.SkipSplash)                  { $script:skipSplash                  = [bool]$saved.SkipSplash }
+        if ($null -ne $saved.EnableNotifications)         { $script:enableNotifications         = [bool]$saved.EnableNotifications }
+        if ($null -ne $saved.SkipSingleUninstallConfirm)  { $script:skipSingleUninstallConfirm  = [bool]$saved.SkipSingleUninstallConfirm }
+        if ($saved.DefaultAppsSubTab)                     { $script:defaultAppsSubTab           = [string]$saved.DefaultAppsSubTab }
+        if ($saved.DefaultTab)                            { $script:defaultTab                  = [string]$saved.DefaultTab }
         if ($saved.SpeedTestServer)              { $script:speedTestServer    = [string]$saved.SpeedTestServer }
         if ($saved.WindowGeometry) {
             $wg = $saved.WindowGeometry
@@ -482,61 +497,67 @@ function Apply-TabContextMenus {
     }
 }
 
+function Style-TabChip {
+    param([System.Windows.Controls.Border]$Chip, [bool]$IsVisible)
+    $label = $Chip.Child
+    if ($IsVisible) {
+        $Chip.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
+        $Chip.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "AccentBrush")
+        $label.Foreground = [System.Windows.Media.Brushes]::White
+    } else {
+        $Chip.ClearValue([System.Windows.Controls.Border]::BackgroundProperty)
+        $Chip.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+        $label.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+    }
+}
+
 function Build-TabVisibilityList {
     $list = Find "TabVisibilityList"
     $tc   = Find "MainTabControl"
     if (-not $list -or -not $tc) { return }
     $list.Children.Clear()
 
+    $wrap = New-Object System.Windows.Controls.WrapPanel
+    $wrap.Margin = [System.Windows.Thickness]::new(0, 6, 0, 0)
+
     foreach ($item in $tc.Items) {
         $header = [string]$item.Header
         if ($header -eq "Settings") { continue }
 
-        $row = New-Object System.Windows.Controls.Grid
-        $row.Margin = [System.Windows.Thickness]::new(0, 10, 0, 0)
-        $c1 = New-Object System.Windows.Controls.ColumnDefinition
-        $c1.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-        $c2 = New-Object System.Windows.Controls.ColumnDefinition
-        $c2.Width = [System.Windows.GridLength]::Auto
-        $row.ColumnDefinitions.Add($c1) | Out-Null
-        $row.ColumnDefinitions.Add($c2) | Out-Null
+        $chip                    = New-Object System.Windows.Controls.Border
+        $chip.CornerRadius       = [System.Windows.CornerRadius]::new(4)
+        $chip.BorderThickness    = [System.Windows.Thickness]::new(1)
+        $chip.Padding            = [System.Windows.Thickness]::new(10, 5, 10, 5)
+        $chip.Margin             = [System.Windows.Thickness]::new(0, 0, 6, 6)
+        $chip.Cursor             = [System.Windows.Input.Cursors]::Hand
+        $chip.Tag                = $header
 
-        $label = New-Object System.Windows.Controls.TextBlock
-        $label.Text = $header
-        $label.FontSize = 12
-        $label.FontWeight = "SemiBold"
-        $label.VerticalAlignment = "Center"
-        $label.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-        [System.Windows.Controls.Grid]::SetColumn($label, 0)
+        $label             = New-Object System.Windows.Controls.TextBlock
+        $label.Text        = $header
+        $label.FontSize    = 12
+        $label.FontWeight  = "SemiBold"
+        $chip.Child        = $label
 
-        $toggle = New-Object System.Windows.Controls.CheckBox
-        $toggle.Style = $window.FindResource("TweakToggle")
-        $toggle.VerticalAlignment = "Center"
-        $toggle.IsChecked = (-not ($script:hiddenTabs -contains $header))
-        $toggle.Tag = $header
-        [System.Windows.Controls.Grid]::SetColumn($toggle, 1)
+        Style-TabChip -Chip $chip -IsVisible (-not ($script:hiddenTabs -contains $header))
 
-        $toggle.Add_Checked({
+        $chip.Add_MouseLeftButtonUp({
             param($s, $e)
             $h = [string]$s.Tag
-            if ($script:hiddenTabs -contains $h) { $script:hiddenTabs.Remove($h) | Out-Null }
+            if ($script:hiddenTabs -contains $h) {
+                $script:hiddenTabs.Remove($h) | Out-Null
+            } else {
+                $script:hiddenTabs.Add($h) | Out-Null
+            }
             Save-Settings
             Apply-TabVisibility
             if (Get-Command Update-GlobalSearchIndex -ErrorAction SilentlyContinue) { Update-GlobalSearchIndex }
-        })
-        $toggle.Add_Unchecked({
-            param($s, $e)
-            $h = [string]$s.Tag
-            if (-not ($script:hiddenTabs -contains $h)) { $script:hiddenTabs.Add($h) | Out-Null }
-            Save-Settings
-            Apply-TabVisibility
-            if (Get-Command Update-GlobalSearchIndex -ErrorAction SilentlyContinue) { Update-GlobalSearchIndex }
+            Style-TabChip -Chip $s -IsVisible (-not ($script:hiddenTabs -contains $h))
         })
 
-        $row.Children.Add($label)  | Out-Null
-        $row.Children.Add($toggle) | Out-Null
-        $list.Children.Add($row)   | Out-Null
+        $wrap.Children.Add($chip) | Out-Null
     }
+
+    $list.Children.Add($wrap) | Out-Null
 }
 
 (Find "SettingsLocalFolder").Text = $script:localInstallFolder
@@ -678,6 +699,48 @@ foreach ($colorKey in $script:customColorKeys) {
 (Find "ToggleDisableAutoIconFetch").IsChecked = $script:disableAutoIconFetch
 (Find "ToggleDisableAutoIconFetch").Add_Checked({   $script:disableAutoIconFetch = $true;  Save-Settings })
 (Find "ToggleDisableAutoIconFetch").Add_Unchecked({ $script:disableAutoIconFetch = $false; Save-Settings })
+
+# ── Skip splash toggle ───────────────────────────────────────────
+(Find "ToggleSkipSplash").IsChecked = $script:skipSplash
+(Find "ToggleSkipSplash").Add_Checked({   $script:skipSplash = $true;  Save-Settings })
+(Find "ToggleSkipSplash").Add_Unchecked({ $script:skipSplash = $false; Save-Settings })
+
+# ── Enable notifications toggle ──────────────────────────────────
+(Find "ToggleEnableNotifications").IsChecked = $script:enableNotifications
+(Find "ToggleEnableNotifications").Add_Checked({   $script:enableNotifications = $true;  Save-Settings })
+(Find "ToggleEnableNotifications").Add_Unchecked({ $script:enableNotifications = $false; Save-Settings })
+
+# ── Skip single-uninstall confirm toggle ─────────────────────────
+(Find "ToggleSkipSingleUninstallConfirm").IsChecked = $script:skipSingleUninstallConfirm
+(Find "ToggleSkipSingleUninstallConfirm").Add_Checked({   $script:skipSingleUninstallConfirm = $true;  Save-Settings })
+(Find "ToggleSkipSingleUninstallConfirm").Add_Unchecked({ $script:skipSingleUninstallConfirm = $false; Save-Settings })
+
+# ── Default Apps sub-tab ─────────────────────────────────────────
+$defaultAppsSubTabBox = Find "DefaultAppsSubTabBox"
+switch ($script:defaultAppsSubTab) {
+    "Installed" { $defaultAppsSubTabBox.SelectedIndex = 1 }
+    "Updates"   { $defaultAppsSubTabBox.SelectedIndex = 2 }
+    default     { $defaultAppsSubTabBox.SelectedIndex = 0 }
+}
+$defaultAppsSubTabBox.Add_SelectionChanged({
+    param($s, $e)
+    $sel = if ($s.SelectedItem) { [string]$s.SelectedItem.Content } else { "Store" }
+    $script:defaultAppsSubTab = $sel
+    Save-Settings
+})
+
+# ── Default top-level tab on launch ──────────────────────────────
+$defaultTabBox = Find "DefaultTabBox"
+$tabOrder = @("Apps", "Tweaks", "System", "Bookmarks", "Network", "Active Directory", "Tools", "Settings")
+$idx = $tabOrder.IndexOf($script:defaultTab)
+if ($idx -lt 0) { $idx = 0 }
+$defaultTabBox.SelectedIndex = $idx
+$defaultTabBox.Add_SelectionChanged({
+    param($s, $e)
+    $sel = if ($s.SelectedItem) { [string]$s.SelectedItem.Content } else { "Apps" }
+    $script:defaultTab = $sel
+    Save-Settings
+})
 
 (Find "ToggleRememberCleanTargets").Add_Checked({   $script:rememberCleanTargets = $true;  Save-Settings })
 (Find "ToggleRememberCleanTargets").Add_Unchecked({ $script:rememberCleanTargets = $false; Save-Settings })

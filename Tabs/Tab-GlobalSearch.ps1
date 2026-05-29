@@ -76,7 +76,7 @@ function Build-GlobalSearchIndex {
     $items.Add(@{ Name = "Settings";  Description = "App settings, themes & backup";                  Category = "Tabs"; TabIndex = 7; SubNavIndex = $null })
     $items.Add(@{ Name = "General Settings";    Description = "General app preferences";              Category = "Settings"; TabIndex = 7; SubNavIndex = 0 })
     $items.Add(@{ Name = "Appearance";          Description = "Theme and color settings";             Category = "Settings"; TabIndex = 7; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Groups";              Description = "Manage quick install groups";          Category = "Settings"; TabIndex = 7; SubNavIndex = 2 })
+    $items.Add(@{ Name = "Apps & groups";       Description = "Groups, app catalog, and icon cache";   Category = "Settings"; TabIndex = 7; SubNavIndex = 2 })
     $items.Add(@{ Name = "Backup & Restore";    Description = "Backup and restore settings";         Category = "Settings"; TabIndex = 7; SubNavIndex = 3 })
     $items.Add(@{ Name = "Sidebar Tabs";        Description = "Show tabs as a vertical left rail"; Category = "Settings"; TabIndex = 7; SubNavIndex = 0 })
 

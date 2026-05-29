@@ -29,10 +29,12 @@ if (Test-Path $splashVersionPath) {
 # Read theme from settings early so the splash matches the user's theme
 $aether = $script:BuiltinThemes["Aether"]
 $script:splashColors = @{ AppBg = $aether.AppBg; Border = $aether.Border; Fg = $aether.FgBrush; Muted = $aether.MutedText }
+$script:skipSplash = $false
 $settingsPath = Join-Path $PSScriptRoot "settings.json"
 if (Test-Path $settingsPath) {
     try {
         $earlySettings = Get-Content $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($null -ne $earlySettings.SkipSplash) { $script:skipSplash = [bool]$earlySettings.SkipSplash }
         if ($earlySettings.Theme -eq "Custom" -and $earlySettings.CustomTheme) {
             $ct = $earlySettings.CustomTheme
             if ($ct.AppBg -and $ct.Border -and $ct.FgBrush -and $ct.MutedText) {
@@ -44,6 +46,9 @@ if (Test-Path $settingsPath) {
         }
     } catch {}
 }
+
+$splash = $null
+if (-not $script:skipSplash) {
 
 $splash = New-Object System.Windows.Window
 $splash.WindowStyle         = "None"
@@ -114,6 +119,7 @@ $splashTimer.Add_Tick({
 $splashTimer.Start()
 
 $splash.Show()
+} # end if (-not $script:skipSplash)
 
 function Pump-Splash {
     if ($splash -and $splash.IsVisible) {
@@ -584,6 +590,15 @@ if ($script:isAdmin) {
     # ── Close splash and show the window ──────────────────────────────
     if ($splashTimer) { $splashTimer.Stop() }
     if ($splash) { $splash.Close(); $splash = $null }
+}
+
+# ── Apply default top-level tab on launch ────────────────────────────
+if ($script:defaultTab) {
+    $tabOrder = @("Apps", "Tweaks", "System", "Bookmarks", "Network", "Active Directory", "Tools", "Settings")
+    $idx = $tabOrder.IndexOf($script:defaultTab)
+    if ($idx -ge 0) {
+        try { (Find "MainTabControl").SelectedIndex = $idx } catch {}
+    }
 }
 
 $window.ShowDialog() | Out-Null

@@ -4052,7 +4052,7 @@
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="SettingsNav_Appearance" Content="Appearance"
                                     Style="{StaticResource SubNavButton}"/>
-                            <Button x:Name="SettingsNav_Groups"     Content="Groups"
+                            <Button x:Name="SettingsNav_Groups"     Content="Apps &amp; groups"
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="SettingsNav_Backup"     Content="Backup"
                                     Style="{StaticResource SubNavButton}"/>
@@ -4069,14 +4069,18 @@
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                     Padding="16,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel Margin="0,0,0,10">
+                                    <DockPanel x:Name="SettingsHeader_Appearance" Cursor="Hand">
                                         <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                 Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock x:Name="SettingsChevron_Appearance" Text="&#x25BC;" FontSize="10"
+                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"/>
                                         <TextBlock Text="Appearance" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
+                                    <StackPanel x:Name="SettingsBody_Appearance">
                                     <TextBlock Text="Theme" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource FgBrush}" Margin="0,0,0,8"/>
+                                               Foreground="{DynamicResource FgBrush}" Margin="0,10,0,8"/>
                                     <WrapPanel>
                                         <Button x:Name="ThemeAether"   Content="Aether"
                                                 Style="{StaticResource SecondaryButton}" Margin="0,0,6,6"/>
@@ -4106,13 +4110,29 @@
                                                   Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
                                     </Grid>
 
+                                    <!-- Sidebar tabs (moved from Visible tabs) -->
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Sidebar tabs" FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}"/>
+                                            <TextBlock Text="Show navigation as a vertical rail on the left instead of the top."
+                                                       FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <CheckBox x:Name="ToggleSidebarTabs" Grid.Column="1"
+                                                  Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                    </Grid>
+
                                     <!-- Custom theme color editor -->
                                     <Border x:Name="CustomThemeEditor" Visibility="Collapsed"
                                             Background="{DynamicResource SurfaceBrush}" CornerRadius="4"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="10" Margin="0,8,0,0">
                                         <StackPanel>
-                                            <TextBlock Text="Custom Colors" FontSize="11" FontWeight="SemiBold"
+                                            <TextBlock Text="Custom colors" FontSize="11" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource FgBrush}" Margin="0,0,0,8"/>
                                             <WrapPanel Orientation="Horizontal">
 
@@ -4121,7 +4141,7 @@
                                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                         Width="128" Padding="8" Margin="0,0,6,6">
                                                     <StackPanel>
-                                                        <TextBlock Text="Window Bg" FontSize="10"
+                                                        <TextBlock Text="Window background" FontSize="10"
                                                                    Foreground="{DynamicResource MutedText}" Margin="0,0,0,4"/>
                                                         <Border x:Name="CustomSwatch_WindowBg" Height="18" CornerRadius="3" Margin="0,0,0,4"/>
                                                         <StackPanel Orientation="Horizontal">
@@ -4138,7 +4158,7 @@
                                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                         Width="128" Padding="8" Margin="0,0,6,6">
                                                     <StackPanel>
-                                                        <TextBlock Text="App Bg" FontSize="10"
+                                                        <TextBlock Text="App background" FontSize="10"
                                                                    Foreground="{DynamicResource MutedText}" Margin="0,0,0,4"/>
                                                         <Border x:Name="CustomSwatch_AppBg" Height="18" CornerRadius="3" Margin="0,0,0,4"/>
                                                         <StackPanel Orientation="Horizontal">
@@ -4316,6 +4336,7 @@
                                         </StackPanel>
                                     </Border>
 
+                                    </StackPanel> <!-- /SettingsBody_Appearance -->
                                 </StackPanel>
                             </Border>
                             </Border>
@@ -4392,12 +4413,49 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Auto-check for updates on launch" FontSize="12" FontWeight="SemiBold"
+                                                <TextBlock Text="Skip splash screen on launch" FontSize="12" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource FgBrush}"/>
-                                                <TextBlock Text="Runs winget upgrade automatically when the app starts"
+                                                <TextBlock Text="Hides the loading splash on startup. Takes effect on the next launch."
                                                            FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
                                             </StackPanel>
-                                            <CheckBox x:Name="ToggleAutoCheckUpdates" Grid.Column="1"
+                                            <CheckBox x:Name="ToggleSkipSplash" Grid.Column="1"
+                                                      Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Default tab on launch" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                <TextBlock Text="Which top-level tab Scy opens on at startup"
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <ComboBox x:Name="DefaultTabBox" Grid.Column="1"
+                                                      MinWidth="140" VerticalAlignment="Center">
+                                                <ComboBoxItem Content="Apps"/>
+                                                <ComboBoxItem Content="Tweaks"/>
+                                                <ComboBoxItem Content="System"/>
+                                                <ComboBoxItem Content="Bookmarks"/>
+                                                <ComboBoxItem Content="Network"/>
+                                                <ComboBoxItem Content="Active Directory"/>
+                                                <ComboBoxItem Content="Tools"/>
+                                                <ComboBoxItem Content="Settings"/>
+                                            </ComboBox>
+                                        </Grid>
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Notify on long operations" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                <TextBlock Text="Show a Windows balloon when bulk icon fetch or multi-app uninstall completes"
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ToggleEnableNotifications" Grid.Column="1"
                                                       Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
                                         </Grid>
                                         <Grid Margin="0,10,0,0">
@@ -4447,31 +4505,289 @@
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
                                     <StackPanel x:Name="SettingsBody_VisibleTabs">
-                                        <TextBlock Text="Hide tabs you don't use. Settings is always visible."
+                                        <TextBlock Text="Hide tabs you don't use. The Settings tab is always visible."
                                                    FontSize="11" Foreground="{DynamicResource MutedText}"
                                                    Margin="0,10,0,6"/>
                                         <StackPanel x:Name="TabVisibilityList"/>
-                                        <Border Background="{DynamicResource BorderBrush}" Height="1"
-                                                Margin="0,14,0,12" Opacity="0.6"/>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Sidebar tabs" FontSize="12" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource FgBrush}"/>
-                                                <TextBlock Text="Show navigation as a vertical rail on the left instead of the top."
-                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
-                                            </StackPanel>
-                                            <CheckBox x:Name="ToggleSidebarTabs" Grid.Column="1"
-                                                      Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
-                                        </Grid>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
 
-                            <!-- Local installers -->
+                            <!-- Credits -->
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Padding="16,14" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <DockPanel x:Name="SettingsHeader_Credits" Cursor="Hand">
+                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock x:Name="SettingsChevron_Credits" Text="&#x25B6;" FontSize="10"
+                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"/>
+                                        <TextBlock Text="Credits" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <StackPanel x:Name="SettingsBody_Credits" Visibility="Collapsed">
+                                        <TextBlock FontSize="12" Foreground="{DynamicResource FgBrush}" Margin="0,10,0,6">
+                                            <Run FontWeight="SemiBold">Scy</Run>
+                                        </TextBlock>
+                                        <TextBlock FontSize="12" Foreground="{DynamicResource MutedText}" Margin="0,0,0,4">
+                                            <Run>Created by</Run>
+                                            <Run FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">0x89-y</Run>
+                                        </TextBlock>
+                                        <TextBlock FontSize="12" Foreground="{DynamicResource MutedText}" Margin="0,0,0,8">
+                                            <Run>Licensed under the MIT License</Run>
+                                        </TextBlock>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button x:Name="BtnCreditsGitHub"
+                                                    Content="View on GitHub"
+                                                    Style="{StaticResource SecondaryButton}"
+                                                    Margin="0,0,6,0"/>
+                                            <Button x:Name="BtnCreditsWebsite"
+                                                    Content="Website"
+                                                    Style="{StaticResource SecondaryButton}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            </StackPanel>
+                            </Border>
+
+                            <!-- Groups management -->
+                            <Border x:Name="SettingsSection_Groups" Visibility="Collapsed">
+                            <StackPanel>
+
+                            <!-- App catalog (moved out of Apps tab) -->
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Padding="16,14" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <DockPanel x:Name="SettingsHeader_Catalog" Cursor="Hand">
+                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock x:Name="SettingsChevron_Catalog" Text="&#x25BC;" FontSize="10"
+                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"/>
+                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                                            <Button x:Name="BtnImportBundles" Content="Import" Margin="0,0,6,0"
+                                                    Style="{StaticResource SecondaryButton}"/>
+                                            <Button x:Name="BtnExportBundles" Content="Export"
+                                                    Style="{StaticResource SecondaryButton}"/>
+                                        </StackPanel>
+                                        <TextBlock Text="App catalog" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <StackPanel x:Name="SettingsBody_Catalog">
+                                    <TextBlock Text="Browse the curated catalog, restore apps you previously hid, and manage your own custom additions. Use Import / Export to move your list between machines."
+                                               FontSize="11" Foreground="{DynamicResource MutedText}"
+                                               Margin="0,10,0,12" TextWrapping="Wrap"/>
+
+                                    <!-- Curated apps (collapsible) -->
+                                    <Border x:Name="CuratedAppsHeader"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="CuratedAppsChevron" Grid.Column="0"
+                                                       Text="&#x25BC;" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Column="1" Text="Curated apps"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CuratedAppsCount" Grid.Column="2"
+                                                       Text="" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel x:Name="CuratedAppsContent" Visibility="Collapsed" Margin="0,4,0,8">
+                                        <StackPanel x:Name="CuratedAppsPanel"/>
+                                    </StackPanel>
+
+                                    <!-- Hidden curated apps (collapsible) -->
+                                    <Border x:Name="HiddenAppsHeader"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="HiddenAppsChevron" Grid.Column="0"
+                                                       Text="&#x25BC;" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Column="1" Text="Hidden curated apps"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="HiddenAppsCount" Grid.Column="2"
+                                                       Text="" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel x:Name="HiddenAppsContent" Visibility="Collapsed" Margin="0,4,0,8">
+                                        <StackPanel x:Name="HiddenAppsPanel"/>
+                                    </StackPanel>
+
+                                    <!-- Custom apps (collapsible) -->
+                                    <Border x:Name="CustomAppsHeader"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="CustomAppsChevron" Grid.Column="0"
+                                                       Text="&#x25BC;" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Column="1" Text="Custom apps"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CustomAppsCount" Grid.Column="2"
+                                                       Text="" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel x:Name="CustomAppsContent" Visibility="Collapsed" Margin="0,4,0,0">
+                                        <StackPanel x:Name="CustomAppsPanel"/>
+                                    </StackPanel>
+                                    </StackPanel> <!-- /SettingsBody_Catalog -->
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Groups -->
+                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Padding="16,14" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <DockPanel x:Name="SettingsHeader_Groups" Cursor="Hand">
+                                        <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock x:Name="SettingsChevron_Groups" Text="&#x25BC;" FontSize="10"
+                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"/>
+                                        <TextBlock Text="Groups" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <StackPanel x:Name="SettingsBody_Groups">
+                                    <TextBlock Text="Manage custom groups for Shortcuts and app categories. Default groups cannot be removed."
+                                               FontSize="11" Foreground="{DynamicResource MutedText}"
+                                               Margin="0,10,0,12" TextWrapping="Wrap"/>
+
+                                    <!-- Shortcut groups (collapsible) -->
+                                    <Border x:Name="ShortcutGroupsHeader"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="ShortcutGroupsChevron" Grid.Column="0"
+                                                       Text="&#x25BC;" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Column="1" Text="Shortcut groups"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="ShortcutGroupsCount" Grid.Column="2"
+                                                       Text="" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel x:Name="ShortcutGroupsContent" Visibility="Collapsed" Margin="0,4,0,12">
+                                        <StackPanel x:Name="SettingsShortcutGroupsPanel"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                    Padding="8,0" Margin="0,0,8,0">
+                                                <Grid>
+                                                    <TextBlock x:Name="NewShortcutGroupPlaceholder" Text="New group name"
+                                                               Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                    <TextBox x:Name="NewShortcutGroupBox" Background="Transparent" BorderThickness="0"
+                                                             Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                             CaretBrush="{DynamicResource FgBrush}" MinWidth="160"
+                                                             Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
+                                                </Grid>
+                                            </Border>
+                                            <Button x:Name="BtnAddShortcutGroup" Content="Add"
+                                                    Style="{StaticResource ActionButton}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Install categories (collapsible) -->
+                                    <Border x:Name="InstallCategoriesHeader"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="InstallCategoriesChevron" Grid.Column="0"
+                                                       Text="&#x25BC;" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Column="1" Text="Install categories"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="InstallCategoriesCount" Grid.Column="2"
+                                                       Text="" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel x:Name="InstallCategoriesContent" Visibility="Collapsed" Margin="0,4,0,0">
+                                        <StackPanel x:Name="SettingsInstallCategoriesPanel"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                    Padding="8,0" Margin="0,0,8,0">
+                                                <Grid>
+                                                    <TextBlock x:Name="NewInstallCategoryPlaceholder" Text="New category name"
+                                                               Foreground="{DynamicResource MutedText}" FontSize="12"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                    <TextBox x:Name="NewInstallCategoryBox" Background="Transparent" BorderThickness="0"
+                                                             Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                             CaretBrush="{DynamicResource FgBrush}" MinWidth="160"
+                                                             Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
+                                                </Grid>
+                                            </Border>
+                                            <Button x:Name="BtnAddInstallCategory" Content="Add"
+                                                    Style="{StaticResource ActionButton}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    </StackPanel> <!-- /SettingsBody_Groups -->
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Local installers (moved from General) -->
                             <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                     Padding="16,14" Margin="0,0,0,12">
@@ -4486,7 +4802,7 @@
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
                                     <StackPanel x:Name="SettingsBody_LocalInstallers">
-                                        <TextBlock Text="Folder scanned on the Installs tab for installer files."
+                                        <TextBlock Text="Folder scanned on the Apps tab for installer files."
                                                    FontSize="12" Foreground="{DynamicResource MutedText}"
                                                    Margin="0,10,0,10" TextWrapping="Wrap"/>
                                         <Grid>
@@ -4562,271 +4878,86 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- Credits -->
+                            <!-- App updates (moved from General > General) -->
                             <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                     Padding="16,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_Credits" Cursor="Hand">
+                                    <DockPanel x:Name="SettingsHeader_AppUpdates" Cursor="Hand">
                                         <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                 Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                        <TextBlock x:Name="SettingsChevron_Credits" Text="&#x25B6;" FontSize="10"
+                                        <TextBlock x:Name="SettingsChevron_AppUpdates" Text="&#x25BC;" FontSize="10"
                                                    Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
                                                    Margin="0,0,6,0"/>
-                                        <TextBlock Text="Credits" FontSize="14" FontWeight="SemiBold"
+                                        <TextBlock Text="App updates" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
-                                    <StackPanel x:Name="SettingsBody_Credits" Visibility="Collapsed">
-                                        <TextBlock FontSize="12" Foreground="{DynamicResource FgBrush}" Margin="0,10,0,6">
-                                            <Run FontWeight="SemiBold">Scy</Run>
-                                        </TextBlock>
-                                        <TextBlock FontSize="12" Foreground="{DynamicResource MutedText}" Margin="0,0,0,4">
-                                            <Run>Created by</Run>
-                                            <Run FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}">0x89-y</Run>
-                                        </TextBlock>
-                                        <TextBlock FontSize="12" Foreground="{DynamicResource MutedText}" Margin="0,0,0,8">
-                                            <Run>Licensed under the MIT License</Run>
-                                        </TextBlock>
-                                        <StackPanel Orientation="Horizontal">
-                                            <Button x:Name="BtnCreditsGitHub"
-                                                    Content="View on GitHub"
-                                                    Style="{StaticResource SecondaryButton}"
-                                                    Margin="0,0,6,0"/>
-                                            <Button x:Name="BtnCreditsWebsite"
-                                                    Content="Website"
-                                                    Style="{StaticResource SecondaryButton}"/>
-                                        </StackPanel>
+                                    <StackPanel x:Name="SettingsBody_AppUpdates">
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Auto-check for app updates on launch" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                <TextBlock Text="Runs winget upgrade automatically when the app starts"
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ToggleAutoCheckUpdates" Grid.Column="1"
+                                                      Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                        </Grid>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
 
-                            </StackPanel>
-                            </Border>
-
-                            <!-- Groups management -->
-                            <Border x:Name="SettingsSection_Groups" Visibility="Collapsed">
-                            <StackPanel>
+                            <!-- App behavior -->
                             <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                     Padding="16,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel Margin="0,0,0,10">
+                                    <DockPanel x:Name="SettingsHeader_AppBehavior" Cursor="Hand">
                                         <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                 Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                        <TextBlock Text="Groups" FontSize="14" FontWeight="SemiBold"
+                                        <TextBlock x:Name="SettingsChevron_AppBehavior" Text="&#x25BC;" FontSize="10"
+                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"/>
+                                        <TextBlock Text="App behavior" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
-                                    <TextBlock Text="Manage custom groups for Shortcuts and Install categories. Default groups cannot be removed."
-                                               FontSize="11" Foreground="{DynamicResource MutedText}"
-                                               Margin="0,0,0,12" TextWrapping="Wrap"/>
-
-                                    <!-- Shortcut groups (collapsible) -->
-                                    <Border x:Name="ShortcutGroupsHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                            Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
-                                        <Grid>
+                                    <StackPanel x:Name="SettingsBody_AppBehavior">
+                                        <Grid Margin="0,10,0,0">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock x:Name="ShortcutGroupsChevron" Grid.Column="0"
-                                                       Text="&#x25B8;" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <TextBlock Grid.Column="1" Text="Shortcut groups"
-                                                       FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource FgBrush}"
-                                                       VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="ShortcutGroupsCount" Grid.Column="2"
-                                                       Text="" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Skip confirmation for single-app uninstalls" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                <TextBlock Text="Uninstall immediately when exactly one app is selected. Multi-app uninstall still confirms."
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ToggleSkipSingleUninstallConfirm" Grid.Column="1"
+                                                      Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
                                         </Grid>
-                                    </Border>
-                                    <StackPanel x:Name="ShortcutGroupsContent" Visibility="Collapsed" Margin="0,4,0,12">
-                                        <StackPanel x:Name="SettingsShortcutGroupsPanel"/>
-                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                    Padding="8,0" Margin="0,0,8,0">
-                                                <Grid>
-                                                    <TextBlock x:Name="NewShortcutGroupPlaceholder" Text="New group name"
-                                                               Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                               VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                                    <TextBox x:Name="NewShortcutGroupBox" Background="Transparent" BorderThickness="0"
-                                                             Foreground="{DynamicResource FgBrush}" FontSize="12"
-                                                             CaretBrush="{DynamicResource FgBrush}" MinWidth="160"
-                                                             Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
-                                                </Grid>
-                                            </Border>
-                                            <Button x:Name="BtnAddShortcutGroup" Content="Add"
-                                                    Style="{StaticResource ActionButton}"/>
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <!-- Install categories (collapsible) -->
-                                    <Border x:Name="InstallCategoriesHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                            Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
-                                        <Grid>
+                                        <Grid Margin="0,10,0,0">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock x:Name="InstallCategoriesChevron" Grid.Column="0"
-                                                       Text="&#x25B8;" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <TextBlock Grid.Column="1" Text="Install categories"
-                                                       FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource FgBrush}"
-                                                       VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="InstallCategoriesCount" Grid.Column="2"
-                                                       Text="" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Default Apps sub-tab" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                <TextBlock Text="Which sub-tab the Apps tab opens on at startup"
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <ComboBox x:Name="DefaultAppsSubTabBox" Grid.Column="1"
+                                                      MinWidth="120" VerticalAlignment="Center">
+                                                <ComboBoxItem Content="Store"/>
+                                                <ComboBoxItem Content="Installed"/>
+                                                <ComboBoxItem Content="Updates"/>
+                                            </ComboBox>
                                         </Grid>
-                                    </Border>
-                                    <StackPanel x:Name="InstallCategoriesContent" Visibility="Collapsed" Margin="0,4,0,0">
-                                        <StackPanel x:Name="SettingsInstallCategoriesPanel"/>
-                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                    Padding="8,0" Margin="0,0,8,0">
-                                                <Grid>
-                                                    <TextBlock x:Name="NewInstallCategoryPlaceholder" Text="New category name"
-                                                               Foreground="{DynamicResource MutedText}" FontSize="12"
-                                                               VerticalAlignment="Center" IsHitTestVisible="False"/>
-                                                    <TextBox x:Name="NewInstallCategoryBox" Background="Transparent" BorderThickness="0"
-                                                             Foreground="{DynamicResource FgBrush}" FontSize="12"
-                                                             CaretBrush="{DynamicResource FgBrush}" MinWidth="160"
-                                                             Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
-                                                </Grid>
-                                            </Border>
-                                            <Button x:Name="BtnAddInstallCategory" Content="Add"
-                                                    Style="{StaticResource ActionButton}"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Quick installs management (moved out of Apps tab) -->
-                            <Border Background="{DynamicResource Surface2Brush}" CornerRadius="6"
-                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                    Padding="16,14" Margin="0,0,0,12">
-                                <StackPanel>
-                                    <Grid Margin="0,0,0,10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <DockPanel VerticalAlignment="Center">
-                                            <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                                    Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                            <TextBlock Text="Quick installs" FontSize="14" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
-                                        </DockPanel>
-                                        <Button x:Name="BtnImportBundles" Grid.Column="1"
-                                                Content="Import" Margin="0,0,6,0"
-                                                Style="{StaticResource SecondaryButton}"/>
-                                        <Button x:Name="BtnExportBundles" Grid.Column="2"
-                                                Content="Export"
-                                                Style="{StaticResource SecondaryButton}"/>
-                                    </Grid>
-                                    <TextBlock Text="Browse the curated catalog, restore apps you previously hid, and manage your own custom additions. Use Import / Export to move your list between machines."
-                                               FontSize="11" Foreground="{DynamicResource MutedText}"
-                                               Margin="0,0,0,12" TextWrapping="Wrap"/>
-
-                                    <!-- Curated apps (collapsible) -->
-                                    <Border x:Name="CuratedAppsHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                            Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock x:Name="CuratedAppsChevron" Grid.Column="0"
-                                                       Text="&#x25B8;" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <TextBlock Grid.Column="1" Text="Curated apps"
-                                                       FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource FgBrush}"
-                                                       VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="CuratedAppsCount" Grid.Column="2"
-                                                       Text="" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center"/>
-                                        </Grid>
-                                    </Border>
-                                    <StackPanel x:Name="CuratedAppsContent" Visibility="Collapsed" Margin="0,4,0,8">
-                                        <StackPanel x:Name="CuratedAppsPanel"/>
-                                    </StackPanel>
-
-                                    <!-- Hidden curated apps (collapsible) -->
-                                    <Border x:Name="HiddenAppsHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                            Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock x:Name="HiddenAppsChevron" Grid.Column="0"
-                                                       Text="&#x25B8;" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <TextBlock Grid.Column="1" Text="Hidden curated apps"
-                                                       FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource FgBrush}"
-                                                       VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="HiddenAppsCount" Grid.Column="2"
-                                                       Text="" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center"/>
-                                        </Grid>
-                                    </Border>
-                                    <StackPanel x:Name="HiddenAppsContent" Visibility="Collapsed" Margin="0,4,0,8">
-                                        <StackPanel x:Name="HiddenAppsPanel"/>
-                                    </StackPanel>
-
-                                    <!-- Custom apps (collapsible) -->
-                                    <Border x:Name="CustomAppsHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                            Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock x:Name="CustomAppsChevron" Grid.Column="0"
-                                                       Text="&#x25B8;" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <TextBlock Grid.Column="1" Text="Custom apps"
-                                                       FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource FgBrush}"
-                                                       VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="CustomAppsCount" Grid.Column="2"
-                                                       Text="" FontSize="11"
-                                                       Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center"/>
-                                        </Grid>
-                                    </Border>
-                                    <StackPanel x:Name="CustomAppsContent" Visibility="Collapsed" Margin="0,4,0,0">
-                                        <StackPanel x:Name="CustomAppsPanel"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -4836,15 +4967,19 @@
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                     Padding="16,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel Margin="0,0,0,10">
+                                    <DockPanel x:Name="SettingsHeader_IconCache" Cursor="Hand">
                                         <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                 Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock x:Name="SettingsChevron_IconCache" Text="&#x25BC;" FontSize="10"
+                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"/>
                                         <TextBlock Text="Icon cache" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
+                                    <StackPanel x:Name="SettingsBody_IconCache">
                                     <TextBlock Text="Cards in the Store can show real favicons fetched from each app's publisher domain and cached locally. Disable auto-fetch to keep the Store snappy and refresh icons only on demand."
                                                FontSize="11" Foreground="{DynamicResource MutedText}"
-                                               Margin="0,0,0,12" TextWrapping="Wrap"/>
+                                               Margin="0,10,0,12" TextWrapping="Wrap"/>
 
                                     <Grid Margin="0,0,0,10">
                                         <Grid.ColumnDefinitions>
@@ -4883,6 +5018,7 @@
                                                          Background="{DynamicResource Surface3Brush}"/>
                                         </StackPanel>
                                     </Border>
+                                    </StackPanel> <!-- /SettingsBody_IconCache -->
                                 </StackPanel>
                             </Border>
                             </StackPanel>
@@ -4894,20 +5030,25 @@
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                     Padding="16,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel Margin="0,0,0,10">
+                                    <DockPanel x:Name="SettingsHeader_Backup" Cursor="Hand">
                                         <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                 Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                        <TextBlock x:Name="SettingsChevron_Backup" Text="&#x25BC;" FontSize="10"
+                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
+                                                   Margin="0,0,6,0"/>
                                         <TextBlock Text="Settings backup" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
-                                    <TextBlock Text="Export or import your settings as a .json file, including theme, quick installs, and bundles."
-                                               FontSize="12" Foreground="{DynamicResource MutedText}"
-                                               Margin="0,0,0,10" TextWrapping="Wrap"/>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button x:Name="BtnExportSettings" Content="Export settings"
-                                                Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                                        <Button x:Name="BtnImportSettings" Content="Import settings"
-                                                Style="{StaticResource SecondaryButton}"/>
+                                    <StackPanel x:Name="SettingsBody_Backup">
+                                        <TextBlock Text="Export or import your settings as a .json file, including theme, app catalog, and bundles."
+                                                   FontSize="12" Foreground="{DynamicResource MutedText}"
+                                                   Margin="0,10,0,10" TextWrapping="Wrap"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button x:Name="BtnExportSettings" Content="Export settings"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                                            <Button x:Name="BtnImportSettings" Content="Import settings"
+                                                    Style="{StaticResource SecondaryButton}"/>
+                                        </StackPanel>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -4947,6 +5088,23 @@
                     <Run Text="  |  PowerShell "/><Run x:Name="PSVersion" Text="..."/>
                 </TextBlock>
             </Grid>
+        </Border>
+
+        <!-- In-app toast overlay (Settings > General > Notify on long operations) -->
+        <Border x:Name="ScyToast" Visibility="Collapsed"
+                Grid.Row="0" Grid.RowSpan="3"
+                Background="{DynamicResource Surface2Brush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                CornerRadius="6" Padding="14,10" Cursor="Hand"
+                ToolTip="Click to dismiss"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                Margin="0,0,20,40" MaxWidth="360" Panel.ZIndex="9999">
+            <StackPanel>
+                <TextBlock x:Name="ScyToastTitle" Text="Scy" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource FgBrush}"/>
+                <TextBlock x:Name="ScyToastBody" Text="" FontSize="11" TextWrapping="Wrap"
+                           Foreground="{DynamicResource MutedText}" Margin="0,3,0,0"/>
+            </StackPanel>
         </Border>
     </Grid>
 </Window>
