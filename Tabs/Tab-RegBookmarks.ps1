@@ -104,6 +104,20 @@ function Render-RegBookmarks {
         }
     }
 
+    # Empty state
+    $totalVisible = 0
+    foreach ($k in $sections.Keys) { $totalVisible += $sections[$k].Count }
+    if ($totalVisible -eq 0) {
+        $emptyBlock              = New-Object System.Windows.Controls.TextBlock
+        $emptyBlock.Text         = 'No bookmarks yet. Click "+ Add bookmark" to create one.'
+        $emptyBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+        $emptyBlock.FontSize     = 13
+        $emptyBlock.TextWrapping = [System.Windows.TextWrapping]::Wrap
+        $emptyBlock.Margin       = [System.Windows.Thickness]::new(0, 8, 0, 0)
+        $parentPanel.Children.Add($emptyBlock) | Out-Null
+        return
+    }
+
     foreach ($sectionName in $sections.Keys) {
         $border              = New-Object System.Windows.Controls.Border
         $border.Background   = $window.Resources["Surface2Brush"]
@@ -115,12 +129,28 @@ function Render-RegBookmarks {
 
         $stack = New-Object System.Windows.Controls.StackPanel
 
+        # Header with accent bar (matches Tweaks / Settings cards)
+        $headerPanel        = New-Object System.Windows.Controls.DockPanel
+        $headerPanel.Margin = [System.Windows.Thickness]::new(0, 0, 0, 10)
+
+        $accentBar = New-Object System.Windows.Controls.Border
+        $accentBar.Width             = 3
+        $accentBar.CornerRadius      = [System.Windows.CornerRadius]::new(2)
+        $accentBar.VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
+        $accentBar.Margin            = [System.Windows.Thickness]::new(0, 0, 8, 0)
+        $accentBar.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
+        [System.Windows.Controls.DockPanel]::SetDock($accentBar, [System.Windows.Controls.Dock]::Left)
+        $headerPanel.Children.Add($accentBar) | Out-Null
+
         $header            = New-Object System.Windows.Controls.TextBlock
         $header.Text       = $sectionName
-        $header.FontSize   = 11
-        $header.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-        $header.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 8)
-        $stack.Children.Add($header) | Out-Null
+        $header.FontSize   = 14
+        $header.FontWeight = [System.Windows.FontWeights]::SemiBold
+        $header.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+        $header.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+        $headerPanel.Children.Add($header) | Out-Null
+
+        $stack.Children.Add($headerPanel) | Out-Null
 
         $itemsPanel = New-Object System.Windows.Controls.StackPanel
         $stack.Children.Add($itemsPanel) | Out-Null
@@ -144,15 +174,6 @@ function Render-RegBookmarks {
             $row.Add_MouseEnter({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush") })
             $row.Add_MouseLeave({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "SurfaceBrush") })
 
-            $grid = New-Object System.Windows.Controls.Grid
-            $gc0 = New-Object System.Windows.Controls.ColumnDefinition
-            $gc0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-            $gc1 = New-Object System.Windows.Controls.ColumnDefinition
-            $gc1.Width = [System.Windows.GridLength]::Auto
-            $grid.ColumnDefinitions.Add($gc0)
-            $grid.ColumnDefinitions.Add($gc1)
-
-            # Left side: name and path
             $leftStack = New-Object System.Windows.Controls.StackPanel
 
             $nameBlock            = New-Object System.Windows.Controls.TextBlock
@@ -169,25 +190,7 @@ function Render-RegBookmarks {
             $pathBlock.Margin     = [System.Windows.Thickness]::new(0, 2, 0, 0)
             $leftStack.Children.Add($pathBlock) | Out-Null
 
-            [System.Windows.Controls.Grid]::SetColumn($leftStack, 0)
-            $grid.Children.Add($leftStack) | Out-Null
-
-            # Right side: open button
-            $openBtn         = New-Object System.Windows.Controls.Button
-            $openBtn.Content = "Open"
-            $openBtn.Style   = $window.Resources["ActionButton"]
-            $openBtn.Padding = [System.Windows.Thickness]::new(14, 5, 14, 5)
-            $openBtn.FontSize = 12
-            $openBtn.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-            $openBtn.Tag = $bookmark.Path
-            $openBtn.Add_Click({
-                Open-RegEdit $this.Tag
-            }.GetNewClosure())
-
-            [System.Windows.Controls.Grid]::SetColumn($openBtn, 1)
-            $grid.Children.Add($openBtn) | Out-Null
-
-            $row.Child = $grid
+            $row.Child = $leftStack
             $row.Tag = @{ Name = $bookmark.Name; Path = $bookmark.Path; IsDefault = $bookmark.IsDefault }
 
             # Click on row also opens
@@ -261,7 +264,7 @@ function Render-RegBookmarks {
                 $deleteItem = New-Object System.Windows.Controls.MenuItem
                 $deleteItem.Header = "Delete"
                 $deleteItem.Add_Click({
-                    $result = Show-ThemedDialog "Delete bookmark '$($bm.Name)'?" "Confirm Delete" "YesNo" "Question"
+                    $result = Show-ThemedDialog "Delete bookmark '$($bm.Name)'?" "Confirm delete" "YesNo" "Question"
                     if ($result -eq "Yes") {
                         $script:regBookmarks.Remove($bm)
                         Save-RegBookmarksToSettings
@@ -395,7 +398,7 @@ Refresh-RegBookmarkGroupBox
         Show-ThemedDialog "No bookmarks to clear." "Info" "OK" "Information"
         return
     }
-    $result = Show-ThemedDialog "This will remove ALL bookmarks. Are you sure?" "Confirm Clear" "YesNo" "Warning"
+    $result = Show-ThemedDialog "This will remove ALL bookmarks. Are you sure?" "Confirm clear" "YesNo" "Warning"
     if ($result -eq "Yes") {
         $script:regBookmarks = [System.Collections.Generic.List[hashtable]]::new()
         Save-RegBookmarksToSettings

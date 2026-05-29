@@ -215,7 +215,6 @@ $btnScan.Add_Click({
         Update-CleanTotal
 
         $btnClean.IsEnabled = $true
-        $btnClean.Opacity   = 1.0
 
         $statusIndicator.Text       = "● Ready"
         $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
@@ -276,7 +275,7 @@ $btnClean.Add_Click({
     # Warn if Windows.old is selected; deletion is irreversible
     $winOldCb = $script:cleanCheckboxes["Windows.old"]
     if (($null -eq $winOldCb -or $winOldCb.IsChecked) -and (Test-Path "C:\Windows.old")) {
-        $warnOld = Show-ThemedDialog "Deleting Windows.old is permanent. You will no longer be able to roll back to your previous Windows installation. Are you sure?" "Warning: Irreversible" "YesNo" "Warning"
+        $warnOld = Show-ThemedDialog "Deleting Windows.old is permanent. You will no longer be able to roll back to your previous Windows installation. Are you sure?" "Warning: irreversible" "YesNo" "Warning"
         if ($warnOld -ne "Yes") { return }
     }
 
@@ -360,7 +359,6 @@ $btnClean.Add_Click({
         $cleanTempStatus.Foreground = $window.Resources["SuccessBrush"]
 
         $btnClean.IsEnabled     = $false
-        $btnClean.Opacity       = 0.4
         $script:cleanScanData   = $null
         $script:cleanCheckboxes = @{}
 

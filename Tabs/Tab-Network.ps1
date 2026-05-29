@@ -105,7 +105,6 @@ function Set-NetBusy([string]$msg) {
     $btnNetTrace.IsEnabled      = $false
     $btnNetSpeed.IsEnabled      = $false
     $btnNetStop.IsEnabled       = $true
-    $btnNetStop.Opacity         = 1
     $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 }
 
@@ -117,7 +116,6 @@ function Set-NetReady {
     $btnNetTrace.IsEnabled      = $true
     $btnNetSpeed.IsEnabled      = $true
     $btnNetStop.IsEnabled       = $false
-    $btnNetStop.Opacity         = 0.4
     $script:netProcHolder.Clear()
 }
 
@@ -948,6 +946,43 @@ function Update-DnsCurrentDisplay {
     if ($dnsAdapterBox.SelectedItem) {
         $dns = Get-CurrentDnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem
         $dnsCurrentDisplay.Text = $dns
+        Update-DnsActiveProfile -CurrentDisplay $dns
+    }
+}
+
+# Map of profile-button → primary IP; "DHCP" matches the automatic state.
+$script:dnsProfileButtons = $null
+function Get-DnsProfileButtonMap {
+    if ($null -eq $script:dnsProfileButtons) {
+        $script:dnsProfileButtons = @(
+            @{ Button = $btnDnsCloudflare; Primary = "1.1.1.1"        }
+            @{ Button = $btnDnsGoogle;     Primary = "8.8.8.8"        }
+            @{ Button = $btnDnsQuad9;      Primary = "9.9.9.9"        }
+            @{ Button = $btnDnsOpenDNS;    Primary = "208.67.222.222" }
+            @{ Button = $btnDnsDHCP;       Primary = "DHCP"           }
+        )
+    }
+    return $script:dnsProfileButtons
+}
+
+function Update-DnsActiveProfile {
+    param([string]$CurrentDisplay)
+
+    # Pull the leading IP token (strip "  [DoH]" suffix and any extra DNS server)
+    $first = $CurrentDisplay
+    if ($first) { $first = ($first -split ',')[0].Trim() }
+    if ($first -match '\s\[DoH\]$') { $first = $first -replace '\s+\[DoH\]$', '' }
+    $isDhcp = ($CurrentDisplay -like "DHCP*")
+
+    foreach ($entry in (Get-DnsProfileButtonMap)) {
+        $isActive = if ($entry.Primary -eq "DHCP") { $isDhcp } else { ($first -eq $entry.Primary) }
+        if ($isActive) {
+            $entry.Button.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "AccentBrush")
+            $entry.Button.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,  "AccentBrush")
+        } else {
+            $entry.Button.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
+            $entry.Button.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty,  "SubTextBrush")
+        }
     }
 }
 

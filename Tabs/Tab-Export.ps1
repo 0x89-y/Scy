@@ -49,7 +49,7 @@ $exportFilterClear.Add_Click({
 
 # ── Scan ─────────────────────────────────────────────────────────
 $btnExportScan.Add_Click({
-    Set-BusyStatus "Scanning installed software..."
+    Set-BusyStatus "Scanning installed apps..."
     $exportResultsPanel.Children.Clear()
     $exportStatus.Text = "Scanning..."
     $exportResultsPanel.Tag = @{ Software = @(); Rows = @() }
@@ -290,8 +290,8 @@ $btnExportJSON.Add_Click({
     if (-not $data -or @($data).Count -eq 0) { return }
     $dlg = New-Object Microsoft.Win32.SaveFileDialog
     $dlg.Filter   = "JSON files (*.json)|*.json"
-    $dlg.FileName = "$($env:COMPUTERNAME)-installed-software.json"
-    $dlg.Title    = "Export installed software as JSON"
+    $dlg.FileName = "$($env:COMPUTERNAME)-installed-apps.json"
+    $dlg.Title    = "Export installed apps as JSON"
     if ($dlg.ShowDialog()) {
         try {
             $json = $data | ConvertTo-Json -Depth 4
@@ -309,8 +309,8 @@ $btnExportCSV.Add_Click({
     if (-not $data -or @($data).Count -eq 0) { return }
     $dlg = New-Object Microsoft.Win32.SaveFileDialog
     $dlg.Filter   = "CSV files (*.csv)|*.csv"
-    $dlg.FileName = "$($env:COMPUTERNAME)-installed-software.csv"
-    $dlg.Title    = "Export installed software as CSV"
+    $dlg.FileName = "$($env:COMPUTERNAME)-installed-apps.csv"
+    $dlg.Title    = "Export installed apps as CSV"
     if ($dlg.ShowDialog()) {
         try {
             $data | Export-Csv -Path $dlg.FileName -NoTypeInformation -Encoding UTF8

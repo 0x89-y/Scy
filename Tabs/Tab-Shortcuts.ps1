@@ -187,12 +187,28 @@
 
           $stack = New-Object System.Windows.Controls.StackPanel
 
+          # Header with accent bar (matches Tweaks / Settings cards)
+          $headerPanel        = New-Object System.Windows.Controls.DockPanel
+          $headerPanel.Margin = [System.Windows.Thickness]::new(0, 0, 0, 10)
+
+          $accentBar = New-Object System.Windows.Controls.Border
+          $accentBar.Width             = 3
+          $accentBar.CornerRadius      = [System.Windows.CornerRadius]::new(2)
+          $accentBar.VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
+          $accentBar.Margin            = [System.Windows.Thickness]::new(0, 0, 8, 0)
+          $accentBar.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
+          [System.Windows.Controls.DockPanel]::SetDock($accentBar, [System.Windows.Controls.Dock]::Left)
+          $headerPanel.Children.Add($accentBar) | Out-Null
+
           $header            = New-Object System.Windows.Controls.TextBlock
           $header.Text       = $displayName
-          $header.FontSize   = 11
-          $header.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-          $header.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 8)
-          $stack.Children.Add($header) | Out-Null
+          $header.FontSize   = 14
+          $header.FontWeight = [System.Windows.FontWeights]::SemiBold
+          $header.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+          $header.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+          $headerPanel.Children.Add($header) | Out-Null
+
+          $stack.Children.Add($headerPanel) | Out-Null
 
           $itemsPanel = New-Object System.Windows.Controls.StackPanel
           $stack.Children.Add($itemsPanel) | Out-Null
@@ -250,13 +266,19 @@
               $nameRow.Children.Add($nameBlock) | Out-Null
 
               if ($shortcut.RequiresAdmin) {
-                  $adminBadge              = New-Object System.Windows.Controls.TextBlock
-                  $adminBadge.Text         = "Admin"
-                  $adminBadge.FontSize     = 10
-                  $adminBadge.Margin       = [System.Windows.Thickness]::new(8, 0, 0, 0)
-                  $adminBadge.Padding      = [System.Windows.Thickness]::new(6, 1, 6, 1)
+                  $adminBadge                = New-Object System.Windows.Controls.Border
+                  $adminBadge.BorderThickness = [System.Windows.Thickness]::new(1)
+                  $adminBadge.CornerRadius   = [System.Windows.CornerRadius]::new(4)
+                  $adminBadge.Padding        = [System.Windows.Thickness]::new(6, 1, 6, 1)
+                  $adminBadge.Margin         = [System.Windows.Thickness]::new(8, 0, 0, 0)
                   $adminBadge.VerticalAlignment = "Center"
-                  $adminBadge.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
+                  $adminBadge.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "WarningBrush")
+                  $adminBadgeText            = New-Object System.Windows.Controls.TextBlock
+                  $adminBadgeText.Text       = "Admin"
+                  $adminBadgeText.FontSize   = 10
+                  $adminBadgeText.FontWeight = [System.Windows.FontWeights]::SemiBold
+                  $adminBadgeText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
+                  $adminBadge.Child          = $adminBadgeText
                   $nameRow.Children.Add($adminBadge) | Out-Null
               }
 
@@ -291,7 +313,7 @@
                   } elseif ($data.Command -eq "FlushDNSSpecial") {
                       try {
                           $result = & ipconfig /flushdns 2>&1 | Out-String
-                          Show-ThemedDialog $result.Trim() "DNS Cache Flushed" "OK" "Information"
+                          Show-ThemedDialog $result.Trim() "DNS cache flushed" "OK" "Information"
                           $footerStatus.Text = "Scy - DNS cache flushed"
                       } catch {
                           Show-ThemedDialog "Failed to flush DNS: $_" "Error" "OK" "Error"
@@ -380,7 +402,7 @@
                       $deleteItem = New-Object System.Windows.Controls.MenuItem
                       $deleteItem.Header = "Delete"
                       $deleteItem.Add_Click({
-                          $result = Show-ThemedDialog "Delete '$($data.Name)'?" "Confirm Delete" "YesNo" "Question"
+                          $result = Show-ThemedDialog "Delete '$($data.Name)'?" "Confirm delete" "YesNo" "Question"
                           if ($result -eq "Yes") {
                               $script:shortcuts.Remove($shortcutObj)
                               Save-ShortcutsToSettings
@@ -538,7 +560,7 @@ Refresh-ShortcutGroupBox
 
 # Restore defaults
 (Find "BtnRestoreDefaults").Add_Click({
-    $result = Show-ThemedDialog "Restore all default shortcuts?" "Confirm Restore" "YesNo" "Question"
+    $result = Show-ThemedDialog "Restore all default shortcuts?" "Confirm restore" "YesNo" "Question"
     if ($result -eq "Yes") {
         foreach ($shortcut in $script:shortcuts) {
             if ($shortcut.IsDefault) {
@@ -554,7 +576,7 @@ Refresh-ShortcutGroupBox
 
 # Reset shortcuts
 (Find "BtnResetShortcuts").Add_Click({
-    $result = Show-ThemedDialog "This will remove ALL custom shortcuts and restore all default shortcuts. Are you sure?" "Confirm Reset" "YesNo" "Warning"
+    $result = Show-ThemedDialog "This will remove ALL custom shortcuts and restore all default shortcuts. Are you sure?" "Confirm reset" "YesNo" "Warning"
     if ($result -eq "Yes") {
         # Remove all custom shortcuts
         $defaults = @($script:shortcuts | Where-Object { $_.IsDefault })

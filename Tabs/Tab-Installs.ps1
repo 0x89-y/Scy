@@ -706,7 +706,7 @@ $customAppsHeader.Add_MouseLeftButtonUp({  Toggle-QuickInstallsDisclosure -Conte
 # -- Export bundles -----------------------------------------------------------
 $btnExportBundles.Add_Click({
     if ($script:quickBundles.Count -eq 0) {
-        Show-ThemedDialog "No bundles to export." "Export Bundles" "OK" "Information"
+        Show-ThemedDialog "No bundles to export." "Export bundles" "OK" "Information"
         return
     }
     Add-Type -AssemblyName System.Windows.Forms
@@ -759,7 +759,7 @@ $btnImportBundles.Add_Click({
         if ($added -gt 0) { Save-Settings; Update-QuickInstalls }
         $msg = "Imported $added bundle(s)."
         if ($skipped -gt 0) { $msg += " Skipped $skipped (name already exists)." }
-        Show-ThemedDialog $msg "Import Bundles" "OK" "Information"
+        Show-ThemedDialog $msg "Import bundles" "OK" "Information"
     } catch {
         Show-ThemedDialog ("Failed to import: " + $_.Exception.Message) "Error" "OK" "Error"
     }
@@ -2290,7 +2290,7 @@ function New-ResultRow {
         (Find "BtnUninstallSelected").IsEnabled = $true
 
     } catch {
-        Show-ThemedDialog ("Scan failed:`n" + $_.Exception.Message) "Scan Error" "OK" "Error"
+        Show-ThemedDialog ("Scan failed:`n" + $_.Exception.Message) "Scan error" "OK" "Error"
     }
 
     $statusIndicator.Text       = "● Ready"
@@ -2331,7 +2331,7 @@ $script:pkgSearchClear.Add_Click({
 (Find "BtnUninstallSelected").Add_Click({
     $selected = @($script:uninstallItems | Where-Object { $_.CheckBox.IsChecked -eq $true })
     if ($selected.Count -eq 0) {
-        Show-ThemedDialog "No apps selected. Click a row or check the box to select apps." "Nothing Selected" "OK" "Information"
+        Show-ThemedDialog "No apps selected. Click a row or check the box to select apps." "Nothing selected" "OK" "Information"
         return
     }
 
@@ -2339,7 +2339,7 @@ $script:pkgSearchClear.Add_Click({
     $needsConfirm = -not ($selected.Count -eq 1 -and $script:skipSingleUninstallConfirm)
     if ($needsConfirm) {
         $list    = ($selected | ForEach-Object { "  - " + $_.Id }) -join "`n"
-        $confirm = Show-ThemedDialog ("Uninstall " + [string]$selected.Count + " app(s)?`n`n" + $list) "Confirm Uninstall" "YesNo" "Warning"
+        $confirm = Show-ThemedDialog ("Uninstall " + [string]$selected.Count + " app(s)?`n`n" + $list) "Confirm uninstall" "YesNo" "Warning"
         if ($confirm -ne "Yes") { return }
     }
 

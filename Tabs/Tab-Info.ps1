@@ -56,6 +56,8 @@ $netPanel    = Find "NetAdapterPanel"
 # Helpers\Helpers-Cards.ps1 and are dot-sourced from Scy.ps1.
 
 # ── Populate OS card ─────────────────────────────────────────────
+# PS policy is part of the OS card now, so it gets refreshed together
+# with the rest of the OS row data.
 function Populate-OSInfo {
     param($os = $null)
     if (-not $os) { $os = Get-CimInstance Win32_OperatingSystem }
@@ -66,6 +68,7 @@ function Populate-OSInfo {
     $sysComputer.Text = $env:COMPUTERNAME
     $sysUser.Text     = $env:USERNAME
     $sysUptime.Text   = [string]$uptime.Days + "d " + [string]$uptime.Hours + "h " + [string]$uptime.Minutes + "m"
+    Populate-ExecPolicy
 }
 
 # ── Populate Hardware card ────────────────────────────────────────
@@ -368,25 +371,85 @@ function Populate-ExecPolicy {
 (Find "BtnHardwareInfo").Add_Click({ Populate-HardwareInfo })
 (Find "BtnDriveInfo").Add_Click({    Populate-DriveInfo    })
 (Find "BtnNetworkInfo").Add_Click({  Populate-NetInfo      })
-(Find "BtnExecPolicy").Add_Click({   Populate-ExecPolicy   })
 
-# ── Copy all hardware info button ─────────────────────────────────
-$btnCopyHw     = Find "BtnCopyHardware"
-$capturedHwBtn = $btnCopyHw
-$btnCopyHw.Add_Click({
-    $cpu   = (Find "HwCPU").Text
-    $cores = (Find "HwCores").Text
-    $ram   = (Find "HwRAM").Text
-    $gpu   = (Find "HwGPU").Text
-    $text  = "CPU: $cpu`nCores: $cores`nRAM: $ram`nGPU: $gpu"
-    [System.Windows.Clipboard]::SetText($text)
-    $capturedHwBtn.Content = "✓"
+# ── Copy-all buttons (OS, Hardware, Drives, Network) ─────────────
+function Invoke-CopyAllFlash {
+    param([System.Windows.Controls.Button]$Button, [string]$Text)
+    [System.Windows.Clipboard]::SetText($Text)
+    $Button.Content = "✓"
     $t = New-Object System.Windows.Threading.DispatcherTimer
     $t.Interval = [TimeSpan]::FromSeconds(1.5)
-    $t.Tag = $capturedHwBtn
+    $t.Tag = $Button
     $t.Add_Tick({
-        $args[0].Tag.Content = "copy all"
+        $args[0].Tag.Content = "Copy all"
         $args[0].Stop()
     })
     $t.Start()
-}.GetNewClosure())
+}
+
+(Find "BtnCopyOS").Add_Click({
+    $lines = @(
+        "OS: "        + (Find "SysOS").Text
+        "Build: "     + (Find "SysBuild").Text
+        "Computer: "  + (Find "SysComputer").Text
+        "User: "      + (Find "SysUser").Text
+        "Uptime: "    + (Find "SysUptime").Text
+        "PS policy: " + (Find "SysExecPolicy").Text
+    )
+    Invoke-CopyAllFlash -Button $this -Text ($lines -join "`n")
+})
+
+(Find "BtnCopyHardware").Add_Click({
+    $lines = @(
+        "CPU: "   + (Find "HwCPU").Text
+        "Cores: " + (Find "HwCores").Text
+        "RAM: "   + (Find "HwRAM").Text
+        "GPU: "   + (Find "HwGPU").Text
+    )
+    Invoke-CopyAllFlash -Button $this -Text ($lines -join "`n")
+})
+
+(Find "BtnCopyDrives").Add_Click({
+    $panel = Find "DiskPanel"
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($child in $panel.Children) {
+        if ($child -isnot [System.Windows.Controls.Border]) { continue }
+        $grid = $child.Child
+        if ($grid -isnot [System.Windows.Controls.Grid]) { continue }
+        $label = $null
+        $value = $null
+        foreach ($c in $grid.Children) {
+            if ($c -is [System.Windows.Controls.TextBlock]) {
+                if ($null -eq $label) { $label = $c.Text } else { $value = $c.Text }
+            }
+        }
+        if ($label -and $value) { $lines.Add(("{0,-12} {1}" -f $label, $value)) }
+    }
+    if ($lines.Count -eq 0) { $lines.Add("(no drive info loaded)") }
+    Invoke-CopyAllFlash -Button $this -Text ($lines -join "`n")
+})
+
+(Find "BtnCopyNetwork").Add_Click({
+    $panel = Find "NetAdapterPanel"
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($child in $panel.Children) {
+        if ($child -is [System.Windows.Controls.TextBlock]) {
+            $lines.Add($child.Text)
+        } elseif ($child -is [System.Windows.Controls.Border]) {
+            $grid = $child.Child
+            if ($grid -is [System.Windows.Controls.Grid]) {
+                $label = $null; $value = $null
+                foreach ($c in $grid.Children) {
+                    if ($c -is [System.Windows.Controls.TextBlock]) {
+                        if ($null -eq $label) { $label = $c.Text } else { $value = $c.Text }
+                    }
+                }
+                if ($label -and $value) { $lines.Add(("{0,-12} {1}" -f $label, $value)) }
+            } elseif ($grid -is [System.Windows.Controls.TextBlock]) {
+                $lines.Add($grid.Text)
+            }
+        }
+    }
+    if ($lines.Count -eq 0) { $lines.Add("(no network info loaded)") }
+    Invoke-CopyAllFlash -Button $this -Text ($lines -join "`n")
+})

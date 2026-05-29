@@ -289,7 +289,7 @@ if ($script:notesPreviewMode) {
 # ── Clear button ─────────────────────────────────────────────────
 $btnNotesClear.Add_Click({
     if ([string]::IsNullOrWhiteSpace($notesTextBox.Text)) { return }
-    $result = Show-ThemedDialog "Clear all notes? This cannot be undone." "Clear Notes" "YesNo" "Warning"
+    $result = Show-ThemedDialog "Clear all notes? This cannot be undone." "Clear notes" "YesNo" "Warning"
     if ($result -eq "Yes") {
         $notesTextBox.Text = ""
         $notesPlaceholder.Visibility = "Visible"

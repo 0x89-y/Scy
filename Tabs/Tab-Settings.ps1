@@ -225,6 +225,7 @@ function Save-Settings {
             SkipSingleUninstallConfirm  = $script:skipSingleUninstallConfirm
             DefaultAppsSubTab           = $script:defaultAppsSubTab
             DefaultTab                  = $script:defaultTab
+            CollapsedTweakGroups        = @($script:collapsedTweakGroups)
             SpeedTestServer    = $script:speedTestServer
             WindowGeometry     = $script:windowGeometry
             QuickInstalls      = @($script:quickInstalls | ForEach-Object { @{Name=$_.Name; Id=$_.Id; Category=$_.Category} })
@@ -270,6 +271,7 @@ $script:enableNotifications         = $true
 $script:skipSingleUninstallConfirm  = $false
 $script:defaultAppsSubTab           = "Store"
 $script:defaultTab                  = "Apps"
+$script:collapsedTweakGroups        = [System.Collections.Generic.List[string]]::new()
 $script:rememberCleanTargets   = $false
 $script:autoScanLocalInstallers    = $false
 $script:rememberLocalInstallers    = $false
@@ -297,6 +299,10 @@ if (Test-Path $script:settingsFile) {
         if ($null -ne $saved.SkipSingleUninstallConfirm)  { $script:skipSingleUninstallConfirm  = [bool]$saved.SkipSingleUninstallConfirm }
         if ($saved.DefaultAppsSubTab)                     { $script:defaultAppsSubTab           = [string]$saved.DefaultAppsSubTab }
         if ($saved.DefaultTab)                            { $script:defaultTab                  = [string]$saved.DefaultTab }
+        if ($null -ne $saved.CollapsedTweakGroups) {
+            $script:collapsedTweakGroups.Clear()
+            foreach ($g in $saved.CollapsedTweakGroups) { $script:collapsedTweakGroups.Add([string]$g) | Out-Null }
+        }
         if ($saved.SpeedTestServer)              { $script:speedTestServer    = [string]$saved.SpeedTestServer }
         if ($saved.WindowGeometry) {
             $wg = $saved.WindowGeometry
@@ -695,10 +701,10 @@ foreach ($colorKey in $script:customColorKeys) {
 (Find "ToggleSidebarTabs").Add_Checked({   $script:experimentalSidebarTabs = $true;  Save-Settings; Apply-SidebarLayout })
 (Find "ToggleSidebarTabs").Add_Unchecked({ $script:experimentalSidebarTabs = $false; Save-Settings; Apply-SidebarLayout })
 
-# ── Disable auto icon fetch toggle ───────────────────────────────
-(Find "ToggleDisableAutoIconFetch").IsChecked = $script:disableAutoIconFetch
-(Find "ToggleDisableAutoIconFetch").Add_Checked({   $script:disableAutoIconFetch = $true;  Save-Settings })
-(Find "ToggleDisableAutoIconFetch").Add_Unchecked({ $script:disableAutoIconFetch = $false; Save-Settings })
+# ── Auto-fetch icons toggle (positive label maps to NOT $disableAutoIconFetch) ──
+(Find "ToggleDisableAutoIconFetch").IsChecked = (-not $script:disableAutoIconFetch)
+(Find "ToggleDisableAutoIconFetch").Add_Checked({   $script:disableAutoIconFetch = $false; Save-Settings })
+(Find "ToggleDisableAutoIconFetch").Add_Unchecked({ $script:disableAutoIconFetch = $true;  Save-Settings })
 
 # ── Skip splash toggle ───────────────────────────────────────────
 (Find "ToggleSkipSplash").IsChecked = $script:skipSplash
@@ -1256,7 +1262,7 @@ function Render-GroupSettings {
         $deleteBtn.FontSize = 11; $deleteBtn.Padding = [System.Windows.Thickness]::new(10, 4, 10, 4)
         $deleteBtn.Foreground = $window.Resources["DangerBrush"]
         $deleteBtn.Add_Click(({
-            $dlgResult = Show-ThemedDialog "Delete group '$capturedName'? Shortcuts in this group will be moved to 'Custom'." "Confirm Delete" "YesNo" "Question"
+            $dlgResult = Show-ThemedDialog "Delete group '$capturedName'? Shortcuts in this group will be moved to 'Custom'." "Confirm delete" "YesNo" "Question"
             if ($dlgResult -ne "Yes") { return }
             $capturedShortcutGroups.Remove($capturedName) | Out-Null
             foreach ($sc in $capturedShortcuts) {
@@ -1410,7 +1416,7 @@ function Render-GroupSettings {
         $deleteBtn.FontSize = 11; $deleteBtn.Padding = [System.Windows.Thickness]::new(10, 4, 10, 4)
         $deleteBtn.Foreground = $window.Resources["DangerBrush"]
         $deleteBtn.Add_Click(({
-            $dlgResult = Show-ThemedDialog "Delete category '$capturedName'? Apps in this category will become uncategorized." "Confirm Delete" "YesNo" "Question"
+            $dlgResult = Show-ThemedDialog "Delete category '$capturedName'? Apps in this category will become uncategorized." "Confirm delete" "YesNo" "Question"
             if ($dlgResult -ne "Yes") { return }
             $capturedInstallCategories.Remove($capturedName) | Out-Null
             foreach ($qi in $capturedQuickInstalls) {

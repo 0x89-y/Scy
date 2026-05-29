@@ -66,11 +66,10 @@ function New-HostsRow {
     $border.Margin          = [System.Windows.Thickness]::new(0)
 
     $grid = New-Object System.Windows.Controls.Grid
-    foreach ($spec in @(50, 150, "star", "star", "auto")) {
+    foreach ($spec in @(50, 150, "star", "star")) {
         $cd = New-Object System.Windows.Controls.ColumnDefinition
         $cd.Width = switch ($spec) {
             "star" { New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star) }
-            "auto" { [System.Windows.GridLength]::Auto }
             default { [System.Windows.GridLength]::new([double]$spec) }
         }
         $grid.ColumnDefinitions.Add($cd)
@@ -110,29 +109,26 @@ function New-HostsRow {
     $commentText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     [System.Windows.Controls.Grid]::SetColumn($commentText, 3)
 
-    # Col 4 - remove button
-    $removeBtn                   = New-Object System.Windows.Controls.Button
-    $removeBtn.Content           = "x"
-    $removeBtn.FontSize          = 11
-    $removeBtn.Padding           = [System.Windows.Thickness]::new(8, 3, 8, 3)
-    $removeBtn.Style             = $window.Resources["SecondaryButton"]
-    $removeBtn.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-    $removeBtn.Tag               = [PSCustomObject]@{ Entry = $Entry; Border = $border }
-    [System.Windows.Controls.Grid]::SetColumn($removeBtn, 4)
-    $removeBtn.Add_Click({
-        param($btn, $e)
-        $t = $btn.Tag
+    # Right-click context menu for Remove
+    $ctxMenu        = New-Object System.Windows.Controls.ContextMenu
+    $miRemove       = New-Object System.Windows.Controls.MenuItem
+    $miRemove.Header = "Remove entry"
+    $miRemove.Tag    = [PSCustomObject]@{ Entry = $Entry; Border = $border }
+    $miRemove.Add_Click({
+        param($mi, $e)
+        $t = $mi.Tag
         $script:hostsEntries.Remove($t.Entry) | Out-Null
         $hostsEntriesPanel.Children.Remove($t.Border)
         $hostsStatusText.Text = "$($script:hostsEntries.Count) entries  (unsaved)"
         $hostsStatusText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
     })
+    $ctxMenu.Items.Add($miRemove) | Out-Null
+    $border.ContextMenu = $ctxMenu
 
     $grid.Children.Add($cb)          | Out-Null
     $grid.Children.Add($ipText)      | Out-Null
     $grid.Children.Add($hostText)    | Out-Null
     $grid.Children.Add($commentText) | Out-Null
-    $grid.Children.Add($removeBtn)   | Out-Null
     $border.Child = $grid
     return $border
 }

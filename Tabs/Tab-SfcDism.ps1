@@ -36,7 +36,6 @@ function Set-SfcDismBusy([string]$msg) {
     $btnDismRun.IsEnabled      = $false
     $btnSfcDismBoth.IsEnabled  = $false
     $btnSfcDismStop.IsEnabled  = $true
-    $btnSfcDismStop.Opacity    = 1
     $sfcDismResultCard.Visibility = "Collapsed"
     $sfcDismResultPanel.Children.Clear()
     $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
@@ -50,7 +49,6 @@ function Set-SfcDismReady {
     $btnDismRun.IsEnabled       = $true
     $btnSfcDismBoth.IsEnabled   = $true
     $btnSfcDismStop.IsEnabled   = $false
-    $btnSfcDismStop.Opacity     = 0.4
     $script:sfcDismProcHolder.Clear()
 }
 

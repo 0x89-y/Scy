@@ -1327,10 +1327,15 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <Button x:Name="BtnToggleTweakCreator" Grid.Column="0"
-                                    Content="+ Add tweak"
-                                    Style="{StaticResource ActionButton}"
-                                    HorizontalAlignment="Left"/>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <Button x:Name="BtnToggleTweakCreator"
+                                        Content="+ Add tweak"
+                                        Style="{StaticResource ActionButton}"/>
+                                <Button x:Name="BtnTweakCollapseAll"
+                                        Content="Collapse all"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Margin="8,0,0,0" Visibility="Collapsed"/>
+                            </StackPanel>
 
                             <!-- Search box -->
                             <Border Grid.Column="1" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
@@ -1427,7 +1432,7 @@
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="10,0" Margin="0,0,8,0">
                                         <Grid>
-                                            <TextBlock x:Name="TweakApplyPlaceholder" Text="Apply.ps1  -  required"
+                                            <TextBlock x:Name="TweakApplyPlaceholder" Text="Apply.ps1 (required)"
                                                        Foreground="{DynamicResource MutedText}" FontSize="12"
                                                        VerticalAlignment="Center" IsHitTestVisible="False"/>
                                             <TextBox x:Name="TweakApplyPath" Background="Transparent" BorderThickness="0"
@@ -1449,7 +1454,7 @@
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="10,0" Margin="0,0,8,0">
                                         <Grid>
-                                            <TextBlock x:Name="TweakRevertPlaceholder" Text="Revert.ps1  -  optional"
+                                            <TextBlock x:Name="TweakRevertPlaceholder" Text="Revert.ps1 (optional)"
                                                        Foreground="{DynamicResource MutedText}" FontSize="12"
                                                        VerticalAlignment="Center" IsHitTestVisible="False"/>
                                             <TextBox x:Name="TweakRevertPath" Background="Transparent" BorderThickness="0"
@@ -1518,7 +1523,7 @@
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="SystemNav_Firmware" Content="BIOS/UEFI"
                                     Style="{StaticResource SubNavButton}"/>
-                            <Button x:Name="SystemNav_SfcDism" Content="SFC / DISM"
+                            <Button x:Name="SystemNav_SfcDism" Content="SFC/DISM"
                                     Style="{StaticResource SubNavButton}"/>
                         </StackPanel>
 
@@ -1535,7 +1540,6 @@
                             <Button x:Name="BtnHardwareInfo" Content="Hardware"    Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                             <Button x:Name="BtnDriveInfo"    Content="Drives"      Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                             <Button x:Name="BtnNetworkInfo"  Content="Network"     Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                            <Button x:Name="BtnExecPolicy"   Content="PS policy"   Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                             <Button x:Name="BtnSysInfo"      Content="Refresh all" Style="{StaticResource ActionButton}"/>
                         </StackPanel>
 
@@ -1552,13 +1556,18 @@
                                             CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}"
                                             BorderThickness="1" Padding="16,14">
                                         <StackPanel>
-                                            <DockPanel Margin="0,0,0,10">
-                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                                <TextBlock Text="Operating system" FontSize="14"
-                                                           FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                                           VerticalAlignment="Center"/>
-                                            </DockPanel>
+                                            <Grid Margin="0,0,0,10">
+                                                <DockPanel>
+                                                    <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                            Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                    <TextBlock Text="Operating system" FontSize="14"
+                                                               FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                                               VerticalAlignment="Center"/>
+                                                </DockPanel>
+                                                <Button x:Name="BtnCopyOS" Style="{StaticResource CopyButton}"
+                                                        Content="Copy all" ToolTip="Copy all OS info"
+                                                        HorizontalAlignment="Right" FontSize="11"/>
+                                            </Grid>
                                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
@@ -1568,7 +1577,7 @@
                                                     <TextBlock Text="OS" Foreground="{DynamicResource MutedText}" FontSize="12"/>
                                                     <TextBlock x:Name="SysOS" Grid.Column="1" HorizontalAlignment="Right"
                                                                FontSize="12" Foreground="{DynamicResource FgBrush}"
-                                                               TextWrapping="Wrap" TextAlignment="Right" Text="-"/>
+                                                               TextWrapping="Wrap" TextAlignment="Right" Text=""/>
                                                 </Grid>
                                             </Border>
                                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
@@ -1580,7 +1589,7 @@
                                                     <TextBlock Text="Build" Foreground="{DynamicResource MutedText}" FontSize="12"/>
                                                     <TextBlock x:Name="SysBuild" Grid.Column="1" HorizontalAlignment="Right"
                                                                FontSize="12" Foreground="{DynamicResource FgBrush}"
-                                                               TextAlignment="Right" Text="-"/>
+                                                               TextAlignment="Right" Text=""/>
                                                 </Grid>
                                             </Border>
                                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
@@ -1592,7 +1601,7 @@
                                                     <TextBlock Text="Computer" Foreground="{DynamicResource MutedText}" FontSize="12"/>
                                                     <TextBlock x:Name="SysComputer" Grid.Column="1" HorizontalAlignment="Right"
                                                                FontSize="12" Foreground="{DynamicResource FgBrush}"
-                                                               TextAlignment="Right" Text="-"/>
+                                                               TextAlignment="Right" Text=""/>
                                                 </Grid>
                                             </Border>
                                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
@@ -1604,19 +1613,7 @@
                                                     <TextBlock Text="User" Foreground="{DynamicResource MutedText}" FontSize="12"/>
                                                     <TextBlock x:Name="SysUser" Grid.Column="1" HorizontalAlignment="Right"
                                                                FontSize="12" Foreground="{DynamicResource FgBrush}"
-                                                               TextAlignment="Right" Text="-"/>
-                                                </Grid>
-                                            </Border>
-                                            <Border Padding="0,7">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="90"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="Uptime" Foreground="{DynamicResource MutedText}" FontSize="12"/>
-                                                    <TextBlock x:Name="SysUptime" Grid.Column="1" HorizontalAlignment="Right"
-                                                               FontSize="12" Foreground="{DynamicResource SuccessBrush}"
-                                                               TextAlignment="Right" Text="-"/>
+                                                               TextAlignment="Right" Text=""/>
                                                 </Grid>
                                             </Border>
                                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
@@ -1625,10 +1622,22 @@
                                                         <ColumnDefinition Width="90"/>
                                                         <ColumnDefinition Width="*"/>
                                                     </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="Uptime" Foreground="{DynamicResource MutedText}" FontSize="12"/>
+                                                    <TextBlock x:Name="SysUptime" Grid.Column="1" HorizontalAlignment="Right"
+                                                               FontSize="12" Foreground="{DynamicResource SuccessBrush}"
+                                                               TextAlignment="Right" Text=""/>
+                                                </Grid>
+                                            </Border>
+                                            <Border Padding="0,7">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="90"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
                                                     <TextBlock Text="PS policy" Foreground="{DynamicResource MutedText}" FontSize="12"/>
                                                     <TextBlock x:Name="SysExecPolicy" Grid.Column="1" HorizontalAlignment="Right"
                                                                FontSize="12" Foreground="{DynamicResource MutedText}"
-                                                               TextAlignment="Right" Text="-"/>
+                                                               TextAlignment="Right" Text=""/>
                                                 </Grid>
                                             </Border>
                                         </StackPanel>
@@ -1648,7 +1657,7 @@
                                                                VerticalAlignment="Center"/>
                                                 </DockPanel>
                                                 <Button x:Name="BtnCopyHardware" Style="{StaticResource CopyButton}"
-                                                        Content="copy all" ToolTip="Copy all hardware info"
+                                                        Content="Copy all" ToolTip="Copy all hardware info"
                                                         HorizontalAlignment="Right" FontSize="11"/>
                                             </Grid>
                                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
@@ -1660,7 +1669,7 @@
                                                     <TextBlock Text="CPU" Foreground="{DynamicResource MutedText}" FontSize="12"/>
                                                     <TextBlock x:Name="HwCPU" Grid.Column="1" HorizontalAlignment="Right"
                                                                FontSize="12" Foreground="{DynamicResource FgBrush}"
-                                                               TextWrapping="Wrap" TextAlignment="Right" Text="-"/>
+                                                               TextWrapping="Wrap" TextAlignment="Right" Text=""/>
                                                 </Grid>
                                             </Border>
                                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
@@ -1672,7 +1681,7 @@
                                                     <TextBlock Text="Cores" Foreground="{DynamicResource MutedText}" FontSize="12"/>
                                                     <TextBlock x:Name="HwCores" Grid.Column="1" HorizontalAlignment="Right"
                                                                FontSize="12" Foreground="{DynamicResource FgBrush}"
-                                                               TextAlignment="Right" Text="-"/>
+                                                               TextAlignment="Right" Text=""/>
                                                 </Grid>
                                             </Border>
                                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,7">
@@ -1684,7 +1693,7 @@
                                                     <TextBlock Text="RAM" Foreground="{DynamicResource MutedText}" FontSize="12"/>
                                                     <TextBlock x:Name="HwRAM" Grid.Column="1" HorizontalAlignment="Right"
                                                                FontSize="12" Foreground="{DynamicResource FgBrush}"
-                                                               TextAlignment="Right" Text="-"/>
+                                                               TextAlignment="Right" Text=""/>
                                                 </Grid>
                                             </Border>
                                             <Border Padding="0,7">
@@ -1696,7 +1705,7 @@
                                                     <TextBlock Text="GPU" Foreground="{DynamicResource MutedText}" FontSize="12"/>
                                                     <TextBlock x:Name="HwGPU" Grid.Column="1" HorizontalAlignment="Right"
                                                                FontSize="12" Foreground="{DynamicResource FgBrush}"
-                                                               TextTrimming="CharacterEllipsis" TextAlignment="Right" Text="-"/>
+                                                               TextTrimming="CharacterEllipsis" TextAlignment="Right" Text=""/>
                                                 </Grid>
                                             </Border>
                                         </StackPanel>
@@ -1708,13 +1717,18 @@
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="16,14" Margin="0,0,0,12">
                                     <StackPanel>
-                                        <DockPanel Margin="0,0,0,10">
-                                            <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                                    Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                            <TextBlock Text="Drives" FontSize="14"
-                                                       FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                                       VerticalAlignment="Center"/>
-                                        </DockPanel>
+                                        <Grid Margin="0,0,0,10">
+                                            <DockPanel>
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock Text="Drives" FontSize="14"
+                                                           FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                            <Button x:Name="BtnCopyDrives" Style="{StaticResource CopyButton}"
+                                                    Content="Copy all" ToolTip="Copy all drive info"
+                                                    HorizontalAlignment="Right" FontSize="11"/>
+                                        </Grid>
                                         <StackPanel x:Name="DiskPanel">
                                             <TextBlock Text="Click 'Drives' or 'Refresh all' to load drive info."
                                                        Foreground="{DynamicResource MutedText}" FontSize="12"
@@ -1728,13 +1742,18 @@
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="16,14" Margin="0,0,0,12">
                                     <StackPanel>
-                                        <DockPanel Margin="0,0,0,10">
-                                            <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
-                                                    Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                            <TextBlock Text="Network adapters" FontSize="14"
-                                                       FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
-                                                       VerticalAlignment="Center"/>
-                                        </DockPanel>
+                                        <Grid Margin="0,0,0,10">
+                                            <DockPanel>
+                                                <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
+                                                        Margin="0,0,8,0" VerticalAlignment="Stretch"/>
+                                                <TextBlock Text="Network adapters" FontSize="14"
+                                                           FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                            <Button x:Name="BtnCopyNetwork" Style="{StaticResource CopyButton}"
+                                                    Content="Copy all" ToolTip="Copy all network info"
+                                                    HorizontalAlignment="Right" FontSize="11"/>
+                                        </Grid>
                                         <StackPanel x:Name="NetAdapterPanel">
                                             <TextBlock Text="Click 'Refresh all' to load network info."
                                                        Foreground="{DynamicResource MutedText}" FontSize="12"
@@ -1786,7 +1805,7 @@
                                                     <Button x:Name="BtnScan"  Content="Scan"
                                                             Style="{StaticResource ActionButton}" Margin="0,0,4,0"/>
                                                     <Button x:Name="BtnClean" Content="Clean"
-                                                            Style="{StaticResource DangerButton}" IsEnabled="False" Opacity="0.4"/>
+                                                            Style="{StaticResource DangerButton}" IsEnabled="False"/>
                                                 </StackPanel>
                                             </Grid>
                                             <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,12"/>
@@ -1829,7 +1848,7 @@
                                                        FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,0,0,8"/>
                                             <TextBlock x:Name="RecycleBinSize" Text=""
                                                        FontSize="13" FontWeight="SemiBold"
-                                                       Foreground="#a89bc9" Visibility="Collapsed" Margin="0,0,0,4"/>
+                                                       Foreground="{DynamicResource AccentBrush}" Visibility="Collapsed" Margin="0,0,0,4"/>
                                             <TextBlock x:Name="RecycleBinResult" Text=""
                                                        FontSize="20" Visibility="Collapsed" Margin="0,0,0,8"/>
                                             <Button x:Name="BtnEmptyRecycleBin" Content="Empty recycle bin"
@@ -1856,7 +1875,7 @@
                                 <DockPanel Margin="0,0,0,10">
                                     <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                             Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Battery Status"
+                                    <TextBlock Text="Battery status"
                                                FontSize="14" FontWeight="SemiBold"
                                                Foreground="{DynamicResource FgBrush}"
                                                VerticalAlignment="Center"/>
@@ -1891,7 +1910,7 @@
                                                    VerticalAlignment="Center"/>
                                     </DockPanel>
                                     <StackPanel x:Name="BatteryCapacityPanel">
-                                        <TextBlock Text="-"
+                                        <TextBlock Text="Click 'Refresh' to load battery capacity."
                                                    Foreground="{DynamicResource MutedText}" FontSize="12"
                                                    Margin="0,2"/>
                                     </StackPanel>
@@ -1912,7 +1931,7 @@
                                                    VerticalAlignment="Center"/>
                                     </DockPanel>
                                     <StackPanel x:Name="BatteryHealthPanel">
-                                        <TextBlock Text="-"
+                                        <TextBlock Text="Click 'Refresh' to load battery health."
                                                    Foreground="{DynamicResource MutedText}" FontSize="12"
                                                    Margin="0,2"/>
                                     </StackPanel>
@@ -1928,13 +1947,13 @@
                                 <DockPanel Margin="0,0,0,10">
                                     <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                             Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Recent Usage History"
+                                    <TextBlock Text="Recent usage history"
                                                FontSize="14" FontWeight="SemiBold"
                                                Foreground="{DynamicResource FgBrush}"
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
                                 <StackPanel x:Name="BatteryHistoryPanel">
-                                    <TextBlock Text="-"
+                                    <TextBlock Text="Click 'Refresh' to load recent usage history."
                                                Foreground="{DynamicResource MutedText}" FontSize="12"
                                                Margin="0,2"/>
                                 </StackPanel>
@@ -1996,7 +2015,7 @@
                                                    VerticalAlignment="Center"/>
                                     </DockPanel>
                                     <StackPanel x:Name="FirmwareSecurityPanel">
-                                        <TextBlock Text="-"
+                                        <TextBlock Text="Click 'Refresh' to load security info."
                                                    Foreground="{DynamicResource MutedText}" FontSize="12"
                                                    Margin="0,2"/>
                                     </StackPanel>
@@ -2012,13 +2031,13 @@
                                 <DockPanel Margin="0,0,0,10">
                                     <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                             Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Virtualization &amp; Features"
+                                    <TextBlock Text="Virtualization &amp; features"
                                                FontSize="14" FontWeight="SemiBold"
                                                Foreground="{DynamicResource FgBrush}"
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
                                 <StackPanel x:Name="FirmwareFeaturesPanel">
-                                    <TextBlock Text="-"
+                                    <TextBlock Text="Click 'Refresh' to load virtualization &amp; features."
                                                Foreground="{DynamicResource MutedText}" FontSize="12"
                                                Margin="0,2"/>
                                 </StackPanel>
@@ -2039,7 +2058,7 @@
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
                                 <StackPanel x:Name="FirmwareMotherboardPanel">
-                                    <TextBlock Text="-"
+                                    <TextBlock Text="Click 'Refresh' to load motherboard info."
                                                Foreground="{DynamicResource MutedText}" FontSize="12"
                                                Margin="0,2"/>
                                 </StackPanel>
@@ -2059,7 +2078,7 @@
                             <Button x:Name="BtnDismRun" Content="Run DISM" Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
                             <Button x:Name="BtnSfcDismBoth" Content="Run Both" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                             <Button x:Name="BtnSfcDismStop" Content="Stop" Style="{StaticResource DangerButton}"
-                                    IsEnabled="False" Opacity="0.4"/>
+                                    IsEnabled="False"/>
                         </StackPanel>
 
                         <!-- Status -->
@@ -2075,7 +2094,7 @@
                                                Foreground="{DynamicResource FgBrush}"
                                                VerticalAlignment="Center"/>
                                 </DockPanel>
-                                <TextBlock x:Name="SfcDismStatus" Text="Ready -- click a button to start a scan."
+                                <TextBlock x:Name="SfcDismStatus" Text="Click a button to start a scan."
                                            Foreground="{DynamicResource MutedText}" FontSize="12"
                                            TextWrapping="Wrap" Margin="0,2"/>
                                 <ProgressBar x:Name="SfcDismProgress" Height="6" Margin="0,8,0,0"
@@ -2111,7 +2130,7 @@
                                 <DockPanel Margin="0,0,0,10">
                                     <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                             Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Output Log"
+                                    <TextBlock Text="Output log"
                                                FontSize="14" FontWeight="SemiBold"
                                                Foreground="{DynamicResource FgBrush}"
                                                VerticalAlignment="Center"/>
@@ -2501,7 +2520,7 @@
                                             <DockPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                         Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                                <TextBlock Text="Ping / Traceroute"
+                                                <TextBlock Text="Ping/traceroute"
                                                            FontSize="14" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                             </DockPanel>
@@ -2512,7 +2531,7 @@
                                                         Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
                                                 <Button x:Name="BtnNetStop"  Content="Stop"
                                                         Style="{StaticResource SecondaryButton}"
-                                                        IsEnabled="False" Opacity="0.4"/>
+                                                        IsEnabled="False"/>
                                             </StackPanel>
                                         </Grid>
 
@@ -2522,7 +2541,7 @@
                                                 Padding="10,0" Margin="0,0,0,10" Height="34">
                                             <Grid>
                                                 <TextBlock x:Name="NetHostPlaceholder"
-                                                           Text="Hostname or IP  (e.g. 8.8.8.8)"
+                                                           Text="Hostname or IP (e.g. 8.8.8.8)"
                                                            Foreground="{DynamicResource MutedText}"
                                                            VerticalAlignment="Center" FontSize="12"
                                                            IsHitTestVisible="False"/>
@@ -2683,7 +2702,7 @@
                                                         Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
                                                 <Button x:Name="BtnNetNSCopy" Content="Copy"
                                                         Style="{StaticResource SecondaryButton}"
-                                                        IsEnabled="False" Opacity="0.4"/>
+                                                        IsEnabled="False"/>
                                             </StackPanel>
                                         </Grid>
                                         <TextBlock Text="Resolve DNS records for a domain. Shows A, AAAA, MX, NS, CNAME, and TXT records."
@@ -2696,7 +2715,7 @@
                                                 Padding="10,0" Margin="0,0,0,4" Height="34">
                                             <Grid>
                                                 <TextBlock x:Name="NetNSPlaceholder"
-                                                           Text="Domain name  (e.g. example.com)"
+                                                           Text="Domain name (e.g. example.com)"
                                                            Foreground="{DynamicResource MutedText}"
                                                            VerticalAlignment="Center" FontSize="12"
                                                            IsHitTestVisible="False"/>
@@ -2790,7 +2809,7 @@
                                                 <Button x:Name="BtnHostsSave"     Content="Save changes" Style="{StaticResource ActionButton}"    Margin="0,0,8,0"/>
                                                 <Button x:Name="BtnHostsAddEntry" Content="+ Add entry"  Style="{StaticResource SecondaryButton}"/>
                                             </StackPanel>
-                                            <TextBlock x:Name="HostsStatusText" Grid.Column="2" Text="-"
+                                            <TextBlock x:Name="HostsStatusText" Grid.Column="2" Text=""
                                                        FontSize="11" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource MutedText}"/>
                                         </Grid>
@@ -2815,7 +2834,7 @@
                                         <!-- Add entry form (collapsed by default) -->
                                         <Border x:Name="HostsAddPanel" Visibility="Collapsed"
                                                 Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
-                                                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="16,14" Margin="0,0,0,16">
                                             <StackPanel>
                                                 <DockPanel Margin="0,0,0,10">
@@ -2904,9 +2923,8 @@
                                                             <ColumnDefinition Width="150"/>
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0" Text="On"         FontSize="11" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
+                                                        <TextBlock Grid.Column="0" Text="Enabled"    FontSize="11" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
                                                         <TextBlock Grid.Column="1" Text="IP address" FontSize="11" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
                                                         <TextBlock Grid.Column="2" Text="Hostname"   FontSize="11" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
                                                         <TextBlock Grid.Column="3" Text="Comment"    FontSize="11" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
@@ -2938,12 +2956,12 @@
                                             <DockPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
                                                 <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                         Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                                <TextBlock Text="DNS Switcher"
+                                                <TextBlock Text="DNS switcher"
                                                            FontSize="14" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource FgBrush}"
                                                            VerticalAlignment="Center"/>
                                             </DockPanel>
-                                            <TextBlock x:Name="DnsStatusText" Grid.Column="2" Text="-"
+                                            <TextBlock x:Name="DnsStatusText" Grid.Column="2" Text=""
                                                        FontSize="11" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource MutedText}"/>
                                         </Grid>
@@ -2978,12 +2996,7 @@
                                             <TextBlock Grid.Column="0" Text="Adapter" FontSize="12"
                                                        Foreground="{DynamicResource FgBrush}"
                                                        VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                            <Border Grid.Column="1" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
-                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="4,0">
-                                                <ComboBox x:Name="DnsAdapterBox" Background="Transparent" BorderThickness="0"
-                                                          Foreground="{DynamicResource FgBrush}" FontSize="12"
-                                                          Padding="4,6"/>
-                                            </Border>
+                                            <ComboBox x:Name="DnsAdapterBox" Grid.Column="1"/>
                                             <Button x:Name="BtnDnsRefreshAdapters" Grid.Column="2" Content="Refresh"
                                                     Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"/>
                                         </Grid>
@@ -2996,9 +3009,9 @@
                                                 <TextBlock Text="Current DNS:" FontSize="12"
                                                            Foreground="{DynamicResource MutedText}"
                                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                <TextBlock x:Name="DnsCurrentDisplay" Text="-" FontSize="12"
+                                                <TextBlock x:Name="DnsCurrentDisplay" Text="" FontSize="12"
                                                            FontFamily="Consolas"
-                                                           Foreground="{DynamicResource AccentBrush}"
+                                                           Foreground="{DynamicResource FgBrush}"
                                                            VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Border>
@@ -3009,19 +3022,19 @@
                                                 Padding="14,10" Margin="0,0,0,12">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <CheckBox x:Name="DnsDoHCheckbox" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                    <TextBlock Text="Enable DNS-over-HTTPS (DoH)" FontSize="12"
-                                                               Foreground="{DynamicResource FgBrush}"
-                                                               VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                                <TextBlock x:Name="DnsDoHStatus" Grid.Column="2" Text=""
+                                                <TextBlock Grid.Column="0" Text="Enable DNS-over-HTTPS (DoH)" FontSize="12"
+                                                           Foreground="{DynamicResource FgBrush}"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock x:Name="DnsDoHStatus" Grid.Column="1" Text=""
                                                            FontSize="11" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource MutedText}"/>
+                                                           Foreground="{DynamicResource MutedText}" Margin="0,0,12,0"/>
+                                                <CheckBox x:Name="DnsDoHCheckbox" Grid.Column="2"
+                                                          Style="{StaticResource TweakToggle}"
+                                                          VerticalAlignment="Center"/>
                                             </Grid>
                                         </Border>
 
@@ -3538,7 +3551,7 @@
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="ToolsNav_Hashing" Content="File Hashing"
                                     Style="{StaticResource SubNavButton}"/>
-                            <Button x:Name="ToolsNav_PasswordGen" Content="Password Generator"
+                            <Button x:Name="ToolsNav_PasswordGen" Content="Passwords"
                                     Style="{StaticResource SubNavButton}"/>
                         </StackPanel>
 
@@ -3563,7 +3576,7 @@
                                         <DockPanel Grid.Column="0" VerticalAlignment="Center">
                                             <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                     Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                            <TextBlock Text="QR Code Generator"
+                                            <TextBlock Text="QR code"
                                                        FontSize="14" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                         </DockPanel>
@@ -3623,7 +3636,7 @@
                                 <DockPanel Grid.Row="0" Margin="0,0,0,10">
                                     <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                             Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                    <TextBlock Text="Quick Notes"
+                                    <TextBlock Text="Quick notes"
                                                FontSize="14" FontWeight="SemiBold"
                                                Foreground="{DynamicResource FgBrush}"
                                                VerticalAlignment="Center"/>
@@ -3700,7 +3713,7 @@
                                         <DockPanel Grid.Column="0" VerticalAlignment="Center">
                                             <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                     Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                            <TextBlock Text="File Hashing Tool"
+                                            <TextBlock Text="File hashing"
                                                        FontSize="14" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                         </DockPanel>
@@ -3799,7 +3812,7 @@
                                     <DockPanel Margin="0,0,0,10">
                                         <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                 Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                        <TextBlock Text="Compare &amp; Verify"
+                                        <TextBlock Text="Compare &amp; verify"
                                                    FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}"
                                                    VerticalAlignment="Center"/>
@@ -3870,7 +3883,7 @@
                                                 <DockPanel Grid.Column="0" VerticalAlignment="Center">
                                                     <Border Width="3" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                                                             Margin="0,0,8,0" VerticalAlignment="Stretch"/>
-                                                    <TextBlock Text="Password Generator"
+                                                    <TextBlock Text="Passwords"
                                                                FontSize="14" FontWeight="SemiBold"
                                                                Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                                 </DockPanel>
@@ -4052,7 +4065,7 @@
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="SettingsNav_Appearance" Content="Appearance"
                                     Style="{StaticResource SubNavButton}"/>
-                            <Button x:Name="SettingsNav_Groups"     Content="Apps &amp; groups"
+                            <Button x:Name="SettingsNav_Groups"     Content="Apps &amp; Groups"
                                     Style="{StaticResource SubNavButton}"/>
                             <Button x:Name="SettingsNav_Backup"     Content="Backup"
                                     Style="{StaticResource SubNavButton}"/>
@@ -4119,7 +4132,7 @@
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Sidebar tabs" FontSize="12" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource FgBrush}"/>
-                                            <TextBlock Text="Show navigation as a vertical rail on the left instead of the top."
+                                            <TextBlock Text="Show navigation as a vertical rail on the left instead of the top"
                                                        FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
                                         </StackPanel>
                                         <CheckBox x:Name="ToggleSidebarTabs" Grid.Column="1"
@@ -4977,7 +4990,7 @@
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
                                     <StackPanel x:Name="SettingsBody_IconCache">
-                                    <TextBlock Text="Cards in the Store can show real favicons fetched from each app's publisher domain and cached locally. Disable auto-fetch to keep the Store snappy and refresh icons only on demand."
+                                    <TextBlock Text="Cards in the Store can show real favicons fetched from each app's publisher domain and cached locally. Leave auto-fetch off to keep the Store snappy and refresh icons only on demand."
                                                FontSize="11" Foreground="{DynamicResource MutedText}"
                                                Margin="0,10,0,12" TextWrapping="Wrap"/>
 
@@ -4987,9 +5000,9 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Don't auto-fetch new icons" FontSize="12" FontWeight="SemiBold"
+                                            <TextBlock Text="Auto-fetch icons in the background" FontSize="12" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource FgBrush}"/>
-                                            <TextBlock Text="Letter badges stay for any app whose icon isn't cached yet"
+                                            <TextBlock Text="Fetch real favicons as you browse the Store. When off, uncached apps show letter badges until you fetch manually"
                                                        FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
                                         </StackPanel>
                                         <CheckBox x:Name="ToggleDisableAutoIconFetch" Grid.Column="1"
