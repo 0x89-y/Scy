@@ -699,9 +699,122 @@ function Toggle-QuickInstallsDisclosure {
 $curatedAppsHeader.Add_MouseLeftButtonUp({ Toggle-QuickInstallsDisclosure -Content $curatedAppsContent -Chevron $curatedAppsChevron })
 $hiddenAppsHeader.Add_MouseLeftButtonUp({  Toggle-QuickInstallsDisclosure -Content $hiddenAppsContent  -Chevron $hiddenAppsChevron  })
 $customAppsHeader.Add_MouseLeftButtonUp({  Toggle-QuickInstallsDisclosure -Content $customAppsContent  -Chevron $customAppsChevron  })
-# (Removed: $btnAddToQuickInstalls and $btnAddToBundle handlers - they
-# operated on the deleted checkbox-row search UI. The new Store search uses
-# cards with single-app install via the detail panel.)
+
+# ── Add custom app form (Settings > Apps & Groups > Catalog > Custom apps) ──
+# Re-introduces the affordance to add user-defined apps to the Store. The
+# data layer (Get-MergedQuickInstalls) and the Custom apps list already
+# support these entries; this form is the missing UI to create them.
+$addCustomAppNameBox         = Find "AddCustomAppNameBox"
+$addCustomAppIdBox           = Find "AddCustomAppIdBox"
+$addCustomAppCategoryBox     = Find "AddCustomAppCategoryBox"
+$btnAddCustomApp             = Find "BtnAddCustomApp"
+$addCustomAppStatus          = Find "AddCustomAppStatus"
+$addCustomAppNamePlaceholder = Find "AddCustomAppNamePlaceholder"
+$addCustomAppIdPlaceholder   = Find "AddCustomAppIdPlaceholder"
+
+function Update-AddCustomAppCategories {
+    $prev = [string]$addCustomAppCategoryBox.Text
+    $addCustomAppCategoryBox.Items.Clear()
+    foreach ($c in (Get-AllQuickCategories)) { $addCustomAppCategoryBox.Items.Add($c) | Out-Null }
+    $addCustomAppCategoryBox.Text = $prev
+}
+Update-AddCustomAppCategories
+
+$addCustomAppNameBox.Add_TextChanged({
+    $addCustomAppNamePlaceholder.Visibility = if ($addCustomAppNameBox.Text) { "Collapsed" } else { "Visible" }
+})
+$addCustomAppIdBox.Add_TextChanged({
+    $addCustomAppIdPlaceholder.Visibility = if ($addCustomAppIdBox.Text) { "Collapsed" } else { "Visible" }
+})
+
+function Set-AddCustomAppStatus {
+    param([string]$Text, [string]$BrushKey = "MutedText")
+    $addCustomAppStatus.Text = $Text
+    $addCustomAppStatus.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $BrushKey)
+}
+
+function Refresh-StoreAfterCatalogChange {
+    if (-not (Get-Command Show-StoreLanding -ErrorAction SilentlyContinue)) { return }
+    if ($storeSearchArea.Visibility -eq "Visible") {
+        Show-StoreSearch -Query $storeSearchBox.Text
+    } elseif ($storeCategoryArea.Visibility -eq "Visible") {
+        Show-StoreCategory -Category $storeCategoryName.Text
+    } else {
+        Show-StoreLanding
+    }
+}
+
+function Add-CustomApp {
+    param([string]$Name, [string]$Id, [string]$Category)
+
+    $Name     = $Name.Trim()
+    $Id       = $Id.Trim()
+    $Category = $Category.Trim()
+
+    if (-not $Name) {
+        Set-AddCustomAppStatus -Text "Name is required." -BrushKey "DangerBrush"
+        return $false
+    }
+    if (-not $Id) {
+        Set-AddCustomAppStatus -Text "Winget Id is required." -BrushKey "DangerBrush"
+        return $false
+    }
+
+    # Duplicate among existing custom apps
+    foreach ($qi in $script:quickInstalls) {
+        if ([string]$qi.Id -eq $Id) {
+            Set-AddCustomAppStatus -Text "An app with this Id is already in your apps." -BrushKey "WarningBrush"
+            return $false
+        }
+    }
+
+    # If the Id matches a hidden curated app, offer to unhide it instead.
+    $curated = $script:curatedApps | Where-Object { [string]$_.Id -eq $Id } | Select-Object -First 1
+    if ($curated -and ($script:hiddenCuratedApps -contains $Id)) {
+        $msg = "'" + [string]$curated.Name + "' is a curated app that you've hidden. Unhide it instead of adding it as custom?"
+        $dlg = Show-ThemedDialog $msg "Already in catalog" "YesNoCancel" "Question"
+        if ($dlg -eq "Yes") {
+            $script:hiddenCuratedApps.Remove($Id) | Out-Null
+            Save-Settings
+            Update-QuickInstalls
+            Refresh-StoreAfterCatalogChange
+            Set-AddCustomAppStatus -Text ("Unhid curated app '" + [string]$curated.Name + "'.") -BrushKey "SuccessBrush"
+            return $true
+        } elseif ($dlg -eq "Cancel") {
+            return $false
+        }
+        # "No" falls through and adds as a custom override.
+    }
+
+    $script:quickInstalls.Add(@{ Name = $Name; Id = $Id; Category = $Category })
+    Save-Settings
+    Update-QuickInstalls
+    Update-AddCustomAppCategories
+    Refresh-StoreAfterCatalogChange
+
+    Set-AddCustomAppStatus -Text ("Added '" + $Name + "'.") -BrushKey "SuccessBrush"
+    return $true
+}
+
+$btnAddCustomApp.Add_Click({
+    $ok = Add-CustomApp -Name $addCustomAppNameBox.Text -Id $addCustomAppIdBox.Text -Category $addCustomAppCategoryBox.Text
+    if ($ok) {
+        $addCustomAppNameBox.Text     = ""
+        $addCustomAppIdBox.Text       = ""
+        $addCustomAppCategoryBox.Text = ""
+    }
+})
+
+# Enter in any input triggers Add
+$addCustomAppEnterHandler = {
+    param($s, $e)
+    if ($e.Key -eq [System.Windows.Input.Key]::Return) {
+        $btnAddCustomApp.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+        $e.Handled = $true
+    }
+}
+$addCustomAppNameBox.Add_KeyDown($addCustomAppEnterHandler)
+$addCustomAppIdBox.Add_KeyDown($addCustomAppEnterHandler)
 
 # -- Export bundles -----------------------------------------------------------
 $btnExportBundles.Add_Click({
@@ -1152,9 +1265,13 @@ function New-AppCard {
         Show-AppDetailPanel -Id $info.Id -Name $info.Name -Source $info.Source -Description $info.Description -Homepage $info.Homepage -SkipMeta:$info.SkipMeta
     })
 
-    # Right-click on a curated card -> Hide app from the Store catalog.
+    # Context menu actions vary by card source:
+    # - Curated catalog cards         -> "Hide app"
+    # - User-saved cards (quickInstalls) -> "Remove from my apps"
+    # - Winget search-result cards    -> "Save to my apps"
+    $menu = New-Object System.Windows.Controls.ContextMenu
+
     if ($IsCurated) {
-        $menu = New-Object System.Windows.Controls.ContextMenu
         $hide = New-Object System.Windows.Controls.MenuItem
         $hide.Header = "Hide app"
         $hide.Tag    = $Id
@@ -1164,7 +1281,6 @@ function New-AppCard {
             if (-not ($script:hiddenCuratedApps -contains $hideId)) {
                 $script:hiddenCuratedApps.Add($hideId) | Out-Null
                 Save-Settings
-                # Re-render the current view so the card disappears.
                 if ($storeSearchArea.Visibility -eq "Visible") {
                     Show-StoreSearch -Query $storeSearchBox.Text
                 } elseif ($storeCategoryArea.Visibility -eq "Visible") {
@@ -1175,8 +1291,62 @@ function New-AppCard {
             }
         })
         $menu.Items.Add($hide) | Out-Null
-        $border.ContextMenu = $menu
+    } else {
+        $alreadyCustom = $false
+        foreach ($qi in $script:quickInstalls) {
+            if ([string]$qi.Id -eq $Id) { $alreadyCustom = $true; break }
+        }
+        if ($alreadyCustom) {
+            $miRemove = New-Object System.Windows.Controls.MenuItem
+            $miRemove.Header = "Remove from my apps"
+            $miRemove.Tag    = $Id
+            $miRemove.Add_Click({
+                param($s, $e)
+                $rid = [string]$s.Tag
+                $entry = $null
+                foreach ($qi in $script:quickInstalls) {
+                    if ([string]$qi.Id -eq $rid) { $entry = $qi; break }
+                }
+                if ($entry) {
+                    $script:quickInstalls.Remove($entry) | Out-Null
+                    Save-Settings
+                    Update-QuickInstalls
+                    if ($storeSearchArea.Visibility -eq "Visible") {
+                        Show-StoreSearch -Query $storeSearchBox.Text
+                    } elseif ($storeCategoryArea.Visibility -eq "Visible") {
+                        Show-StoreCategory -Category $storeCategoryName.Text
+                    } else {
+                        Show-StoreLanding
+                    }
+                }
+            })
+            $menu.Items.Add($miRemove) | Out-Null
+        } else {
+            $miSave = New-Object System.Windows.Controls.MenuItem
+            $miSave.Header = "Save to my apps"
+            $miSave.Tag    = @{ Id = $Id; Name = $Name }
+            $miSave.Add_Click({
+                param($s, $e)
+                $info = $s.Tag
+                $script:quickInstalls.Add(@{ Name = $info.Name; Id = $info.Id; Category = "" })
+                Save-Settings
+                Update-QuickInstalls
+                if (Get-Command Show-ScyToast -ErrorAction SilentlyContinue) {
+                    Show-ScyToast -Title "Scy" -Body ("Saved '" + $info.Name + "' to your apps. Set a category in Settings if you want it under a Store tile.")
+                }
+                if ($storeSearchArea.Visibility -eq "Visible") {
+                    Show-StoreSearch -Query $storeSearchBox.Text
+                } elseif ($storeCategoryArea.Visibility -eq "Visible") {
+                    Show-StoreCategory -Category $storeCategoryName.Text
+                } else {
+                    Show-StoreLanding
+                }
+            })
+            $menu.Items.Add($miSave) | Out-Null
+        }
     }
+
+    $border.ContextMenu = $menu
 
     return $border
 }

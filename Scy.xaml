@@ -4669,7 +4669,7 @@
                                                        Text="&#x25BC;" FontSize="11"
                                                        Foreground="{DynamicResource MutedText}"
                                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <TextBlock Grid.Column="1" Text="Custom apps"
+                                            <TextBlock Grid.Column="1" Text="My apps"
                                                        FontSize="12" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource FgBrush}"
                                                        VerticalAlignment="Center"/>
@@ -4680,6 +4680,68 @@
                                         </Grid>
                                     </Border>
                                     <StackPanel x:Name="CustomAppsContent" Visibility="Collapsed" Margin="0,4,0,0">
+
+                                        <!-- Add custom app form -->
+                                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="4"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                Padding="10,8" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <TextBlock Text="Add an app" FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}" Margin="0,0,0,6"/>
+                                                <Grid Margin="0,0,0,6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="8"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                            Padding="8,0" Height="28">
+                                                        <Grid>
+                                                            <TextBlock x:Name="AddCustomAppNamePlaceholder" Text="Name (e.g. Vivaldi)"
+                                                                       Foreground="{DynamicResource MutedText}" FontSize="11"
+                                                                       VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                            <TextBox x:Name="AddCustomAppNameBox"
+                                                                     Background="Transparent" BorderThickness="0"
+                                                                     Foreground="{DynamicResource FgBrush}" FontSize="11"
+                                                                     VerticalAlignment="Center"
+                                                                     CaretBrush="{DynamicResource FgBrush}"/>
+                                                        </Grid>
+                                                    </Border>
+                                                    <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                            Padding="8,0" Height="28">
+                                                        <Grid>
+                                                            <TextBlock x:Name="AddCustomAppIdPlaceholder" Text="Winget Id (e.g. Vivaldi.Vivaldi)"
+                                                                       Foreground="{DynamicResource MutedText}" FontSize="11"
+                                                                       VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                            <TextBox x:Name="AddCustomAppIdBox"
+                                                                     Background="Transparent" BorderThickness="0"
+                                                                     Foreground="{DynamicResource FgBrush}" FontSize="11"
+                                                                     VerticalAlignment="Center"
+                                                                     CaretBrush="{DynamicResource FgBrush}"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </Grid>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <ComboBox x:Name="AddCustomAppCategoryBox" Grid.Column="0"
+                                                              IsEditable="True" Height="28" FontSize="11"
+                                                              VerticalContentAlignment="Center"
+                                                              ToolTip="Pick an existing category or type a new one (leave blank for Other)"/>
+                                                    <Button x:Name="BtnAddCustomApp" Grid.Column="1" Content="+ Add"
+                                                            Style="{StaticResource ActionButton}" Margin="8,0,0,0"
+                                                            Padding="12,3" FontSize="11"/>
+                                                </Grid>
+                                                <TextBlock x:Name="AddCustomAppStatus" Text="" FontSize="11"
+                                                           Foreground="{DynamicResource MutedText}" Margin="0,4,0,0"
+                                                           TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+
                                         <StackPanel x:Name="CustomAppsPanel"/>
                                     </StackPanel>
                                     </StackPanel> <!-- /SettingsBody_Catalog -->
