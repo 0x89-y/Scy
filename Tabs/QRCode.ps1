@@ -25,31 +25,106 @@ function GF-Multiply([int]$a, [int]$b) {
     return $script:gfExp[$script:gfLog[$a] + $script:gfLog[$b]]
 }
 
-# ── Version/EC tables (EC level M, byte mode) ────────────────────────────────
+# ── Version geometry (level-independent) ─────────────────────────────────────
 $script:qrVersions = @{}
-$script:qrVersions[1]  = @{ Size=21;  Total=26;   ECPer=10; Blocks=1; Capacity=14  }
-$script:qrVersions[2]  = @{ Size=25;  Total=44;   ECPer=16; Blocks=1; Capacity=26  }
-$script:qrVersions[3]  = @{ Size=29;  Total=70;   ECPer=26; Blocks=1; Capacity=42  }
-$script:qrVersions[4]  = @{ Size=33;  Total=100;  ECPer=18; Blocks=2; Capacity=62  }
-$script:qrVersions[5]  = @{ Size=37;  Total=134;  ECPer=24; Blocks=2; Capacity=84  }
-$script:qrVersions[6]  = @{ Size=41;  Total=172;  ECPer=16; Blocks=4; Capacity=106 }
-$script:qrVersions[7]  = @{ Size=45;  Total=196;  ECPer=18; Blocks=4; Capacity=122 }
-$script:qrVersions[8]  = @{ Size=49;  Total=242;  ECPer=22; Blocks=4; Capacity=152 }
-$script:qrVersions[9]  = @{ Size=53;  Total=292;  ECPer=22; Blocks=5; Capacity=180 }
-$script:qrVersions[10] = @{ Size=57;  Total=346;  ECPer=26; Blocks=5; Capacity=213 }
+$script:qrVersions[1]  = @{ Size=21; Total=26  }
+$script:qrVersions[2]  = @{ Size=25; Total=44  }
+$script:qrVersions[3]  = @{ Size=29; Total=70  }
+$script:qrVersions[4]  = @{ Size=33; Total=100 }
+$script:qrVersions[5]  = @{ Size=37; Total=134 }
+$script:qrVersions[6]  = @{ Size=41; Total=172 }
+$script:qrVersions[7]  = @{ Size=45; Total=196 }
+$script:qrVersions[8]  = @{ Size=49; Total=242 }
+$script:qrVersions[9]  = @{ Size=53; Total=292 }
+$script:qrVersions[10] = @{ Size=57; Total=346 }
 
-# Block structure per version: list of (numBlocks, dataCodewordsPerBlock) pairs
-$script:qrBlockStructure = @{}
-$script:qrBlockStructure[1]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[1].Add([int[]]@(1, 16))
-$script:qrBlockStructure[2]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[2].Add([int[]]@(1, 28))
-$script:qrBlockStructure[3]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[3].Add([int[]]@(1, 44))
-$script:qrBlockStructure[4]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[4].Add([int[]]@(2, 32))
-$script:qrBlockStructure[5]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[5].Add([int[]]@(2, 43))
-$script:qrBlockStructure[6]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[6].Add([int[]]@(4, 27))
-$script:qrBlockStructure[7]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[7].Add([int[]]@(4, 31))
-$script:qrBlockStructure[8]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[8].Add([int[]]@(2, 38)); $script:qrBlockStructure[8].Add([int[]]@(2, 39))
-$script:qrBlockStructure[9]  = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[9].Add([int[]]@(3, 36)); $script:qrBlockStructure[9].Add([int[]]@(2, 37))
-$script:qrBlockStructure[10] = [System.Collections.Generic.List[int[]]]::new(); $script:qrBlockStructure[10].Add([int[]]@(4, 43)); $script:qrBlockStructure[10].Add([int[]]@(1, 44))
+# ── Per-(version, EC level) codeword layout, byte mode (ISO/IEC 18004) ───────
+# Tables cover error-correction levels L, M, Q, H for versions 1-10.
+# These constants MUST be exact or the resulting codes will not scan; the
+# helper below self-validates each entry against the version's Total at load.
+$script:_qrTmpBlk = $null
+function script:_QR-MakeBlocks([int[]]$pairs) {
+    # $pairs is a flat list of (count, dataCodewordsPerBlock) groups.
+    $list = [System.Collections.Generic.List[int[]]]::new()
+    for ([int]$i = 0; $i -lt $pairs.Count; $i += 2) {
+        $list.Add([int[]]@($pairs[$i], $pairs[$i + 1]))
+    }
+    $script:_qrTmpBlk = $list
+}
+
+$script:qrEC = @{}
+for ([int]$v = 1; $v -le 10; $v++) { $script:qrEC[$v] = @{} }
+
+function script:_QR-SetEC([int]$v, [string]$lvl, [int]$ecPer, [int]$dataCW, [int]$cap, [int[]]$blocks) {
+    [int]$blkCount = 0
+    [int]$sumData  = 0
+    for ([int]$i = 0; $i -lt $blocks.Count; $i += 2) {
+        $blkCount += $blocks[$i]
+        $sumData  += $blocks[$i] * $blocks[$i + 1]
+    }
+    if ($sumData -ne $dataCW) {
+        throw "QR table error v$v level $lvl: DataCW $dataCW != block sum $sumData"
+    }
+    if (($dataCW + $ecPer * $blkCount) -ne [int]$script:qrVersions[$v].Total) {
+        throw "QR table error v$v level $lvl: $dataCW + $ecPer*$blkCount != Total $([int]$script:qrVersions[$v].Total)"
+    }
+    script:_QR-MakeBlocks $blocks
+    $script:qrEC[$v][$lvl] = @{
+        ECPer          = $ecPer
+        DataCW         = $dataCW
+        Capacity       = $cap
+        Blocks         = $blkCount
+        BlockStructure = $script:_qrTmpBlk
+    }
+}
+
+# Level L
+script:_QR-SetEC 1  'L' 7  19  17  @(1,19)
+script:_QR-SetEC 2  'L' 10 34  32  @(1,34)
+script:_QR-SetEC 3  'L' 15 55  53  @(1,55)
+script:_QR-SetEC 4  'L' 20 80  78  @(1,80)
+script:_QR-SetEC 5  'L' 26 108 106 @(1,108)
+script:_QR-SetEC 6  'L' 18 136 134 @(2,68)
+script:_QR-SetEC 7  'L' 20 156 154 @(2,78)
+script:_QR-SetEC 8  'L' 24 194 192 @(2,97)
+script:_QR-SetEC 9  'L' 30 232 230 @(2,116)
+script:_QR-SetEC 10 'L' 18 274 271 @(2,68, 2,69)
+
+# Level M
+script:_QR-SetEC 1  'M' 10 16  14  @(1,16)
+script:_QR-SetEC 2  'M' 16 28  26  @(1,28)
+script:_QR-SetEC 3  'M' 26 44  42  @(1,44)
+script:_QR-SetEC 4  'M' 18 64  62  @(2,32)
+script:_QR-SetEC 5  'M' 24 86  84  @(2,43)
+script:_QR-SetEC 6  'M' 16 108 106 @(4,27)
+script:_QR-SetEC 7  'M' 18 124 122 @(4,31)
+script:_QR-SetEC 8  'M' 22 154 152 @(2,38, 2,39)
+script:_QR-SetEC 9  'M' 22 182 180 @(3,36, 2,37)
+script:_QR-SetEC 10 'M' 26 216 213 @(4,43, 1,44)
+
+# Level Q
+script:_QR-SetEC 1  'Q' 13 13  11  @(1,13)
+script:_QR-SetEC 2  'Q' 22 22  20  @(1,22)
+script:_QR-SetEC 3  'Q' 18 34  32  @(2,17)
+script:_QR-SetEC 4  'Q' 26 48  46  @(2,24)
+script:_QR-SetEC 5  'Q' 18 62  60  @(2,15, 2,16)
+script:_QR-SetEC 6  'Q' 24 76  74  @(4,19)
+script:_QR-SetEC 7  'Q' 18 88  86  @(2,14, 4,15)
+script:_QR-SetEC 8  'Q' 22 110 108 @(4,18, 2,19)
+script:_QR-SetEC 9  'Q' 20 132 130 @(4,16, 4,17)
+script:_QR-SetEC 10 'Q' 24 154 151 @(6,19, 2,20)
+
+# Level H
+script:_QR-SetEC 1  'H' 17 9   7   @(1,9)
+script:_QR-SetEC 2  'H' 28 16  14  @(1,16)
+script:_QR-SetEC 3  'H' 22 26  24  @(2,13)
+script:_QR-SetEC 4  'H' 16 36  34  @(4,9)
+script:_QR-SetEC 5  'H' 22 46  44  @(2,11, 2,12)
+script:_QR-SetEC 6  'H' 28 60  58  @(4,15)
+script:_QR-SetEC 7  'H' 26 66  64  @(4,13, 1,14)
+script:_QR-SetEC 8  'H' 26 86  84  @(4,14, 2,15)
+script:_QR-SetEC 9  'H' 24 100 98  @(4,12, 4,13)
+script:_QR-SetEC 10 'H' 28 122 119 @(6,15, 2,16)
 
 # Alignment pattern center positions per version
 $script:qrAlignmentPositions = @{}
@@ -64,8 +139,14 @@ $script:qrAlignmentPositions[8]  = [int[]]@(6, 24, 42)
 $script:qrAlignmentPositions[9]  = [int[]]@(6, 26, 46)
 $script:qrAlignmentPositions[10] = [int[]]@(6, 28, 50)
 
-# Pre-computed format info bits for EC level M, mask 0-7
-$script:formatInfoBits = [int[]]@(0x5412, 0x5125, 0x5E7C, 0x5B4B, 0x45F9, 0x40CE, 0x4F97, 0x4AA0)
+# Pre-computed 15-bit format info strings (BCH, already mask-XORed), per EC
+# level and mask 0-7. EC indicator bits: L=01, M=00, Q=11, H=10.
+$script:formatInfoBits = @{
+    'L' = [int[]]@(0x77C4, 0x72F3, 0x7DAA, 0x789D, 0x662F, 0x6318, 0x6C41, 0x6976)
+    'M' = [int[]]@(0x5412, 0x5125, 0x5E7C, 0x5B4B, 0x45F9, 0x40CE, 0x4F97, 0x4AA0)
+    'Q' = [int[]]@(0x355F, 0x3068, 0x3F31, 0x3A06, 0x24B4, 0x2183, 0x2EDA, 0x2BED)
+    'H' = [int[]]@(0x1689, 0x13BE, 0x1CE7, 0x19D0, 0x0762, 0x0255, 0x0D0C, 0x083B)
+}
 
 # Finder pattern as 2D array
 $script:finderPattern = [int[,]]::new(7, 7)
@@ -84,6 +165,7 @@ $script:_qrTmpData = $null
 $script:_qrTmpInterleaved = $null
 $script:_qrTmpMatrix = $null
 $script:_qrTmpMasked = $null
+$script:_qrTmpFinal = $null
 
 # ── Reed-Solomon ──────────────────────────────────────────────────────────────
 
@@ -129,9 +211,8 @@ function _QR-BuildECCodewords([byte[]]$data, [int]$numEC) {
 
 # ── Data Encoding (byte mode) ────────────────────────────────────────────────
 
-function _QR-EncodeData([string]$text, [int]$version) {
-    $vInfo = $script:qrVersions[$version]
-    [int]$totalDataCW = [int]$vInfo.Total - ([int]$vInfo.ECPer * [int]$vInfo.Blocks)
+function _QR-EncodeData([string]$text, [int]$version, [string]$Level) {
+    [int]$totalDataCW = [int]$script:qrEC[$version][$Level].DataCW
     [byte[]]$bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
     [int]$byteLen = $bytes.Count
 
@@ -187,10 +268,10 @@ function _QR-EncodeData([string]$text, [int]$version) {
 
 # ── Interleave blocks and add EC ──────────────────────────────────────────────
 
-function _QR-Interleave([byte[]]$dataCodewords, [int]$version) {
-    $vInfo = $script:qrVersions[$version]
-    $blockGroups = $script:qrBlockStructure[$version]
-    [int]$ecPerBlock = [int]$vInfo.ECPer
+function _QR-Interleave([byte[]]$dataCodewords, [int]$version, [string]$Level) {
+    $ecInfo = $script:qrEC[$version][$Level]
+    $blockGroups = $ecInfo.BlockStructure
+    [int]$ecPerBlock = [int]$ecInfo.ECPer
 
     $dataBlocks = [System.Collections.Generic.List[byte[]]]::new()
     $ecBlocks   = [System.Collections.Generic.List[byte[]]]::new()
@@ -230,17 +311,20 @@ function _QR-Interleave([byte[]]$dataCodewords, [int]$version) {
 
 # ── Matrix Construction ───────────────────────────────────────────────────────
 
-function _QR-BuildMatrix([string]$text) {
+function _QR-BuildMatrix([string]$text, [string]$Level) {
     [byte[]]$textBytes = [System.Text.Encoding]::UTF8.GetBytes($text)
     [int]$byteCount = $textBytes.Count
 
     [int]$version = 0
     for ([int]$v = 1; $v -le 10; $v++) {
-        if ($byteCount -le [int]$script:qrVersions[$v].Capacity) {
+        if ($byteCount -le [int]$script:qrEC[$v][$Level].Capacity) {
             $version = $v; break
         }
     }
-    if ($version -eq 0) { throw "Text too long for QR code (max ~213 bytes)" }
+    if ($version -eq 0) {
+        [int]$maxCap = [int]$script:qrEC[10][$Level].Capacity
+        throw "Text too long for QR code at EC level $Level (max $maxCap bytes)"
+    }
 
     [int]$size = [int]$script:qrVersions[$version].Size
 
@@ -353,10 +437,10 @@ function _QR-BuildMatrix([string]$text) {
     }
 
     # Encode data
-    _QR-EncodeData $text $version
+    _QR-EncodeData $text $version $Level
     [byte[]]$dataCW = $script:_qrTmpData
 
-    _QR-Interleave $dataCW $version
+    _QR-Interleave $dataCW $version $Level
     [byte[]]$allCW = $script:_qrTmpInterleaved
 
     # Convert to bit stream
@@ -415,6 +499,7 @@ function _QR-BuildMatrix([string]$text) {
         Reserved = $reserved
         Size     = [int]$size
         Version  = [int]$version
+        Level    = $Level
     }
 }
 
@@ -449,8 +534,8 @@ function _QR-ApplyMask([object[,]]$mat, [bool[,]]$res, [int]$size, [int]$mask) {
     $script:_qrTmpMasked = $masked
 }
 
-function _QR-WriteFormatInfo([bool[,]]$mat, [int]$size, [int]$mask) {
-    [int]$fmtBits = $script:formatInfoBits[$mask]
+function _QR-WriteFormatInfo([bool[,]]$mat, [int]$size, [int]$mask, [string]$Level) {
+    [int]$fmtBits = $script:formatInfoBits[$Level][$mask]
 
     # Positions around top-left finder (parallel row/col arrays)
     [int[]]$p1r = @(0, 1, 2, 3, 4, 5, 7, 8, 8, 8, 8, 8, 8, 8, 8)
@@ -544,41 +629,59 @@ function _QR-CalcPenalty([bool[,]]$mat, [int]$size) {
     return $penalty
 }
 
-# ── Main entry point ──────────────────────────────────────────────────────────
+# ── Main entry points ─────────────────────────────────────────────────────────
+
+# Build the final masked QR matrix (best of all 8 masks). Result is stored in
+# $script:_qrTmpFinal as @{ Matrix = <bool[,]>; Size = <int> } to avoid PS 5.1
+# pipeline unrolling of the 2D array.
+function Get-QRCodeMatrix {
+    param(
+        [string]$Text,
+        [ValidateSet('L','M','Q','H')][string]$Level = 'M'
+    )
+
+    _QR-BuildMatrix $Text $Level
+    $qr = $script:_qrTmpMatrix
+    $matrix   = $qr.Matrix
+    $reserved = $qr.Reserved
+    [int]$size = [int]$qr.Size
+    [string]$lvl = $qr.Level
+
+    # Try all 8 masks and pick the best
+    [int]$bestPenalty = [int]::MaxValue
+    $bestMatrix = $null
+
+    for ([int]$m = 0; $m -lt 8; $m++) {
+        _QR-ApplyMask $matrix $reserved $size $m
+        [bool[,]]$masked = $script:_qrTmpMasked
+        _QR-WriteFormatInfo $masked $size $m $lvl
+        [int]$p = _QR-CalcPenalty $masked $size
+        if ($p -lt $bestPenalty) {
+            $bestPenalty = $p
+            $bestMatrix = $masked
+        }
+    }
+
+    $script:_qrTmpFinal = @{ Matrix = $bestMatrix; Size = $size }
+}
 
 function New-QRCodeImage {
     param(
         [string]$Text,
         [int]$ModuleSize = 8,
         [System.Windows.Media.Color]$Dark = [System.Windows.Media.Colors]::Black,
-        [System.Windows.Media.Color]$Light = [System.Windows.Media.Colors]::White
+        [System.Windows.Media.Color]$Light = [System.Windows.Media.Colors]::White,
+        [ValidateSet('L','M','Q','H')][string]$Level = 'M',
+        [int]$QuietZone = 4
     )
 
-    _QR-BuildMatrix $Text
-    $qr = $script:_qrTmpMatrix
-    $matrix   = $qr.Matrix
-    $reserved = $qr.Reserved
-    [int]$size = [int]$qr.Size
-
-    # Try all 8 masks and pick the best
-    [int]$bestPenalty = [int]::MaxValue
-    [int]$bestMask = 0
-    $bestMatrix = $null
-
-    for ([int]$m = 0; $m -lt 8; $m++) {
-        _QR-ApplyMask $matrix $reserved $size $m
-        [bool[,]]$masked = $script:_qrTmpMasked
-        _QR-WriteFormatInfo $masked $size $m
-        [int]$p = _QR-CalcPenalty $masked $size
-        if ($p -lt $bestPenalty) {
-            $bestPenalty = $p
-            $bestMask = $m
-            $bestMatrix = $masked
-        }
-    }
+    Get-QRCodeMatrix -Text $Text -Level $Level
+    $final = $script:_qrTmpFinal
+    [bool[,]]$bestMatrix = $final.Matrix
+    [int]$size = [int]$final.Size
 
     # Render to WriteableBitmap
-    [int]$quiet = 4
+    [int]$quiet = $QuietZone
     [int]$totalMods = $size + ($quiet * 2)
     [int]$imgSize = $totalMods * $ModuleSize
 
@@ -627,4 +730,45 @@ function New-QRCodeImage {
     )
 
     return $wb
+}
+
+# Render the QR code as a scalable SVG document string.
+function New-QRCodeSvg {
+    param(
+        [string]$Text,
+        [ValidateSet('L','M','Q','H')][string]$Level = 'M',
+        [System.Windows.Media.Color]$Dark = [System.Windows.Media.Colors]::Black,
+        [System.Windows.Media.Color]$Light = [System.Windows.Media.Colors]::White,
+        [int]$ModuleSize = 10,
+        [int]$QuietZone = 4
+    )
+
+    Get-QRCodeMatrix -Text $Text -Level $Level
+    $final = $script:_qrTmpFinal
+    [bool[,]]$m = $final.Matrix
+    [int]$size = [int]$final.Size
+
+    [int]$dim = ($size + ($QuietZone * 2)) * $ModuleSize
+    [string]$darkHex  = "#{0:X2}{1:X2}{2:X2}" -f $Dark.R,  $Dark.G,  $Dark.B
+    [string]$lightHex = "#{0:X2}{1:X2}{2:X2}" -f $Light.R, $Light.G, $Light.B
+
+    $sb = [System.Text.StringBuilder]::new()
+    $null = $sb.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
+    $null = $sb.AppendLine("<svg xmlns=`"http://www.w3.org/2000/svg`" width=`"$dim`" height=`"$dim`" viewBox=`"0 0 $dim $dim`" shape-rendering=`"crispEdges`">")
+    $null = $sb.AppendLine("<rect width=`"$dim`" height=`"$dim`" fill=`"$lightHex`"/>")
+    $null = $sb.Append("<path fill=`"$darkHex`" d=`"")
+
+    for ([int]$r = 0; $r -lt $size; $r++) {
+        for ([int]$c = 0; $c -lt $size; $c++) {
+            if ($m[$r, $c]) {
+                [int]$x = ($c + $QuietZone) * $ModuleSize
+                [int]$y = ($r + $QuietZone) * $ModuleSize
+                $null = $sb.Append("M$x $y h$ModuleSize v$ModuleSize h-$ModuleSize z ")
+            }
+        }
+    }
+
+    $null = $sb.AppendLine('"/>')
+    $null = $sb.AppendLine('</svg>')
+    return $sb.ToString()
 }
