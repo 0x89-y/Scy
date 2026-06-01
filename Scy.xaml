@@ -4401,6 +4401,20 @@
                                             <CheckBox x:Name="ToggleAutoCheckSelfUpdate" Grid.Column="1"
                                                       Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
                                         </Grid>
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Use dev branch for updates" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                <TextBlock Text="Pulls updates from the dev branch instead of main (may be unstable)"
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <CheckBox x:Name="ToggleUseDevBranch" Grid.Column="1"
+                                                      Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                        </Grid>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>

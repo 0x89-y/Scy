@@ -217,6 +217,7 @@ function Save-Settings {
             CustomTheme        = $script:themes["Custom"]
             AutoCheckUpdates   = $script:autoCheckUpdates
             AutoCheckSelfUpdate = $script:autoCheckSelfUpdate
+            UseDevBranch       = $script:useDevBranch
             RememberWindowPosition = $script:rememberWindowPosition
             ExperimentalSidebarTabs = $script:experimentalSidebarTabs
             DisableAutoIconFetch    = $script:disableAutoIconFetch
@@ -263,6 +264,7 @@ function Set-LocalInstallFolder {
 $script:currentTheme       = "Aether"
 $script:autoCheckUpdates   = $false
 $script:autoCheckSelfUpdate = $false
+$script:useDevBranch        = $false
 $script:rememberWindowPosition = $false
 $script:experimentalSidebarTabs = $false
 $script:disableAutoIconFetch    = $true   # default ON - user opts in via Settings > Groups > Icon cache
@@ -291,6 +293,7 @@ if (Test-Path $script:settingsFile) {
         if ($saved.Theme)              { $script:currentTheme = $saved.Theme }
         if ($null -ne $saved.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$saved.AutoCheckUpdates }
         if ($null -ne $saved.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$saved.AutoCheckSelfUpdate }
+        if ($null -ne $saved.UseDevBranch)         { $script:useDevBranch        = [bool]$saved.UseDevBranch }
         if ($null -ne $saved.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$saved.RememberWindowPosition }
         if ($null -ne $saved.ExperimentalSidebarTabs) { $script:experimentalSidebarTabs = [bool]$saved.ExperimentalSidebarTabs }
         if ($null -ne $saved.DisableAutoIconFetch)    { $script:disableAutoIconFetch    = [bool]$saved.DisableAutoIconFetch }
@@ -569,6 +572,7 @@ function Build-TabVisibilityList {
 (Find "SettingsLocalFolder").Text = $script:localInstallFolder
 (Find "ToggleAutoCheckUpdates").IsChecked = $script:autoCheckUpdates
 (Find "ToggleAutoCheckSelfUpdate").IsChecked = $script:autoCheckSelfUpdate
+(Find "ToggleUseDevBranch").IsChecked = $script:useDevBranch
 (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
 (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
 (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
@@ -600,7 +604,8 @@ if ($script:autoCheckUpdates) {
 if ($script:autoCheckSelfUpdate) {
     $window.Dispatcher.BeginInvoke([action]{
         try {
-            $remoteJson = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/0x89-y/Scy/main/version.json" `
+            $branch = if ($script:useDevBranch) { "dev" } else { "main" }
+            $remoteJson = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/0x89-y/Scy/$branch/version.json" `
                                             -Headers @{ "User-Agent" = "Scy-Updater" } `
                                             -TimeoutSec 5
             $script:latestVersion = $remoteJson.version
@@ -692,6 +697,26 @@ foreach ($colorKey in $script:customColorKeys) {
 # ── Auto-check for Scy self-updates toggle ───────────────────────
 (Find "ToggleAutoCheckSelfUpdate").Add_Checked({   $script:autoCheckSelfUpdate = $true;  Save-Settings })
 (Find "ToggleAutoCheckSelfUpdate").Add_Unchecked({ $script:autoCheckSelfUpdate = $false; Save-Settings })
+
+# ── Use dev branch for updates toggle ────────────────────────────
+(Find "ToggleUseDevBranch").Add_Checked({
+    $script:useDevBranch = $true
+    Save-Settings
+    if ($selfUpdateStatusText) {
+        $selfUpdateStatusText.Text       = "Switched to dev branch - check again"
+        $selfUpdateStatusText.Foreground = $window.Resources["MutedText"]
+        if ($btnInstallSelfUpdate) { $btnInstallSelfUpdate.Visibility = "Collapsed" }
+    }
+})
+(Find "ToggleUseDevBranch").Add_Unchecked({
+    $script:useDevBranch = $false
+    Save-Settings
+    if ($selfUpdateStatusText) {
+        $selfUpdateStatusText.Text       = "Switched to main branch - check again"
+        $selfUpdateStatusText.Foreground = $window.Resources["MutedText"]
+        if ($btnInstallSelfUpdate) { $btnInstallSelfUpdate.Visibility = "Collapsed" }
+    }
+})
 
 # ── Remember window position toggle ──────────────────────────────
 (Find "ToggleRememberPosition").Add_Checked({   $script:rememberWindowPosition = $true;  Save-Settings })
@@ -848,7 +873,8 @@ $btnCheckSelfUpdate.Add_Click({
     $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 
     try {
-        $remoteJson = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/0x89-y/Scy/main/version.json" `
+        $branch = if ($script:useDevBranch) { "dev" } else { "main" }
+        $remoteJson = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/0x89-y/Scy/$branch/version.json" `
                                         -Headers @{ "User-Agent" = "Scy-Updater" } `
                                         -TimeoutSec 15
         $script:latestVersion = $remoteJson.version
@@ -880,7 +906,8 @@ $btnInstallSelfUpdate.Add_Click({
     $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 
     try {
-        $zipUrl  = "https://github.com/0x89-y/Scy/archive/refs/heads/main.zip"
+        $branch  = if ($script:useDevBranch) { "dev" } else { "main" }
+        $zipUrl  = "https://github.com/0x89-y/Scy/archive/refs/heads/$branch.zip"
         $zipPath = Join-Path $env:TEMP "Scy-update.zip"
         $extPath = Join-Path $env:TEMP "Scy-update"
 
@@ -898,8 +925,8 @@ $btnInstallSelfUpdate.Add_Click({
         # Extract
         Expand-Archive -Path $zipPath -DestinationPath $extPath -Force
 
-        # The ZIP extracts to Scy-main/ subfolder
-        $sourceDir = Join-Path $extPath "Scy-main"
+        # The ZIP extracts to a Scy-<branch>/ subfolder
+        $sourceDir = Join-Path $extPath "Scy-$branch"
         $targetDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
         # Copy files, preserving settings.json
@@ -1025,6 +1052,7 @@ $btnInstallSelfUpdate.Add_Click({
             if ($imported.Theme)              { $script:currentTheme = $imported.Theme }
             if ($null -ne $imported.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$imported.AutoCheckUpdates }
             if ($null -ne $imported.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$imported.AutoCheckSelfUpdate }
+            if ($null -ne $imported.UseDevBranch)         { $script:useDevBranch        = [bool]$imported.UseDevBranch }
             if ($null -ne $imported.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$imported.RememberWindowPosition }
             if ($null -ne $imported.ExperimentalSidebarTabs) { $script:experimentalSidebarTabs = [bool]$imported.ExperimentalSidebarTabs }
             if ($imported.SpeedTestServer)              { $script:speedTestServer    = [string]$imported.SpeedTestServer }
@@ -1094,7 +1122,8 @@ $btnInstallSelfUpdate.Add_Click({
             (Find "SettingsLocalFolder").Text = $script:localInstallFolder
             (Find "ToggleAutoCheckUpdates").IsChecked = $script:autoCheckUpdates
             (Find "ToggleAutoCheckSelfUpdate").IsChecked = $script:autoCheckSelfUpdate
-                        (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
+            (Find "ToggleUseDevBranch").IsChecked = $script:useDevBranch
+            (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
             (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
             (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
             (Find "ToggleRememberLocalInstallers").IsChecked = $script:rememberLocalInstallers
