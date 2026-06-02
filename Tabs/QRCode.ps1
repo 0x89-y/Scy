@@ -63,10 +63,10 @@ function script:_QR-SetEC([int]$v, [string]$lvl, [int]$ecPer, [int]$dataCW, [int
         $sumData  += $blocks[$i] * $blocks[$i + 1]
     }
     if ($sumData -ne $dataCW) {
-        throw "QR table error v$v level $lvl: DataCW $dataCW != block sum $sumData"
+        throw "QR table error v$v level ${lvl}: DataCW $dataCW != block sum $sumData"
     }
     if (($dataCW + $ecPer * $blkCount) -ne [int]$script:qrVersions[$v].Total) {
-        throw "QR table error v$v level $lvl: $dataCW + $ecPer*$blkCount != Total $([int]$script:qrVersions[$v].Total)"
+        throw "QR table error v$v level ${lvl}: $dataCW + $ecPer*$blkCount != Total $([int]$script:qrVersions[$v].Total)"
     }
     script:_QR-MakeBlocks $blocks
     $script:qrEC[$v][$lvl] = @{
