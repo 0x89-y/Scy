@@ -3737,70 +3737,94 @@
                                         </Grid>
                                     </StackPanel>
 
-                                    <!-- ── Options row ── -->
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="10"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Error correction" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                            <ComboBox x:Name="QRLevelBox" SelectedIndex="1">
-                                                <ComboBoxItem Content="Low (L)"/>
-                                                <ComboBoxItem Content="Medium (M)"/>
-                                                <ComboBoxItem Content="Quartile (Q)"/>
-                                                <ComboBoxItem Content="High (H)"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Output size" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                            <ComboBox x:Name="QRSizeBox" SelectedIndex="1">
-                                                <ComboBoxItem Content="Small"/>
-                                                <ComboBoxItem Content="Medium"/>
-                                                <ComboBoxItem Content="Large"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                    </Grid>
+                                    <!-- ── Advanced options (collapsed by default) ── -->
+                                    <Border x:Name="QRAdvancedHeader"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="4"
+                                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            Padding="12,8" Margin="0,10,0,0" Cursor="Hand">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="QRAdvancedChevron" Grid.Column="0"
+                                                       Text="&#x25B6;" FontSize="11"
+                                                       Foreground="{DynamicResource MutedText}"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Column="1" Text="Advanced options"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel x:Name="QRAdvancedContent" Visibility="Collapsed" Margin="0,8,0,0">
 
-                                    <!-- ── Colors + quiet zone ── -->
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <!-- Foreground -->
-                                        <Border Grid.Column="0" Background="{DynamicResource Surface2Brush}" CornerRadius="4"
-                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                Width="118" Padding="8" Margin="0,0,6,0">
-                                            <StackPanel>
-                                                <TextBlock Text="Foreground" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,4"/>
-                                                <Border x:Name="QRSwatch_Fg" Height="18" CornerRadius="3" Background="Black" Margin="0,0,0,4"/>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Button x:Name="QRPick_Fg" Content="Pick" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47" Margin="0,0,4,0"/>
-                                                    <Button x:Name="QRReset_Fg" Content="↺" ToolTip="Reset to black" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47"/>
-                                                </StackPanel>
+                                        <!-- Options row -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="10"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Error correction" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
+                                                <ComboBox x:Name="QRLevelBox" SelectedIndex="1">
+                                                    <ComboBoxItem Content="Low (L)"/>
+                                                    <ComboBoxItem Content="Medium (M)"/>
+                                                    <ComboBoxItem Content="Quartile (Q)"/>
+                                                    <ComboBoxItem Content="High (H)"/>
+                                                </ComboBox>
                                             </StackPanel>
-                                        </Border>
-                                        <!-- Background -->
-                                        <Border Grid.Column="1" Background="{DynamicResource Surface2Brush}" CornerRadius="4"
-                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                Width="118" Padding="8" Margin="0,0,6,0">
-                                            <StackPanel>
-                                                <TextBlock Text="Background" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,4"/>
-                                                <Border x:Name="QRSwatch_Bg" Height="18" CornerRadius="3" Background="White" Margin="0,0,0,4"/>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <Button x:Name="QRPick_Bg" Content="Pick" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47" Margin="0,0,4,0"/>
-                                                    <Button x:Name="QRReset_Bg" Content="↺" ToolTip="Reset to white" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47"/>
-                                                </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Output size" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
+                                                <ComboBox x:Name="QRSizeBox" SelectedIndex="1">
+                                                    <ComboBoxItem Content="Small"/>
+                                                    <ComboBoxItem Content="Medium"/>
+                                                    <ComboBoxItem Content="Large"/>
+                                                </ComboBox>
                                             </StackPanel>
-                                        </Border>
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="6,0,0,6">
-                                            <CheckBox x:Name="QRQuietZone" Style="{StaticResource CleanCheckBox}" IsChecked="True"/>
-                                            <TextBlock Text="Quiet-zone border" FontSize="11" Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center" Margin="6,0,0,0"/>
-                                        </StackPanel>
-                                    </Grid>
+                                        </Grid>
+
+                                        <!-- Colors + quiet zone -->
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <!-- Foreground -->
+                                            <Border Grid.Column="0" Background="{DynamicResource Surface2Brush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                    Width="118" Padding="8" Margin="0,0,6,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="Foreground" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,4"/>
+                                                    <Border x:Name="QRSwatch_Fg" Height="18" CornerRadius="3" Background="Black" Margin="0,0,0,4"/>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Button x:Name="QRPick_Fg" Content="Pick" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47" Margin="0,0,4,0"/>
+                                                        <Button x:Name="QRReset_Fg" Content="↺" ToolTip="Reset to black" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                            <!-- Background -->
+                                            <Border Grid.Column="1" Background="{DynamicResource Surface2Brush}" CornerRadius="4"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                    Width="118" Padding="8" Margin="0,0,6,0">
+                                                <StackPanel>
+                                                    <TextBlock Text="Background" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,4"/>
+                                                    <Border x:Name="QRSwatch_Bg" Height="18" CornerRadius="3" Background="White" Margin="0,0,0,4"/>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Button x:Name="QRPick_Bg" Content="Pick" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47" Margin="0,0,4,0"/>
+                                                        <Button x:Name="QRReset_Bg" Content="↺" ToolTip="Reset to white" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="6,0,0,6">
+                                                <CheckBox x:Name="QRQuietZone" Style="{StaticResource CleanCheckBox}" IsChecked="True"/>
+                                                <TextBlock Text="Quiet-zone border" FontSize="11" Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                    </StackPanel>
 
                                     <!-- QR code output -->
                                     <StackPanel x:Name="QROutputPanel" HorizontalAlignment="Center" Margin="0,12,0,0"/>

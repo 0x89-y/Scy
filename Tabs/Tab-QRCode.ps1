@@ -23,6 +23,20 @@ $qrPanels = @{
     6 = (Find "QRPanel_Geo")
 }
 
+# Advanced options disclosure (collapsed by default)
+$qrAdvancedHeader  = Find "QRAdvancedHeader"
+$qrAdvancedContent = Find "QRAdvancedContent"
+$qrAdvancedChevron = Find "QRAdvancedChevron"
+$qrAdvancedHeader.Add_MouseLeftButtonUp({
+    if ($qrAdvancedContent.Visibility -eq "Visible") {
+        $qrAdvancedContent.Visibility = "Collapsed"
+        $qrAdvancedChevron.Text       = [string][char]0x25B6   # ▶
+    } else {
+        $qrAdvancedContent.Visibility = "Visible"
+        $qrAdvancedChevron.Text       = [string][char]0x25BC   # ▼
+    }
+})
+
 # Color swatches / pickers
 $qrSwatchFg = Find "QRSwatch_Fg"
 $qrSwatchBg = Find "QRSwatch_Bg"
@@ -125,7 +139,7 @@ function script:Build-QRPayload {
             $num = $script:qrc["QRSmsNumber"].Text
             if ([string]::IsNullOrWhiteSpace($num)) { return "" }
             $msg = $script:qrc["QRSmsMessage"].Text
-            if (-not [string]::IsNullOrWhiteSpace($msg)) { return "SMSTO:$num:$msg" }
+            if (-not [string]::IsNullOrWhiteSpace($msg)) { return "SMSTO:${num}:$msg" }
             return "SMSTO:$num"
         }
         5 {  # Phone
