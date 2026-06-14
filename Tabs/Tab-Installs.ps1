@@ -816,6 +816,74 @@ $addCustomAppEnterHandler = {
 $addCustomAppNameBox.Add_KeyDown($addCustomAppEnterHandler)
 $addCustomAppIdBox.Add_KeyDown($addCustomAppEnterHandler)
 
+# -- Export / import My apps list (shareable) ---------------------------------
+(Find "BtnExportMyApps").Add_Click({
+    if ($script:quickInstalls.Count -eq 0) {
+        Show-ThemedDialog "You have no apps to export. Add some under My apps first." "Export my apps" "OK" "Information"
+        return
+    }
+    Add-Type -AssemblyName System.Windows.Forms
+    $dlg          = New-Object System.Windows.Forms.SaveFileDialog
+    $dlg.Title    = "Export my apps"
+    $dlg.Filter   = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+    $dlg.FileName = "scy-my-apps.json"
+    if ($dlg.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return }
+
+    $export = @{
+        version = 1
+        apps    = @($script:quickInstalls | ForEach-Object {
+            @{ name = $_.Name; id = $_.Id; category = if ($_.Category) { [string]$_.Category } else { "" } }
+        })
+    }
+    try {
+        $export | ConvertTo-Json -Depth 5 | Set-Content -Path $dlg.FileName -Encoding UTF8
+        if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Exported $($script:quickInstalls.Count) custom app(s) to $($dlg.FileName)" }
+        Show-ThemedDialog "Exported $($script:quickInstalls.Count) app(s) to:`n$($dlg.FileName)" "Done" "OK" "Information"
+    } catch {
+        Show-ThemedDialog ("Export failed: " + $_.Exception.Message) "Error" "OK" "Error"
+    }
+})
+
+(Find "BtnImportMyApps").Add_Click({
+    Add-Type -AssemblyName System.Windows.Forms
+    $dlg        = New-Object System.Windows.Forms.OpenFileDialog
+    $dlg.Title  = "Import my apps"
+    $dlg.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+    if ($dlg.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return }
+
+    try {
+        $data  = Get-Content -Path $dlg.FileName -Raw -Encoding UTF8 | ConvertFrom-Json
+        $apps  = if ($data.apps) { @($data.apps) } else { @($data) }
+        $existing = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($qi in $script:quickInstalls) { [void]$existing.Add([string]$qi.Id) }
+
+        $added = 0; $skipped = 0
+        foreach ($a in $apps) {
+            $id   = [string]$a.id
+            $name = [string]$a.name
+            if (-not $id -or -not $name) { continue }
+            if ($existing.Contains($id)) { $skipped++; continue }
+            $cat = if ($a.category) { [string]$a.category } else { "" }
+            $script:quickInstalls.Add(@{ Name = $name; Id = $id; Category = $cat })
+            [void]$existing.Add($id)
+            $added++
+        }
+
+        if ($added -gt 0) {
+            Save-Settings
+            Update-QuickInstalls
+            if (Get-Command Update-AddCustomAppCategories -ErrorAction SilentlyContinue) { Update-AddCustomAppCategories }
+            if (Get-Command Show-StoreLanding -ErrorAction SilentlyContinue) { Show-StoreLanding }
+            if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Imported $added custom app(s) from $($dlg.FileName)" }
+        }
+        $msg = "Imported $added app(s)."
+        if ($skipped -gt 0) { $msg += " Skipped $skipped (already in your apps)." }
+        Show-ThemedDialog $msg "Import my apps" "OK" "Information"
+    } catch {
+        Show-ThemedDialog ("Failed to import: " + $_.Exception.Message) "Error" "OK" "Error"
+    }
+})
+
 # -- Export bundles -----------------------------------------------------------
 $btnExportBundles.Add_Click({
     if ($script:quickBundles.Count -eq 0) {
@@ -1097,6 +1165,7 @@ function Install-StoreSingleApp {
     }
 
     Set-BusyStatus ("Installing " + $Name + "...")
+    if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Install requested: $Name ($Id)" }
     Show-ScyProgress -Border $installsProgressBorder -Bar $installsProgressBar -Label $installsProgressLabel `
                      -Text ("Installing " + $Name + "...") -Value $null -Max 1
 
@@ -2532,6 +2601,9 @@ $script:pkgSearchClear.Add_Click({
         & winget uninstall --id $item.Id --silent --accept-source-agreements 2>&1 | Out-Null
         $success = ($LASTEXITCODE -eq 0)
 
+        if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) {
+            Write-ScyLog ("Uninstall " + $(if ($success) { "ok" } else { "FAILED" }) + ": $($item.Name) ($($item.Id))") $(if ($success) { "INFO" } else { "ERROR" })
+        }
         if ($success) { $succeeded++ } else { $failed++ }
 
         $uninstallResultsPanel.Children.Add((New-ResultRow $item.Name $item.Id $success ($i % 2 -eq 0))) | Out-Null

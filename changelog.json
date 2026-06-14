@@ -1,5 +1,14 @@
 [
   {
+    "version": "0.11.6",
+    "date": "2026-06-15",
+    "changes": [
+      "A broken tab no longer stops Scy from starting; it's skipped and reported",
+      "New: optional debug log for troubleshooting (Settings > General)",
+      "New: export and import your apps list to back up or share (Settings > Apps & Groups > My apps)"
+    ]
+  },
+  {
     "version": "0.11.5",
     "date": "2026-06-14",
     "changes": [

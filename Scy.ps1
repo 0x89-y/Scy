@@ -30,11 +30,13 @@ if (Test-Path $splashVersionPath) {
 $aether = $script:BuiltinThemes["Aether"]
 $script:splashColors = @{ AppBg = $aether.AppBg; Border = $aether.Border; Fg = $aether.FgBrush; Muted = $aether.MutedText }
 $script:skipSplash = $false
+$script:enableLogging = $false
 $settingsPath = Join-Path $PSScriptRoot "settings.json"
 if (Test-Path $settingsPath) {
     try {
         $earlySettings = Get-Content $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($null -ne $earlySettings.SkipSplash) { $script:skipSplash = [bool]$earlySettings.SkipSplash }
+        if ($null -ne $earlySettings.SkipSplash)     { $script:skipSplash    = [bool]$earlySettings.SkipSplash }
+        if ($null -ne $earlySettings.EnableLogging)  { $script:enableLogging = [bool]$earlySettings.EnableLogging }
         if ($earlySettings.Theme -eq "Custom" -and $earlySettings.CustomTheme) {
             $ct = $earlySettings.CustomTheme
             if ($ct.AppBg -and $ct.Border -and $ct.FgBrush -and $ct.MutedText) {
@@ -46,6 +48,22 @@ if (Test-Path $settingsPath) {
         }
     } catch {}
 }
+
+# ── Optional debug log (Settings > General > Write a debug log; off by default) ──
+# Defined early so startup/tab-load events can be logged. The toggle is mirrored
+# into $script:enableLogging by Tab-Settings once it loads.
+$script:logFile = Join-Path $env:LOCALAPPDATA "Scy\scy.log"
+function Write-ScyLog {
+    param([string]$Message, [string]$Level = "INFO")
+    if (-not $script:enableLogging) { return }
+    try {
+        $dir = Split-Path $script:logFile -Parent
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        $line = ("{0} [{1}] {2}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Level, $Message)
+        Add-Content -Path $script:logFile -Value $line -Encoding UTF8
+    } catch {}
+}
+Write-ScyLog "Scy starting (v$($splashVersion -replace '^Scy v?',''))"
 
 $splash = $null
 if (-not $script:skipSplash) {
@@ -514,11 +532,22 @@ $__tabFiles = @(
     "Tabs\Tab-PasswordGen.ps1"
     "Tabs\Tab-GlobalSearch.ps1"
 )
+# Per-tab crash isolation: a parse/runtime error in one module is caught so the
+# rest of the app still loads (a broken tab no longer kills startup). try/catch
+# does not introduce a new scope, so dot-sourcing inside it still defines the
+# module's functions at script scope.
+$script:tabLoadErrors = [System.Collections.Generic.List[string]]::new()
 $__tabIdx = 0
 foreach ($__rel in $__tabFiles) {
     if     ($__tabIdx -eq 5)  { $script:splashStatus = "Loading system";  Pump-Splash }
     elseif ($__tabIdx -eq 11) { $script:splashStatus = "Loading network"; Pump-Splash }
-    . (Join-Path $PSScriptRoot $__rel)
+    try {
+        . (Join-Path $PSScriptRoot $__rel)
+    } catch {
+        $__name = [System.IO.Path]::GetFileNameWithoutExtension($__rel)
+        $script:tabLoadErrors.Add("$__name : $($_.Exception.Message)")
+        Write-ScyLog "Module failed to load: $__rel -> $($_.Exception.Message)" "ERROR"
+    }
     $__tabIdx++
 }
 $script:splashStatus = "Almost ready"
@@ -655,5 +684,13 @@ if ($script:defaultTab) {
 
 # Initialize whatever tab we're actually landing on (default or Apps index 0).
 Invoke-ScyTabInit $script:mainTabControl.SelectedIndex
+
+# Surface any modules that failed to load (crash isolation kept the app alive).
+if ($script:tabLoadErrors -and $script:tabLoadErrors.Count -gt 0) {
+    $window.Dispatcher.BeginInvoke([action]{
+        $list = ($script:tabLoadErrors | ForEach-Object { "  - " + $_ }) -join "`n"
+        Show-ThemedDialog ("Some parts of Scy failed to load and were skipped:`n`n" + $list + "`n`nThe rest of the app is working normally.") "Partial load" "OK" "Warning" | Out-Null
+    }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
+}
 
 $window.ShowDialog() | Out-Null
