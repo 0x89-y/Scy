@@ -1,0 +1,13 @@
+[
+  {
+    "version": "0.11.5",
+    "date": "2026-06-14",
+    "changes": [
+      "Faster startup: heavy tab work now loads on first visit (~50% quicker launch)",
+      "QR code generator: module styles (rounded, extra round, dots) under Advanced options",
+      "Apps: add your own apps to the Store via Settings or right-click a search result",
+      "Tools: QR advanced options are collapsible and tidier",
+      "Added a changelog (Settings > General > Changelog)"
+    ]
+  }
+]

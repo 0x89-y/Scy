@@ -38,7 +38,7 @@ $settingsNavGroups.Add_Click({     Set-SettingsSubNav 2 })
 $settingsNavBackup.Add_Click({     Set-SettingsSubNav 3 })
 
 # ── Collapsible settings cards ──────────────────────────────────
-foreach ($section in @("Appearance", "Updates", "General", "VisibleTabs", "Credits", "Catalog", "Groups", "LocalInstallers", "AppUpdates", "AppBehavior", "IconCache", "Backup")) {
+foreach ($section in @("Appearance", "Updates", "Changelog", "General", "VisibleTabs", "Credits", "Catalog", "Groups", "LocalInstallers", "AppUpdates", "AppBehavior", "IconCache", "Backup")) {
     $header  = Find "SettingsHeader_$section"
     $header.Tag = $section
     $header.Add_MouseLeftButtonUp({
@@ -578,7 +578,9 @@ function Build-TabVisibilityList {
 (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
 (Find "ToggleRememberLocalInstallers").IsChecked = $script:rememberLocalInstallers
 (Find "ToggleSidebarTabs").IsChecked = $script:experimentalSidebarTabs
-Build-TabVisibilityList
+# Build-TabVisibilityList deferred to first Settings-tab visit (Invoke-ScyTabInit
+# in Scy.ps1). Apply-TabVisibility/ContextMenus/SidebarLayout stay eager - they
+# affect the whole window, not just the Settings tab.
 Apply-TabVisibility
 Apply-TabContextMenus
 Apply-SidebarLayout
@@ -812,7 +814,8 @@ function Render-LocalExtensions {
     }
 }
 
-Render-LocalExtensions
+# Deferred to first Settings-tab visit (Invoke-ScyTabInit in Scy.ps1).
+# Render-LocalExtensions
 
 $localExtBox.Add_TextChanged({
     $localExtPlaceholder.Visibility = if ($localExtBox.Text) { "Collapsed" } else { "Visible" }
@@ -971,6 +974,90 @@ $btnInstallSelfUpdate.Add_Click({
     $btnInstallSelfUpdate.IsEnabled = $true
     $btnCheckSelfUpdate.IsEnabled   = $true
 })
+
+# ── Changelog ────────────────────────────────────────────────────
+# Reads changelog.json from the app root and renders one card per version.
+# Deferred to first Settings-tab visit (Invoke-ScyTabInit in Scy.ps1).
+$script:changelogFile = Join-Path $PSScriptRoot "..\changelog.json"
+function Render-Changelog {
+    $panel = Find "ChangelogPanel"
+    if (-not $panel) { return }
+    $panel.Children.Clear()
+
+    $entries = $null
+    if (Test-Path $script:changelogFile) {
+        try { $entries = Get-Content $script:changelogFile -Raw -Encoding UTF8 | ConvertFrom-Json } catch {}
+    }
+
+    if (-not $entries -or @($entries).Count -eq 0) {
+        $empty = New-Object System.Windows.Controls.TextBlock
+        $empty.Text       = "No changelog available."
+        $empty.FontSize   = 12
+        $empty.TextWrapping = "Wrap"
+        $empty.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+        $panel.Children.Add($empty) | Out-Null
+        return
+    }
+
+    foreach ($entry in @($entries)) {
+        $card = New-Object System.Windows.Controls.Border
+        $card.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+        $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+        $card.BorderThickness = [System.Windows.Thickness]::new(1)
+        $card.CornerRadius    = [System.Windows.CornerRadius]::new(4)
+        $card.Padding         = [System.Windows.Thickness]::new(12, 10, 12, 10)
+        $card.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 8)
+
+        $stack = New-Object System.Windows.Controls.StackPanel
+
+        # Header: version (accent) + date (muted)
+        $headerRow             = New-Object System.Windows.Controls.DockPanel
+        $verBlock              = New-Object System.Windows.Controls.TextBlock
+        $verBlock.Text         = "v" + [string]$entry.version
+        $verBlock.FontSize     = 13
+        $verBlock.FontWeight   = [System.Windows.FontWeights]::SemiBold
+        $verBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "AccentBrush")
+        $headerRow.Children.Add($verBlock) | Out-Null
+
+        if ($entry.date) {
+            $dateBlock              = New-Object System.Windows.Controls.TextBlock
+            $dateBlock.Text         = [string]$entry.date
+            $dateBlock.FontSize     = 11
+            $dateBlock.HorizontalAlignment = "Right"
+            $dateBlock.VerticalAlignment   = "Center"
+            $dateBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+            [System.Windows.Controls.DockPanel]::SetDock($dateBlock, [System.Windows.Controls.Dock]::Right)
+            $headerRow.Children.Add($dateBlock) | Out-Null
+        }
+        $stack.Children.Add($headerRow) | Out-Null
+
+        # Change bullets
+        foreach ($change in @($entry.changes)) {
+            $row             = New-Object System.Windows.Controls.DockPanel
+            $row.Margin      = [System.Windows.Thickness]::new(0, 6, 0, 0)
+            $bullet          = New-Object System.Windows.Controls.TextBlock
+            $bullet.Text     = [char]0x2022   # bullet dot
+            $bullet.FontSize = 12
+            $bullet.Margin   = [System.Windows.Thickness]::new(0, 0, 8, 0)
+            $bullet.VerticalAlignment = "Top"
+            $bullet.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+            [System.Windows.Controls.DockPanel]::SetDock($bullet, [System.Windows.Controls.Dock]::Left)
+            $row.Children.Add($bullet) | Out-Null
+
+            $txt             = New-Object System.Windows.Controls.TextBlock
+            $txt.Text        = [string]$change
+            $txt.FontSize    = 12
+            $txt.TextWrapping = "Wrap"
+            $txt.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+            $row.Children.Add($txt) | Out-Null
+
+            $stack.Children.Add($row) | Out-Null
+        }
+
+        $card.Child = $stack
+        $panel.Children.Add($card) | Out-Null
+    }
+}
 
 # ── Settings backup - export / import ────────────────────────────
 (Find "BtnExportSettings").Add_Click({
@@ -1511,7 +1598,9 @@ function Render-GroupSettings {
     Start-Process "https://0x89-y.xyz/"
 })
 
-Render-GroupSettings
+# Deferred to first Settings-tab visit (Invoke-ScyTabInit in Scy.ps1); building
+# the group/category management cards is the bulk of the old Settings load cost.
+# Render-GroupSettings
 
 # ── Settings > Groups disclosure headers (collapsed by default) ───
 function Toggle-GroupDisclosure {

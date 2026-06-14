@@ -165,7 +165,8 @@ function Save-CleanTargetSelection {
     Save-Settings
 }
 
-Update-RecycleBinSize
+# Deferred to first System-tab visit (Invoke-ScyTabInit in Scy.ps1).
+# Update-RecycleBinSize
 
 $btnScan = Find "BtnScan"
 $btnScan.Add_Click({
