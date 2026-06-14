@@ -238,4 +238,5 @@ if (-not $isAdmin) {
 }
 
 # -- Initial load -------------------------------------------------
-Load-HostsEntries
+# Deferred to first Network-tab visit (Invoke-ScyTabInit in Scy.ps1).
+# Load-HostsEntries

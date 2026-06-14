@@ -484,33 +484,43 @@ function Show-ThemedDialog {
 # ══════════════════════════════════════════════════════════════════
 $script:splashStatus = "Loading packages"
 Pump-Splash
-. (Join-Path $PSScriptRoot "Helpers\Helpers-Cards.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Updates.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Installs.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Tweaks.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Settings.ps1")
-$script:splashStatus = "Loading system"
-Pump-Splash
-. (Join-Path $PSScriptRoot "Tabs\Tab-Info.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Battery.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Firmware.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Cleanup.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-SfcDism.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Shortcuts.ps1")
-$script:splashStatus = "Loading network"
-Pump-Splash
-. (Join-Path $PSScriptRoot "Tabs\Tab-RegBookmarks.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Network.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-ActiveDirectory.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Hosts.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-SSH.ps1")
-. (Join-Path $PSScriptRoot "Tabs\QRCode.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-QRCode.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Notes.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-Export.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-FileHash.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-PasswordGen.ps1")
-. (Join-Path $PSScriptRoot "Tabs\Tab-GlobalSearch.ps1")
+
+# Order is load-bearing (Helpers + Installs define shared helpers/data used by
+# other tabs; GlobalSearch must be last). foreach runs in the current (script)
+# scope, so dot-sourcing inside it still defines functions at script scope.
+# Heavy per-tab initial work is deferred to first visit (Invoke-ScyTabInit).
+$__tabFiles = @(
+    "Helpers\Helpers-Cards.ps1"
+    "Tabs\Tab-Updates.ps1"
+    "Tabs\Tab-Installs.ps1"
+    "Tabs\Tab-Tweaks.ps1"
+    "Tabs\Tab-Settings.ps1"
+    "Tabs\Tab-Info.ps1"
+    "Tabs\Tab-Battery.ps1"
+    "Tabs\Tab-Firmware.ps1"
+    "Tabs\Tab-Cleanup.ps1"
+    "Tabs\Tab-SfcDism.ps1"
+    "Tabs\Tab-Shortcuts.ps1"
+    "Tabs\Tab-RegBookmarks.ps1"
+    "Tabs\Tab-Network.ps1"
+    "Tabs\Tab-ActiveDirectory.ps1"
+    "Tabs\Tab-Hosts.ps1"
+    "Tabs\Tab-SSH.ps1"
+    "Tabs\QRCode.ps1"
+    "Tabs\Tab-QRCode.ps1"
+    "Tabs\Tab-Notes.ps1"
+    "Tabs\Tab-Export.ps1"
+    "Tabs\Tab-FileHash.ps1"
+    "Tabs\Tab-PasswordGen.ps1"
+    "Tabs\Tab-GlobalSearch.ps1"
+)
+$__tabIdx = 0
+foreach ($__rel in $__tabFiles) {
+    if     ($__tabIdx -eq 5)  { $script:splashStatus = "Loading system";  Pump-Splash }
+    elseif ($__tabIdx -eq 11) { $script:splashStatus = "Loading network"; Pump-Splash }
+    . (Join-Path $PSScriptRoot $__rel)
+    $__tabIdx++
+}
 $script:splashStatus = "Almost ready"
 Pump-Splash
 
@@ -592,13 +602,58 @@ if ($script:isAdmin) {
     if ($splash) { $splash.Close(); $splash = $null }
 }
 
+# ── Deferred per-tab initialization (lazy "first visit" work) ─────────
+# Heavy startup work (folder scans, key enumeration, domain/DoH probes) is
+# moved off the dot-source critical path and run the first time its owning
+# top-level tab is shown. The functions are all defined at script scope during
+# startup, so calling them from the SelectionChanged handler is safe (we are
+# calling existing functions, not dot-sourcing new ones into a handler scope).
+$global:scyTabInitDone = @{}
+function Invoke-ScyTabInit {
+    param([int]$Index)
+    if ($global:scyTabInitDone[$Index]) { return }
+    $global:scyTabInitDone[$Index] = $true
+    try {
+        switch ($Index) {
+            1 { if (Get-Command Rebuild-TweaksPanel   -EA SilentlyContinue) { Rebuild-TweaksPanel } }          # Tweaks
+            2 { if (Get-Command Update-RecycleBinSize  -EA SilentlyContinue) { Update-RecycleBinSize } }        # System (Cleanup)
+            4 {                                                                                                  # Network (incl. Hosts + SSH sub-tabs)
+                if (Get-Command Initialize-DnsDohStatus -EA SilentlyContinue) { Initialize-DnsDohStatus }
+                if (Get-Command Load-HostsEntries       -EA SilentlyContinue) { Load-HostsEntries }
+                if (Get-Command Populate-SSHKeys        -EA SilentlyContinue) { Populate-SSHKeys }
+            }
+            5 {                                                                                                  # Active Directory
+                if (Get-Command Test-AdEnvironment   -EA SilentlyContinue) { Test-AdEnvironment }
+                if (Get-Command Update-AdBannerState -EA SilentlyContinue) { Update-AdBannerState }
+            }
+            7 {                                                                                                  # Settings (UI building only; data/theme already eager)
+                if (Get-Command Build-TabVisibilityList -EA SilentlyContinue) { Build-TabVisibilityList }
+                if (Get-Command Render-LocalExtensions  -EA SilentlyContinue) { Render-LocalExtensions }
+                if (Get-Command Render-GroupSettings    -EA SilentlyContinue) { Render-GroupSettings }
+                if (Get-Command Render-Changelog        -EA SilentlyContinue) { Render-Changelog }
+            }
+        }
+    } catch {}
+}
+
+$script:mainTabControl = Find "MainTabControl"
+$script:mainTabControl.Add_SelectionChanged({
+    param($s, $e)
+    # MainTabControl is the only TabControl; sub-navs are button rows, so no
+    # bubbling to guard against. Init the newly selected tab on first visit.
+    Invoke-ScyTabInit $s.SelectedIndex
+})
+
 # ── Apply default top-level tab on launch ────────────────────────────
 if ($script:defaultTab) {
     $tabOrder = @("Apps", "Tweaks", "System", "Bookmarks", "Network", "Active Directory", "Tools", "Settings")
     $idx = $tabOrder.IndexOf($script:defaultTab)
     if ($idx -ge 0) {
-        try { (Find "MainTabControl").SelectedIndex = $idx } catch {}
+        try { $script:mainTabControl.SelectedIndex = $idx } catch {}
     }
 }
+
+# Initialize whatever tab we're actually landing on (default or Apps index 0).
+Invoke-ScyTabInit $script:mainTabControl.SelectedIndex
 
 $window.ShowDialog() | Out-Null

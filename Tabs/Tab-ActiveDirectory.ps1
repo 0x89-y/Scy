@@ -155,8 +155,10 @@ function Update-AdBannerState {
     $adStatusBanner.Visibility = "Visible"
 }
 
-Test-AdEnvironment
-Update-AdBannerState
+# Deferred to first Active Directory-tab visit (Invoke-ScyTabInit in Scy.ps1);
+# the environment probe can query the domain and is slow.
+# Test-AdEnvironment
+# Update-AdBannerState
 
 # -- Job helpers ---------------------------------------------------------------
 # All AD-cmdlet work runs in a worker runspace via Start-ScyJob. The runspace

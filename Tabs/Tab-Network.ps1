@@ -858,18 +858,23 @@ if (-not $script:dnsIsAdmin) {
     $dnsAdminBanner.Visibility = "Visible"
 }
 
-# Check DoH support (requires Windows 10 Build 19628+ or Windows 11)
+# Check DoH support (requires Windows 10 Build 19628+ or Windows 11).
+# Deferred to first Network-tab visit (Invoke-ScyTabInit in Scy.ps1): the first
+# Get-Command call triggers PowerShell module discovery (~hundreds of ms), which
+# we keep off the startup critical path.
 $script:dohSupported = $false
-try {
-    $null = Get-Command Set-DnsClientDohServerAddress -ErrorAction Stop
-    $script:dohSupported = $true
-    $dnsDoHStatus.Text       = "Supported"
-    $dnsDoHStatus.Foreground = $window.Resources["SuccessBrush"]
-} catch {
-    $dnsDoHCheckbox.IsEnabled = $false
-    $dnsDoHUnsupportedBanner.Visibility = "Visible"
-    $dnsDoHStatus.Text       = "Not available"
-    $dnsDoHStatus.Foreground = $window.Resources["MutedText"]
+function Initialize-DnsDohStatus {
+    try {
+        $null = Get-Command Set-DnsClientDohServerAddress -ErrorAction Stop
+        $script:dohSupported = $true
+        $dnsDoHStatus.Text       = "Supported"
+        $dnsDoHStatus.Foreground = $window.Resources["SuccessBrush"]
+    } catch {
+        $dnsDoHCheckbox.IsEnabled = $false
+        $dnsDoHUnsupportedBanner.Visibility = "Visible"
+        $dnsDoHStatus.Text       = "Not available"
+        $dnsDoHStatus.Foreground = $window.Resources["MutedText"]
+    }
 }
 
 # Placeholder toggle helpers

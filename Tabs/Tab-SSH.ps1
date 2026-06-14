@@ -184,4 +184,5 @@ function Populate-SSHKeys {
 (Find "BtnSSHRefresh").Add_Click({ Populate-SSHKeys })
 
 # ── Load on startup ───────────────────────────────────────────────
-Populate-SSHKeys
+# Deferred to first Network-tab visit (Invoke-ScyTabInit in Scy.ps1); key
+# enumeration + fingerprinting is slow and not needed until the tab is shown.

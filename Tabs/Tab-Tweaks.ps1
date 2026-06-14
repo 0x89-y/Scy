@@ -459,7 +459,8 @@ function Update-TweakCollapseAllButton {
 }
 
 # ── Initial load ──────────────────────────────────────────────────
-Rebuild-TweaksPanel
+# Deferred to first Tweaks-tab visit (Invoke-ScyTabInit in Scy.ps1) so the
+# folder scan + row building doesn't slow startup.
 
 # ── Search ────────────────────────────────────────────────────────
 
