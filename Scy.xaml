@@ -4715,10 +4715,28 @@
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <TextBlock Text="Notify on long operations" FontSize="12" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource FgBrush}"/>
-                                                <TextBlock Text="Show a Windows balloon when bulk icon fetch or multi-app uninstall completes"
+                                                <TextBlock Text="Show an in-app notification when bulk icon fetch or multi-app uninstall completes"
                                                            FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ToggleEnableNotifications" Grid.Column="1"
+                                                      Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Write a debug log" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                <TextBlock Text="Logs installs, updates and errors to %LOCALAPPDATA%\Scy\scy.log for troubleshooting"
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnOpenLog" Grid.Column="1" Content="Open log"
+                                                    Style="{StaticResource SecondaryButton}" FontSize="11" Padding="10,4"
+                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <CheckBox x:Name="ToggleEnableLogging" Grid.Column="2"
                                                       Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
                                         </Grid>
                                         <Grid Margin="0,10,0,0">
@@ -4989,6 +5007,16 @@
                                                 <TextBlock x:Name="AddCustomAppStatus" Text="" FontSize="11"
                                                            Foreground="{DynamicResource MutedText}" Margin="0,4,0,0"
                                                            TextWrapping="Wrap"/>
+                                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                    <Button x:Name="BtnExportMyApps" Content="Export list"
+                                                            Style="{StaticResource SecondaryButton}" FontSize="11"
+                                                            Padding="10,4" Margin="0,0,6,0"
+                                                            ToolTip="Save your apps as a shareable JSON file"/>
+                                                    <Button x:Name="BtnImportMyApps" Content="Import list"
+                                                            Style="{StaticResource SecondaryButton}" FontSize="11"
+                                                            Padding="10,4"
+                                                            ToolTip="Add apps from a previously exported list"/>
+                                                </StackPanel>
                                             </StackPanel>
                                         </Border>
 

@@ -227,6 +227,7 @@ function Save-Settings {
             DefaultAppsSubTab           = $script:defaultAppsSubTab
             DefaultTab                  = $script:defaultTab
             CollapsedTweakGroups        = @($script:collapsedTweakGroups)
+            EnableLogging               = $script:enableLogging
             SpeedTestServer    = $script:speedTestServer
             WindowGeometry     = $script:windowGeometry
             QuickInstalls      = @($script:quickInstalls | ForEach-Object { @{Name=$_.Name; Id=$_.Id; Category=$_.Category} })
@@ -274,6 +275,7 @@ $script:skipSingleUninstallConfirm  = $false
 $script:defaultAppsSubTab           = "Store"
 $script:defaultTab                  = "Apps"
 $script:collapsedTweakGroups        = [System.Collections.Generic.List[string]]::new()
+# $script:enableLogging is initialized early in Scy.ps1; restored from saved settings below.
 $script:rememberCleanTargets   = $false
 $script:autoScanLocalInstallers    = $false
 $script:rememberLocalInstallers    = $false
@@ -300,6 +302,7 @@ if (Test-Path $script:settingsFile) {
         if ($null -ne $saved.SkipSplash)                  { $script:skipSplash                  = [bool]$saved.SkipSplash }
         if ($null -ne $saved.EnableNotifications)         { $script:enableNotifications         = [bool]$saved.EnableNotifications }
         if ($null -ne $saved.SkipSingleUninstallConfirm)  { $script:skipSingleUninstallConfirm  = [bool]$saved.SkipSingleUninstallConfirm }
+        if ($null -ne $saved.EnableLogging)               { $script:enableLogging              = [bool]$saved.EnableLogging }
         if ($saved.DefaultAppsSubTab)                     { $script:defaultAppsSubTab           = [string]$saved.DefaultAppsSubTab }
         if ($saved.DefaultTab)                            { $script:defaultTab                  = [string]$saved.DefaultTab }
         if ($null -ne $saved.CollapsedTweakGroups) {
@@ -743,6 +746,27 @@ foreach ($colorKey in $script:customColorKeys) {
 (Find "ToggleEnableNotifications").Add_Checked({   $script:enableNotifications = $true;  Save-Settings })
 (Find "ToggleEnableNotifications").Add_Unchecked({ $script:enableNotifications = $false; Save-Settings })
 
+# ── Debug log toggle + open log ──────────────────────────────────
+(Find "ToggleEnableLogging").IsChecked = $script:enableLogging
+(Find "ToggleEnableLogging").Add_Checked({
+    $script:enableLogging = $true
+    Save-Settings
+    if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Logging enabled" }
+})
+(Find "ToggleEnableLogging").Add_Unchecked({
+    if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Logging disabled" }
+    $script:enableLogging = $false
+    Save-Settings
+})
+(Find "BtnOpenLog").Add_Click({
+    $logPath = Join-Path $env:LOCALAPPDATA "Scy\scy.log"
+    if (Test-Path $logPath) {
+        Start-Process notepad.exe -ArgumentList $logPath
+    } else {
+        Show-ThemedDialog "No log file yet. Enable 'Write a debug log', then reproduce the issue." "Debug log" "OK" "Information"
+    }
+})
+
 # ── Skip single-uninstall confirm toggle ─────────────────────────
 (Find "ToggleSkipSingleUninstallConfirm").IsChecked = $script:skipSingleUninstallConfirm
 (Find "ToggleSkipSingleUninstallConfirm").Add_Checked({   $script:skipSingleUninstallConfirm = $true;  Save-Settings })
@@ -902,6 +926,7 @@ $btnInstallSelfUpdate.Add_Click({
     $confirm = Show-ThemedDialog "Download and install the latest version of Scy?`nYour settings will be preserved." "Update Scy" "YesNo" "Question"
     if ($confirm -ne "Yes") { return }
 
+    if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Self-update started (target v$($script:latestVersion))" }
     $btnInstallSelfUpdate.IsEnabled = $false
     $btnCheckSelfUpdate.IsEnabled   = $false
     $selfUpdateStatusText.Text       = "Downloading update..."
@@ -964,11 +989,13 @@ $btnInstallSelfUpdate.Add_Click({
         $selfUpdateStatusText.Text       = "Updated successfully"
         $selfUpdateStatusText.Foreground = $window.Resources["SuccessBrush"]
         $btnInstallSelfUpdate.Visibility = "Collapsed"
+        if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Self-update completed (now v$($script:localVersion.version))" }
 
         Show-ThemedDialog "Scy has been updated to the latest version.`nPlease restart Scy to apply changes." "Update complete" "OK" "Information"
     } catch {
         $selfUpdateStatusText.Text       = "Update failed: $_"
         $selfUpdateStatusText.Foreground = $window.Resources["DangerBrush"]
+        if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Self-update FAILED: $($_.Exception.Message)" "ERROR" }
     }
 
     $btnInstallSelfUpdate.IsEnabled = $true
