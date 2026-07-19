@@ -13,44 +13,44 @@ $btnExportBundles          = Find "BtnExportBundles"
 # Re-entry guard for async winget install
 $script:installInProgress = $false
 
-# -- Package sub-navigation ---------------------------------------------------
-# 0 = Store (Search + Quick install + Local installers, all stacked)
-# 1 = Installed (uninstall surface)
-# 2 = Updates
-$pkgNavStore     = Find "PkgNav_Store"
-$pkgNavInstalled = Find "PkgNav_Installed"
-$pkgNavUpdates   = Find "PkgNav_Updates"
+# Installed-app awareness: filled from the Installed-apps scan the user runs (see
+# Set-StoreInstalledFromScan), so the store can swap Install for Uninstall and
+# show an "Installed" pill. We never run winget just because a tab was opened.
+$script:installedWingetIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
+function Test-AppInstalled {
+    param([string]$Id)
+    if ([string]::IsNullOrWhiteSpace($Id)) { return $false }
+    return $script:installedWingetIds.Contains($Id)
+}
+
+# -- Apps navigation ----------------------------------------------------------
+# The old Store/Installed/Updates pills are gone: the category rail is now the
+# only Apps navigation. Every view lives inside PkgSection_Store (which holds the
+# rail), and the rail swaps the content column between:
+#   All apps / <category>  -> the app grid
+#   Local installers       -> PkgSection_Local
+#   Installed              -> PkgSection_Installed
+#   Updates                -> PkgSection_Updates
 $pkgSectionStore     = Find "PkgSection_Store"
 $pkgSectionInstalled = Find "PkgSection_Installed"
 $pkgSectionUpdates   = Find "PkgSection_Updates"
+$pkgSectionLocal     = Find "PkgSection_Local"
 
-$script:pkgNavButtons  = @($pkgNavStore, $pkgNavInstalled, $pkgNavUpdates)
-$script:pkgSections    = @($pkgSectionStore, $pkgSectionInstalled, $pkgSectionUpdates)
-
+# Back-compat shim: Global Search and Apply-Theme still address the old
+# sub-nav by index, so map those indices onto the rail selection.
 function Set-PkgSubNav {
     param([int]$Index)
-    if ($Index -lt 0 -or $Index -ge $script:pkgSections.Count) { $Index = 0 }
     $script:pkgSubNavIndex = $Index
-    for ($i = 0; $i -lt $script:pkgSections.Count; $i++) {
-        $script:pkgSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
-        $btn = $script:pkgNavButtons[$i]
-        if ($i -eq $Index) {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "AccentBrush")
-        } else {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
-        }
+    $target = switch ($Index) {
+        1 { $script:storeInstalledCategoryLabel }
+        2 { $script:storeUpdatesCategoryLabel }
+        default { $script:storeAllCategoryLabel }
+    }
+    if (Get-Command Show-StoreCategory -ErrorAction SilentlyContinue) {
+        Show-StoreCategory $target
     }
 }
-
-# Default landing: Store
-Set-PkgSubNav 0
-
-$pkgNavStore.Add_Click({     Set-PkgSubNav 0 })
-$pkgNavInstalled.Add_Click({ Set-PkgSubNav 1 })
-$pkgNavUpdates.Add_Click({   Set-PkgSubNav 2 })
 
 # -- Helper: parse winget tabular output --------------------------------------
 # Outputs one string[] per data row to the pipeline; callers use @(Get-WingetRows ...)
@@ -90,25 +90,11 @@ function Get-WingetRows {
     }
 }
 
-# -- Helper: status helpers ---------------------------------------------------
-function Set-BusyStatus {
-    param([string]$Text)
-    $statusIndicator.Text       = $Text
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
-    $footerStatus.Text          = "Scy - " + $Text
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-}
-
-function Set-ReadyStatus {
-    $statusIndicator.Text       = "Ready"
-    $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
-    $footerStatus.Text          = "Ready"
-}
+# Set-BusyStatus / Set-ReadyStatus / Show-ScyToast now live in Helpers-Status.ps1.
 
 # -- Quick Install (dynamic, persisted in settings) ---------------------------
 $script:quickInstalls      = [System.Collections.Generic.List[hashtable]]::new()
 $script:quickBundles       = [System.Collections.Generic.List[hashtable]]::new()
-$script:selectedQuickItems = [System.Collections.Generic.List[hashtable]]::new()
 
 $script:quickInstallEditMode = $false
 
@@ -278,198 +264,6 @@ function Get-AllQuickCategories {
     return @($all | Sort-Object)
 }
 
-# Refresh-QuickInstallCategories was tied to the deleted in-search ComboBox.
-# Kept as a no-op so existing call sites (Update-QuickInstalls) don't break.
-function Refresh-QuickInstallCategories { }
-
-function Update-QuickInstallSelectedState {
-    $installBtn = Find "BtnQuickInstallSelected"
-    $count = $script:selectedQuickItems.Count
-    $installBtn.IsEnabled = ($count -gt 0)
-    $installBtn.Content   = if ($count -gt 0) { "Install ($count)" } else { "Install" }
-}
-
-function Show-QuickInstallConfirmDialog {
-    $dlgAppBg   = "#{0:X2}{1:X2}{2:X2}" -f $window.Resources["AppBgBrush"].Color.R,  $window.Resources["AppBgBrush"].Color.G,  $window.Resources["AppBgBrush"].Color.B
-    $dlgFg      = "#{0:X2}{1:X2}{2:X2}" -f $window.Resources["FgBrush"].Color.R,      $window.Resources["FgBrush"].Color.G,      $window.Resources["FgBrush"].Color.B
-    $dlgSurface = "#{0:X2}{1:X2}{2:X2}" -f $window.Resources["SurfaceBrush"].Color.R, $window.Resources["SurfaceBrush"].Color.G, $window.Resources["SurfaceBrush"].Color.B
-    $dlgBorder  = "#{0:X2}{1:X2}{2:X2}" -f $window.Resources["BorderBrush"].Color.R,  $window.Resources["BorderBrush"].Color.G,  $window.Resources["BorderBrush"].Color.B
-    $dlgMuted   = "#{0:X2}{1:X2}{2:X2}" -f $window.Resources["MutedText"].Color.R,    $window.Resources["MutedText"].Color.G,    $window.Resources["MutedText"].Color.B
-    $dlgAccent  = "#{0:X2}{1:X2}{2:X2}" -f $window.Resources["AccentBrush"].Color.R,  $window.Resources["AccentBrush"].Color.G,  $window.Resources["AccentBrush"].Color.B
-    $dlgXaml = @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="480" Height="500"
-        WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
-        Background="$dlgAppBg"
-        FontFamily="Segoe UI"
-        ShowInTaskbar="False">
-    <Grid Margin="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <TextBlock x:Name="DlgTitle" Grid.Row="0" FontSize="14" FontWeight="SemiBold"
-                   Foreground="$dlgFg" Margin="0,0,0,14"/>
-        <Border Grid.Row="1" Background="$dlgSurface" CornerRadius="4"
-                BorderBrush="$dlgBorder" BorderThickness="1">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10">
-                <StackPanel x:Name="DlgPackageList"/>
-            </ScrollViewer>
-        </Border>
-        <TextBlock x:Name="DlgTotal" Grid.Row="2" FontSize="11" Foreground="$dlgMuted"
-                   Margin="0,8,0,12" HorizontalAlignment="Right"/>
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="DlgCancelBtn" Content="Cancel"
-                    Background="$dlgBorder" Foreground="$dlgFg" BorderThickness="0"
-                    Padding="14,8" FontSize="11" Cursor="Hand" Margin="0,0,8,0"/>
-            <Button x:Name="DlgInstallBtn" Content="Install All"
-                    Background="$dlgAccent" Foreground="#ffffff" BorderThickness="0"
-                    Padding="14,8" FontSize="11" Cursor="Hand" FontWeight="SemiBold"/>
-        </StackPanel>
-    </Grid>
-</Window>
-"@
-
-    $dlg       = [Windows.Markup.XamlReader]::Parse($dlgXaml)
-    $dlg.Owner = $window
-    $dlg.Title = "Review installation"
-
-    $listPanel = $dlg.FindName("DlgPackageList")
-
-    # Collect all unique packages for installation, build display rows
-    $allPackages   = [System.Collections.Generic.List[hashtable]]::new()
-    $seenIds       = [System.Collections.Generic.HashSet[string]]::new()
-
-    $indApps = @($script:selectedQuickItems | Where-Object { $_.Type -eq "App" })
-    $bundles  = @($script:selectedQuickItems | Where-Object { $_.Type -eq "Bundle" })
-
-    function Add-SectionHeader($text) {
-        $hdr            = New-Object System.Windows.Controls.TextBlock
-        $hdr.Text       = $text
-        $hdr.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-        $hdr.FontSize   = 10
-        $hdr.FontWeight = "SemiBold"
-        $hdr.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 4)
-        $listPanel.Children.Add($hdr) | Out-Null
-    }
-
-    function Add-PkgRow($name, $id, $indent) {
-        $row = New-Object System.Windows.Controls.Grid
-        $rc0 = New-Object System.Windows.Controls.ColumnDefinition; $rc0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
-        $rc1 = New-Object System.Windows.Controls.ColumnDefinition; $rc1.Width = [System.Windows.GridLength]::Auto
-        $row.ColumnDefinitions.Add($rc0); $row.ColumnDefinitions.Add($rc1)
-        $row.Margin = [System.Windows.Thickness]::new($indent, 0, 0, 3)
-
-        $nb = New-Object System.Windows.Controls.TextBlock
-        $nb.Text = $name; $nb.FontSize = 11
-        $nb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-        $nb.VerticalAlignment = "Center"
-        [System.Windows.Controls.Grid]::SetColumn($nb, 0)
-
-        $ib = New-Object System.Windows.Controls.TextBlock
-        $ib.Text = $id; $ib.FontSize = 10
-        $ib.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-        $ib.VerticalAlignment = "Center"
-        [System.Windows.Controls.Grid]::SetColumn($ib, 1)
-
-        $row.Children.Add($nb) | Out-Null
-        $row.Children.Add($ib) | Out-Null
-        $listPanel.Children.Add($row) | Out-Null
-    }
-
-    if ($indApps.Count -gt 0) {
-        Add-SectionHeader ("Apps (" + [string]$indApps.Count + ")")
-        foreach ($item in $indApps) {
-            Add-PkgRow $item.Name $item.Id 0
-            if ($seenIds.Add($item.Id)) { $allPackages.Add(@{Name=$item.Name; Id=$item.Id}) }
-        }
-    }
-
-    foreach ($item in $bundles) {
-        $b = $item.Bundle
-        if ($indApps.Count -gt 0 -or ($bundles.IndexOf($item) -gt 0)) {
-            $spacer        = New-Object System.Windows.Controls.Border
-            $spacer.Height = 8
-            $listPanel.Children.Add($spacer) | Out-Null
-        }
-        Add-SectionHeader ($b.Name + " - bundle (" + [string]$b.Apps.Count + " apps)")
-        foreach ($app in $b.Apps) {
-            Add-PkgRow $app.Name $app.Id 8
-            if ($seenIds.Add($app.Id)) { $allPackages.Add(@{Name=$app.Name; Id=$app.Id}) }
-        }
-    }
-
-    ($dlg.FindName("DlgTitle")).Text = "Review - " + [string]$allPackages.Count + " app(s)"
-    ($dlg.FindName("DlgTotal")).Text = [string]$allPackages.Count + " unique app(s) to install"
-    ($dlg.FindName("DlgCancelBtn")).Add_Click({ $dlg.Close() })
-
-    $installBtn     = $dlg.FindName("DlgInstallBtn")
-    $installBtn.Tag = @{ Dlg = $dlg; Packages = $allPackages }
-    $installBtn.Add_Click({
-        param($s, $e)
-        if ($script:installInProgress) { return }
-        $info   = $s.Tag
-        $pkgIds = @($info.Packages | ForEach-Object { $_.Id })
-        $total  = $info.Packages.Count
-        $info.Dlg.Close()
-
-        $script:installInProgress = $true
-        Set-BusyStatus ("Installing " + [string]$total + " app(s)...")
-        Show-ScyProgress -Border $installsProgressBorder -Bar $installsProgressBar -Label $installsProgressLabel `
-                         -Text ("Starting install of " + [string]$total + " app(s)...") -Value 0 -Max $total
-
-        Start-ScyJob `
-            -Variables @{ pkgs = $pkgIds } `
-            -Context   @{ Total = $total } `
-            -Work {
-                param($emit)
-                $failed = @()
-                $i = 0
-                foreach ($pkg in $pkgs) {
-                    $i++
-                    & $emit @{ Index = $i; Name = $pkg }
-                    & winget install --id $pkg --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
-                    if ($LASTEXITCODE -ne 0) { $failed += $pkg }
-                }
-                return @{ Failed = $failed; Total = $pkgs.Count }
-            } `
-            -OnLine {
-                param($line, $ctx)
-                if ($line -is [hashtable]) {
-                    $installsProgressBar.Value   = [double]$line.Index
-                    $installsProgressLabel.Text  = "Installing " + [string]$line.Index + " of " + [string]$ctx.Total + " - " + [string]$line.Name
-                    $footerStatus.Text           = "Scy - Installing: " + [string]$line.Name
-                } else {
-                    $footerStatus.Text = "Scy - Installing: " + [string]$line
-                }
-            } `
-            -OnComplete {
-                param($result, $err, $ctx)
-                $script:installInProgress = $false
-                Hide-ScyProgress $installsProgressBorder $installsProgressBar
-                Set-ReadyStatus
-                $script:selectedQuickItems.Clear()
-                Update-QuickInstalls
-                Update-QuickInstallSelectedState
-                if ($err) {
-                    Show-ThemedDialog ("Install error: " + $err.Exception.Message) "Error" "OK" "Error"
-                    return
-                }
-                if ($result.Failed.Count -gt 0) {
-                    Show-ThemedDialog ("Done. Failed apps:`n" + ($result.Failed -join "`n")) "Result" "OK" "Warning"
-                } else {
-                    Show-ThemedDialog ("Installed " + [string]$result.Total + " app(s) successfully.") "Done" "OK" "Information"
-                }
-            } | Out-Null
-    })
-
-    $dlg.ShowDialog() | Out-Null
-}
-
 function Update-QuickInstalls {
     $curatedPanel = Find "CuratedAppsPanel"
     $hiddenPanel  = Find "HiddenAppsPanel"
@@ -544,13 +338,16 @@ function Update-QuickInstalls {
 function New-QuickInstallsRow {
     param([string]$Name, [string]$Id, [string]$Action, [scriptblock]$OnAction)
 
+    # cy-design divided list: flush row, hairline bottom divider only.
     $border  = New-Object System.Windows.Controls.Border
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+    $border.Background      = [System.Windows.Media.Brushes]::Transparent
     $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-    $border.BorderThickness = [System.Windows.Thickness]::new(1)
-    $border.CornerRadius    = [System.Windows.CornerRadius]::new(4)
-    $border.Padding         = [System.Windows.Thickness]::new(10, 6, 10, 6)
-    $border.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 4)
+    $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+    $border.CornerRadius    = [System.Windows.CornerRadius]::new(0)
+    $border.Padding         = [System.Windows.Thickness]::new(4, 10, 4, 10)
+    $border.Margin          = [System.Windows.Thickness]::new(0)
+    $border.Add_MouseEnter({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush") })
+    $border.Add_MouseLeave({ $this.Background = [System.Windows.Media.Brushes]::Transparent })
 
     $grid = New-Object System.Windows.Controls.Grid
     $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
@@ -599,13 +396,16 @@ function New-QuickInstallsRow {
 function New-CustomAppRow {
     param([hashtable]$Entry)
 
+    # cy-design divided list: flush row, hairline bottom divider only.
     $border  = New-Object System.Windows.Controls.Border
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+    $border.Background      = [System.Windows.Media.Brushes]::Transparent
     $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-    $border.BorderThickness = [System.Windows.Thickness]::new(1)
-    $border.CornerRadius    = [System.Windows.CornerRadius]::new(4)
-    $border.Padding         = [System.Windows.Thickness]::new(10, 6, 10, 6)
-    $border.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 4)
+    $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+    $border.CornerRadius    = [System.Windows.CornerRadius]::new(0)
+    $border.Padding         = [System.Windows.Thickness]::new(4, 10, 4, 10)
+    $border.Margin          = [System.Windows.Thickness]::new(0)
+    $border.Add_MouseEnter({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush") })
+    $border.Add_MouseLeave({ $this.Background = [System.Windows.Media.Brushes]::Transparent })
 
     $grid = New-Object System.Windows.Controls.Grid
     $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
@@ -1053,12 +853,10 @@ $window.Dispatcher.BeginInvoke([action]{
 # PkgSection_Quick panel for managing the user's QuickInstalls.
 # ─────────────────────────────────────────────────────────────────
 
-$storeCategoriesPanel    = Find "StoreCategoriesPanel"
+$storeCategoryList       = Find "StoreCategoryList"
 $storeCategoryArea       = Find "StoreCategoryArea"
 $storeCategoryAppsPanel  = Find "StoreCategoryAppsPanel"
-$storeCategoryBack       = Find "StoreCategoryBack"
-$storeCategoryName       = Find "StoreCategoryName"
-$storeHeaderText         = Find "StoreHeaderText"
+$storeCategoryName       = Find "StoreCategoryName"   # state only (holds selected category)
 $storeSearchBox          = Find "StoreSearchBox"
 $storeSearchPlaceholder  = Find "StoreSearchPlaceholder"
 $storeSearchClear        = Find "StoreSearchClear"
@@ -1087,7 +885,7 @@ function New-LetterBadge {
     $border              = New-Object System.Windows.Controls.Border
     $border.Width        = $Size
     $border.Height       = $Size
-    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
+    $border.CornerRadius = [System.Windows.CornerRadius]::new([Math]::Round($Size * 0.28))  # cy squircle avatar
     $border.SetResourceReference(
         [System.Windows.Controls.Border]::BackgroundProperty,
         (Get-StoreBadgeBrushKey ($Id + $Name)))
@@ -1113,7 +911,7 @@ function New-LoadingBadge {
     $border              = New-Object System.Windows.Controls.Border
     $border.Width        = $Size
     $border.Height       = $Size
-    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
+    $border.CornerRadius = [System.Windows.CornerRadius]::new([Math]::Round($Size * 0.28))  # cy squircle avatar
     $border.SetResourceReference(
         [System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
     $border.SetResourceReference(
@@ -1171,7 +969,7 @@ function Install-StoreSingleApp {
 
     Start-ScyJob `
         -Variables @{ wingetId = $Id; wingetSrc = $Source } `
-        -Context   @{ Name = $Name; Btn = $TriggerButton } `
+        -Context   @{ Name = $Name; Id = $Id; Btn = $TriggerButton } `
         -Work {
             param($emit)
             & $emit ("Installing " + $wingetId)
@@ -1202,52 +1000,120 @@ function Install-StoreSingleApp {
             }
             if ($result.ExitCode -ne 0) {
                 Show-ThemedDialog ("winget exited with code " + [string]$result.ExitCode + " installing " + $ctx.Name) "Install failed" "OK" "Warning"
+                return
             }
+            # Mark installed so buttons/pills flip instantly. A full reconcile
+            # happens next time the user runs the Installed-apps scan.
+            [void]$script:installedWingetIds.Add([string]$ctx.Id)
+            Refresh-StoreInstalledUi
         } | Out-Null
 }
 
-function New-CategoryTile {
-    param([string]$Category, [int]$Count)
+function Uninstall-StoreSingleApp {
+    param([string]$Id, [string]$Name, $TriggerButton, [string]$Source)
 
-    $border              = New-Object System.Windows.Controls.Border
-    $border.SetResourceReference(
-        [System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
-    $border.SetResourceReference(
-        [System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-    $border.BorderThickness = [System.Windows.Thickness]::new(1)
-    $border.CornerRadius    = [System.Windows.CornerRadius]::new(8)
-    $border.Width           = 180
-    $border.Height          = 84
-    $border.Margin          = [System.Windows.Thickness]::new(0, 0, 10, 10)
-    $border.Padding         = [System.Windows.Thickness]::new(16, 14, 16, 14)
-    $border.Cursor          = [System.Windows.Input.Cursors]::Hand
+    if ($script:installInProgress) { return }
 
-    $sp = New-Object System.Windows.Controls.StackPanel
+    # App behavior > "Skip confirmation for single-app uninstalls" (shared with the Installed tab)
+    if (-not $script:skipSingleUninstallConfirm) {
+        $confirm = Show-ThemedDialog ("Uninstall " + $Name + "?") "Confirm uninstall" "YesNo" "Warning"
+        if ($confirm -ne "Yes") { return }
+    }
 
-    $name              = New-Object System.Windows.Controls.TextBlock
-    $name.Text         = $Category
-    $name.FontSize     = 13
-    $name.FontWeight   = [System.Windows.FontWeights]::SemiBold
-    $name.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-    $name.TextTrimming = "CharacterEllipsis"
+    $script:installInProgress = $true
+    if ($TriggerButton) {
+        $TriggerButton.IsEnabled = $false
+        $TriggerButton.Content   = "Uninstalling..."
+    }
 
-    $sub             = New-Object System.Windows.Controls.TextBlock
-    $sub.Text        = if ($Count -eq 1) { "1 app" } else { [string]$Count + " apps" }
-    $sub.FontSize    = 11
-    $sub.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-    $sub.Margin      = [System.Windows.Thickness]::new(0, 6, 0, 0)
+    Set-BusyStatus ("Uninstalling " + $Name + "...")
+    if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Uninstall requested: $Name ($Id)" }
+    Show-ScyProgress -Border $installsProgressBorder -Bar $installsProgressBar -Label $installsProgressLabel `
+                     -Text ("Uninstalling " + $Name + "...") -Value $null -Max 1
 
-    $sp.Children.Add($name) | Out-Null
-    $sp.Children.Add($sub)  | Out-Null
-    $border.Child = $sp
+    Start-ScyJob `
+        -Variables @{ wingetId = $Id } `
+        -Context   @{ Name = $Name; Id = $Id; Btn = $TriggerButton } `
+        -Work {
+            param($emit)
+            & $emit ("Uninstalling " + $wingetId)
+            & winget uninstall --id $wingetId --silent --accept-source-agreements 2>&1 | Out-Null
+            return @{ ExitCode = $LASTEXITCODE; Id = $wingetId }
+        } `
+        -OnLine {
+            param($line, $ctx)
+            $footerStatus.Text = "Scy - " + [string]$line
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $script:installInProgress = $false
+            Hide-ScyProgress $installsProgressBorder $installsProgressBar
+            Set-ReadyStatus
+            $btn = $ctx.Btn
+            if ($btn) { $btn.IsEnabled = $true }
+            if ($err) {
+                Show-ThemedDialog ("Uninstall error: " + $err.Exception.Message) "Error" "OK" "Error"
+                return
+            }
+            if ($result.ExitCode -ne 0) {
+                Show-ThemedDialog ("winget exited with code " + [string]$result.ExitCode + " uninstalling " + $ctx.Name) "Uninstall failed" "OK" "Warning"
+                return
+            }
+            # Drop from the installed set so buttons/pills flip instantly. A full
+            # reconcile happens next time the user runs the Installed-apps scan.
+            [void]$script:installedWingetIds.Remove([string]$ctx.Id)
+            Refresh-StoreInstalledUi
+        } | Out-Null
+}
 
-    $border.Tag = $Category
-    $border.Add_MouseLeftButtonUp({
-        param($s, $e)
-        Show-StoreCategory ([string]$s.Tag)
-    })
+# Fill the store's installed-id set from an Installed-apps scan (user-initiated
+# on the Installed sub-tab). Only winget-sourced rows carry an id we can match
+# against the catalog. Then refresh the store's pills/buttons in place.
+function Set-StoreInstalledFromScan {
+    param($Software)
+    $script:installedWingetIds.Clear()
+    foreach ($app in $Software) {
+        if ([string]$app.Source -eq "Winget" -and -not [string]::IsNullOrWhiteSpace([string]$app.Id)) {
+            [void]$script:installedWingetIds.Add([string]$app.Id)
+        }
+    }
+    Refresh-StoreInstalledUi
+}
 
-    return $border
+# Update installed-state UI without rebuilding anything: toggle each card's
+# "Installed" pill in place and re-evaluate the detail panel's action button.
+# A full grid rebuild here would re-fetch every icon and freeze the UI thread.
+function Refresh-StoreInstalledUi {
+    foreach ($panelName in @("StoreCategoryAppsPanel", "StoreSearchCuratedPanel", "StoreSearchWingetPanel")) {
+        $panel = Find $panelName
+        if (-not $panel) { continue }
+        foreach ($card in $panel.Children) {
+            $tag = $card.Tag
+            if ($tag -and $tag.InstalledPill) {
+                $tag.InstalledPill.Visibility = if (Test-AppInstalled ([string]$tag.Id)) { "Visible" } else { "Collapsed" }
+            }
+        }
+    }
+    if ($appDetailPanel.Visibility -eq "Visible") {
+        $info = $appDetailAction.Tag
+        if ($info) { Set-AppDetailActionButton -Id $info.Id -Name $info.Name -Source $info.Source }
+    }
+}
+
+# Set the detail panel's action button to Install or Uninstall based on whether
+# the app is currently installed (per the winget index).
+function Set-AppDetailActionButton {
+    param([string]$Id, [string]$Name, [string]$Source)
+    if (Test-AppInstalled $Id) {
+        $appDetailAction.Content = "Uninstall"
+        $appDetailAction.Style   = $window.Resources["DangerButton"]
+        $appDetailAction.Tag     = @{ Id = $Id; Name = $Name; Source = $Source; Action = "Uninstall" }
+    } else {
+        $appDetailAction.Content = "Install"
+        $appDetailAction.Style   = $window.Resources["ActionButton"]
+        $appDetailAction.Tag     = @{ Id = $Id; Name = $Name; Source = $Source; Action = "Install" }
+    }
+    $appDetailAction.IsEnabled = $true
 }
 
 function New-AppCard {
@@ -1259,20 +1125,28 @@ function New-AppCard {
         [switch]$IsCurated           # attaches right-click "Hide app" context menu
     )
 
+    # cy-design divided grid (Acy Discover style): flush tile, no fill/radius/gap.
+    # A 1px hairline all round + a -1 margin collapses shared edges into single
+    # dividers on both axes. Fixed size keeps the grid aligned.
     $border              = New-Object System.Windows.Controls.Border
-    $border.SetResourceReference(
-        [System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+    $border.Background      = [System.Windows.Media.Brushes]::Transparent
     $border.SetResourceReference(
         [System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
     $border.BorderThickness = [System.Windows.Thickness]::new(1)
-    $border.CornerRadius    = [System.Windows.CornerRadius]::new(6)
-    $border.Width           = 220
-    $border.Margin          = [System.Windows.Thickness]::new(0, 0, 10, 10)
-    $border.Padding         = [System.Windows.Thickness]::new(12, 12, 12, 12)
+    $border.CornerRadius    = [System.Windows.CornerRadius]::new(0)
+    # Width comes from the UniformGrid column (see Update-StoreGridColumns) so the
+    # grid always fills the pane with no leftover gap on the right.
+    $border.HorizontalAlignment = "Stretch"
+    $border.Height          = 112
+    $border.Margin          = [System.Windows.Thickness]::new(0, 0, -1, -1)
+    $border.Padding         = [System.Windows.Thickness]::new(16, 14, 16, 14)
     $border.Cursor          = [System.Windows.Input.Cursors]::Hand
+    $border.Add_MouseEnter({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush") })
+    $border.Add_MouseLeave({ $this.Background = [System.Windows.Media.Brushes]::Transparent })
 
-    # Card layout: badge | name + subtitle
+    # Tile layout: badge | name + description
     $row = New-Object System.Windows.Controls.Grid
+    $row.VerticalAlignment = "Top"
     $rc0 = New-Object System.Windows.Controls.ColumnDefinition; $rc0.Width = [System.Windows.GridLength]::Auto
     $rc1 = New-Object System.Windows.Controls.ColumnDefinition; $rc1.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
     $row.ColumnDefinitions.Add($rc0); $row.ColumnDefinitions.Add($rc1)
@@ -1310,35 +1184,93 @@ function New-AppCard {
     $nameBlock.FontSize     = 13
     $nameBlock.FontWeight   = [System.Windows.FontWeights]::SemiBold
     $nameBlock.TextTrimming = "CharacterEllipsis"
+    $nameBlock.VerticalAlignment = "Center"
     $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
 
+    # Name row: name (trims) + optional "Installed" pill on the right
+    $nameRow = New-Object System.Windows.Controls.Grid
+    $nrc0 = New-Object System.Windows.Controls.ColumnDefinition; $nrc0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+    $nrc1 = New-Object System.Windows.Controls.ColumnDefinition; $nrc1.Width = [System.Windows.GridLength]::Auto
+    $nameRow.ColumnDefinitions.Add($nrc0); $nameRow.ColumnDefinitions.Add($nrc1)
+    [System.Windows.Controls.Grid]::SetColumn($nameBlock, 0)
+    $nameRow.Children.Add($nameBlock) | Out-Null
+
+    # "Installed" pill: built for every card, shown only when installed. Building
+    # it up front (and keeping a ref on the card Tag) lets the background winget
+    # scan toggle it in place, so we never rebuild the grid just to add badges.
+    $pill                   = New-Object System.Windows.Controls.Border
+    $pill.BorderThickness   = [System.Windows.Thickness]::new(1)
+    $pill.CornerRadius      = [System.Windows.CornerRadius]::new(7)
+    $pill.Padding           = [System.Windows.Thickness]::new(6, 0, 6, 1)
+    $pill.Margin            = [System.Windows.Thickness]::new(6, 0, 0, 0)
+    $pill.VerticalAlignment = "Center"
+    $pill.Visibility        = if (Test-AppInstalled $Id) { "Visible" } else { "Collapsed" }
+    $pill.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "SuccessBrush")
+    $pillText               = New-Object System.Windows.Controls.TextBlock
+    $pillText.Text          = "Installed"
+    $pillText.FontSize      = 9
+    $pillText.FontWeight    = [System.Windows.FontWeights]::SemiBold
+    $pillText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
+    $pill.Child             = $pillText
+    [System.Windows.Controls.Grid]::SetColumn($pill, 1)
+    $nameRow.Children.Add($pill) | Out-Null
+
     $subBlock              = New-Object System.Windows.Controls.TextBlock
-    $subBlock.Text         = if ([string]::IsNullOrWhiteSpace($Subtitle)) { $Id } else { $Subtitle }
+    $subBlock.Text         = if (-not [string]::IsNullOrWhiteSpace($Description)) { $Description }
+                             elseif (-not [string]::IsNullOrWhiteSpace($Subtitle)) { $Subtitle }
+                             else { $Id }
     $subBlock.FontSize     = 11
+    $subBlock.TextWrapping = "Wrap"
     $subBlock.TextTrimming = "CharacterEllipsis"
-    $subBlock.Margin       = [System.Windows.Thickness]::new(0, 2, 0, 0)
+    $subBlock.MaxHeight    = 48
+    $subBlock.Margin       = [System.Windows.Thickness]::new(0, 3, 0, 0)
     $subBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
 
-    $textStack.Children.Add($nameBlock) | Out-Null
-    $textStack.Children.Add($subBlock)  | Out-Null
+    $textStack.Children.Add($nameRow)  | Out-Null
+    $textStack.Children.Add($subBlock) | Out-Null
 
     $row.Children.Add($badge)     | Out-Null
     $row.Children.Add($textStack) | Out-Null
     $border.Child = $row
 
     # Click anywhere on the card opens the detail panel
-    $border.Tag = @{ Id = $Id; Name = $Name; Source = $Source; Description = $Description; Homepage = $Homepage; SkipMeta = [bool]$SkipMeta }
+    $border.Tag = @{ Id = $Id; Name = $Name; Source = $Source; Description = $Description; Homepage = $Homepage; SkipMeta = [bool]$SkipMeta; InstalledPill = $pill }
     $border.Add_MouseLeftButtonUp({
         param($s, $e)
         $info = $s.Tag
         Show-AppDetailPanel -Id $info.Id -Name $info.Name -Source $info.Source -Description $info.Description -Homepage $info.Homepage -SkipMeta:$info.SkipMeta
     })
 
-    # Context menu actions vary by card source:
+    # Context menu: every card gets Install first, then a source-specific action:
     # - Curated catalog cards         -> "Hide app"
     # - User-saved cards (quickInstalls) -> "Remove from my apps"
     # - Winget search-result cards    -> "Save to my apps"
     $menu = New-Object System.Windows.Controls.ContextMenu
+
+    # Install/Uninstall: label resolved when the menu opens and action resolved on
+    # click, both live against the installed index (which the background scan may
+    # fill after the card was built).
+    $miInstall = New-Object System.Windows.Controls.MenuItem
+    $miInstall.Header = "Install"
+    $miInstall.Tag    = @{ Id = $Id; Name = $Name; Source = $Source }
+    $miInstall.Add_Click({
+        param($s, $e)
+        $info = $s.Tag
+        if (Test-AppInstalled $info.Id) {
+            Uninstall-StoreSingleApp -Id $info.Id -Name $info.Name -Source $info.Source
+        } else {
+            Install-StoreSingleApp -Id $info.Id -Name $info.Name -Source $info.Source
+        }
+    })
+    $menu.Items.Add($miInstall) | Out-Null
+    $menu.Items.Add((New-Object System.Windows.Controls.Separator)) | Out-Null
+    $menu.Add_Opened({
+        param($s, $e)
+        $mi = $s.Items[0]
+        if ($mi -and $mi.Tag) {
+            $mi.Header = if (Test-AppInstalled $mi.Tag.Id) { "Uninstall" } else { "Install" }
+        }
+    })
 
     if ($IsCurated) {
         $hide = New-Object System.Windows.Controls.MenuItem
@@ -1937,11 +1869,8 @@ function Show-AppDetailPanel {
         }.GetNewClosure())
     }
 
-    # Action button: Install (refresh when we know if installed - Phase 4 task)
-    $appDetailAction.Content   = "Install"
-    $appDetailAction.IsEnabled = $true
-    $appDetailAction.Style     = $window.Resources["ActionButton"]
-    $appDetailAction.Tag       = @{ Id = $Id; Name = $Name; Source = $Source }
+    # Action button: Install, or Uninstall if the winget index says it's installed
+    Set-AppDetailActionButton -Id $Id -Name $Name -Source $Source
 
     $appDetailPanel.Visibility = "Visible"
 
@@ -1976,46 +1905,148 @@ $appDetailAction.Add_Click({
     param($s, $e)
     $info = $s.Tag
     if (-not $info) { return }
-    Install-StoreSingleApp -Id $info.Id -Name $info.Name -TriggerButton $s -Source $info.Source
+    if ($info.Action -eq "Uninstall") {
+        Uninstall-StoreSingleApp -Id $info.Id -Name $info.Name -TriggerButton $s -Source $info.Source
+    } else {
+        Install-StoreSingleApp -Id $info.Id -Name $info.Name -TriggerButton $s -Source $info.Source
+    }
 })
 
-# Hide the panel automatically when leaving the Store sub-tab.
-$pkgNavInstalled.Add_Click({ Hide-AppDetailPanel })
-$pkgNavUpdates.Add_Click({   Hide-AppDetailPanel })
+# (Leaving the app grid via the rail hides the detail panel; see Show-StoreCategory.)
 
 
-function Show-StoreLanding {
-    $storeCategoriesPanel.Children.Clear()
-    $storeHeaderText.Text       = "Browse"
-    $storeCategoryArea.Visibility = "Collapsed"
-    $storeSearchArea.Visibility = "Collapsed"
-    $storeCategoriesPanel.Visibility = "Visible"
+# The "All apps" rail entry shows every app; category entries filter the grid.
+# "Local installers" is a special rail entry that swaps the grid for that panel.
+$script:storeAllCategoryLabel       = "All apps"
+$script:storeLocalCategoryLabel     = "Local installers"
+$script:storeInstalledCategoryLabel = "Installed"
+$script:storeUpdatesCategoryLabel   = "Updates"
+# Rail section header for the catalog; selecting it means "all apps"
+$script:storeSectionLabel           = "Store"
 
-    # Group merged quick installs by category, fall back to "Other"
-    $groups = @{}
+# Tiles stretch to fill their UniformGrid column, so the grid never leaves a gap
+# on the right. Column count = how many tiles of at least this width fit.
+$script:storeTileMinWidth = 240
+
+function Update-StoreGridColumns {
+    param($Panel)
+    if (-not $Panel) { return }
+    $w = $Panel.ActualWidth
+    if ($w -le 0) { return }
+    $cols = [Math]::Floor($w / $script:storeTileMinWidth)
+    if ($cols -lt 1) { $cols = 1 }
+    if ($Panel.Columns -ne $cols) { $Panel.Columns = [int]$cols }
+}
+
+# Recompute columns whenever a grid panel is resized.
+foreach ($gridPanelName in @("StoreCategoryAppsPanel", "StoreSearchCuratedPanel", "StoreSearchWingetPanel")) {
+    $gp = Find $gridPanelName
+    if ($gp) {
+        $gp.Add_SizeChanged({ param($s, $e) Update-StoreGridColumns $s })
+    }
+}
+
+# Count apps per category (blank category -> "Other")
+function Get-StoreCategoryCounts {
+    $groups = [ordered]@{}
     foreach ($qi in (Get-MergedQuickInstalls)) {
         $cat = if ([string]::IsNullOrWhiteSpace($qi.Category)) { "Other" } else { [string]$qi.Category }
-        if (-not $groups.ContainsKey($cat)) { $groups[$cat] = 0 }
+        if (-not $groups.Contains($cat)) { $groups[$cat] = 0 }
         $groups[$cat] = $groups[$cat] + 1
     }
-    foreach ($cat in ($groups.Keys | Sort-Object)) {
-        $tile = New-CategoryTile -Category $cat -Count $groups[$cat]
-        $storeCategoriesPanel.Children.Add($tile) | Out-Null
+    return $groups
+}
+
+# Rebuild the category rail, marking $Active as selected.
+# Two-stage rail (same shape as Bookmarks):
+#   Store            <- section; acts as "all apps", carries the total
+#     Browsers       <- categories, indented, only while Store is selected
+#     ...
+#   Local installers <- sibling sections
+#   Installed
+#   Updates
+function Build-StoreCategoryRail {
+    param([string]$Active)
+    if (-not $storeCategoryList) { return }
+    $storeCategoryList.Children.Clear()
+
+    $groups = Get-StoreCategoryCounts
+    $total  = 0
+    foreach ($k in $groups.Keys) { $total += $groups[$k] }
+
+    $specials = @($script:storeLocalCategoryLabel,
+                  $script:storeInstalledCategoryLabel,
+                  $script:storeUpdatesCategoryLabel)
+    $inStore  = ($Active -notin $specials)
+
+    # The Store section itself is "all apps"
+    $storeCategoryList.Children.Add(
+        (New-RailEntry -Label $script:storeSectionLabel -Count $total -IsSection $true `
+                       -IsActive ($Active -eq $script:storeAllCategoryLabel) `
+                       -OnClick { Show-StoreCategory $script:storeAllCategoryLabel })) | Out-Null
+
+    if ($inStore) {
+        foreach ($cat in ($groups.Keys | Sort-Object)) {
+            $c = $cat
+            $storeCategoryList.Children.Add(
+                (New-RailEntry -Label $c -Indent 1 -Count $groups[$c] -IsActive ($Active -eq $c) `
+                               -OnClick ({ Show-StoreCategory $c }).GetNewClosure())) | Out-Null
+        }
     }
+
+    # Sibling sections after the Store group (not catalog categories, so no counts)
+    foreach ($special in $specials) {
+        $s = $special
+        $storeCategoryList.Children.Add(
+            (New-RailEntry -Label $s -IsSection $true -IsActive ($Active -eq $s) `
+                           -OnClick ({ Show-StoreCategory $s }).GetNewClosure())) | Out-Null
+    }
+}
+
+# Landing = the "All apps" rail selection.
+function Show-StoreLanding {
+    Show-StoreCategory $script:storeAllCategoryLabel
 }
 
 function Show-StoreCategory {
     param([string]$Category)
-    $storeCategoryAppsPanel.Children.Clear()
-    $storeCategoryName.Text       = $Category
-    $storeHeaderText.Text         = "Browse"
-    $storeCategoriesPanel.Visibility = "Collapsed"
-    $storeSearchArea.Visibility = "Collapsed"
-    $storeCategoryArea.Visibility = "Visible"
+    if ([string]::IsNullOrWhiteSpace($Category)) { $Category = $script:storeAllCategoryLabel }
 
-    foreach ($qi in (Get-MergedQuickInstalls)) {
+    $storeCategoryAppsPanel.Children.Clear()
+    $storeCategoryName.Text = $Category      # state for refresh paths
+
+    # Collapse every view, then show the selected one
+    $storeSearchArea.Visibility   = "Collapsed"
+    $storeCategoryArea.Visibility = "Collapsed"
+    if ($pkgSectionLocal)     { $pkgSectionLocal.Visibility     = "Collapsed" }
+    if ($pkgSectionInstalled) { $pkgSectionInstalled.Visibility = "Collapsed" }
+    if ($pkgSectionUpdates)   { $pkgSectionUpdates.Visibility   = "Collapsed" }
+
+    Build-StoreCategoryRail -Active $Category
+
+    switch ($Category) {
+        $script:storeLocalCategoryLabel {
+            if ($pkgSectionLocal) { $pkgSectionLocal.Visibility = "Visible" }
+            Update-LocalInstallers
+            return
+        }
+        $script:storeInstalledCategoryLabel {
+            if ($pkgSectionInstalled) { $pkgSectionInstalled.Visibility = "Visible" }
+            Hide-AppDetailPanel
+            return
+        }
+        $script:storeUpdatesCategoryLabel {
+            if ($pkgSectionUpdates) { $pkgSectionUpdates.Visibility = "Visible" }
+            Hide-AppDetailPanel
+            return
+        }
+    }
+
+    $storeCategoryArea.Visibility = "Visible"
+    $showAll = ($Category -eq $script:storeAllCategoryLabel)
+    foreach ($qi in (Get-MergedQuickInstalls | Sort-Object { $_.Name })) {
         $cat = if ([string]::IsNullOrWhiteSpace($qi.Category)) { "Other" } else { [string]$qi.Category }
-        if ($cat -ne $Category) { continue }
+        if (-not $showAll -and $cat -ne $Category) { continue }
         $sub  = if ($qi.IsCurated) { "Curated - " + $qi.Id } else { $qi.Id }
         $src  = if ($qi.ContainsKey("Source"))      { [string]$qi.Source }      else { $null }
         $desc = if ($qi.ContainsKey("Description")) { [string]$qi.Description } else { $null }
@@ -2038,8 +2069,8 @@ function Show-StoreSearch {
     $q = ($Query | ForEach-Object { $_ }).Trim()
     if ([string]::IsNullOrWhiteSpace($q)) { Show-StoreLanding; return }
 
-    $storeCategoriesPanel.Visibility = "Collapsed"
     $storeCategoryArea.Visibility    = "Collapsed"
+    if ($pkgSectionLocal) { $pkgSectionLocal.Visibility = "Collapsed" }
     $storeSearchArea.Visibility      = "Visible"
     $storeSearchCuratedPanel.Children.Clear()
     $storeSearchWingetPanel.Children.Clear()
@@ -2149,8 +2180,6 @@ $storeSearchClear.Add_Click({
 })
 $btnStoreSearchWinget.Add_Click({ Search-StoreWinget -Query $storeSearchBox.Text })
 
-$storeCategoryBack.Add_Click({ Hide-AppDetailPanel; Show-StoreLanding })
-
 # Refresh landing on startup, after the legacy Update-QuickInstalls has run.
 $window.Dispatcher.BeginInvoke([action]{
     Show-StoreLanding
@@ -2164,54 +2193,6 @@ $window.Dispatcher.BeginInvoke([action]{
         Set-PkgSubNav $idx
     }
 }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
-
-
-# ── In-app toast helper (Settings > General > Notify on long operations) ──
-# Uses a WPF Border overlay in the main window. The click handler and the
-# auto-hide timer are wired ONCE at script load, so neither relies on a
-# nested closure SessionState (which silently dropped function-scope lookups).
-$global:scyToast       = $window.FindName("ScyToast")
-$global:scyToastTitle  = $window.FindName("ScyToastTitle")
-$global:scyToastBody   = $window.FindName("ScyToastBody")
-$global:scyToastTimer  = New-Object System.Windows.Threading.DispatcherTimer
-$global:scyToastTimer.Interval = [TimeSpan]::FromSeconds(5)
-$global:scyToastTimer.Add_Tick({
-    try { $global:scyToastTimer.Stop() } catch {}
-    try { $global:scyToast.Visibility = "Collapsed" } catch {}
-})
-if ($global:scyToast) {
-    $global:scyToast.Add_PreviewMouseLeftButtonDown({
-        try { $global:scyToastTimer.Stop() } catch {}
-        try { $global:scyToast.Visibility = "Collapsed" } catch {}
-    })
-}
-
-function Show-ScyToast {
-    param([string]$Title, [string]$Body)
-    if (-not $script:enableNotifications) { return }
-    if (-not $global:scyToast) { return }
-
-    $titleText = [string]$Title
-    $bodyText  = [string]$Body
-
-    $render = {
-        try {
-            $global:scyToastTitle.Text = $titleText
-            $global:scyToastBody.Text  = $bodyText
-            $global:scyToast.Visibility = "Visible"
-            try { $global:scyToastTimer.Stop() } catch {}
-            $global:scyToastTimer.Start()
-        } catch {
-            Write-Host "Show-ScyToast render error: $_"
-        }
-    }.GetNewClosure()
-
-    if ($window.Dispatcher.CheckAccess()) {
-        & $render
-    } else {
-        $window.Dispatcher.BeginInvoke([action]$render, [System.Windows.Threading.DispatcherPriority]::Normal) | Out-Null
-    }
-}
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -2354,275 +2335,4 @@ $btnFetchAllIcons.Add_Click({
                 }
             }
         }.GetNewClosure()) | Out-Null
-})
-
-
-# ─────────────────────────────────────────────────────────────────
-# Installed sub-tab (formerly Tab-Uninstall.ps1)
-# Drives PkgSection_Installed: scan installed winget packages,
-# filter, multi-select uninstall, show results.
-# ─────────────────────────────────────────────────────────────────
-
-$pkgPanel               = Find "PkgStackPanel"
-$pkgCountLabel          = Find "PkgCountLabel"
-$uninstallResultsCard   = Find "UninstallResultsCard"
-$uninstallResultsPanel  = Find "UninstallResultsPanel"
-$uninstallResultsStatus = Find "UninstallResultsStatus"
-$uninstallResultsCount  = Find "UninstallResultsCount"
-
-$script:uninstallItems = [System.Collections.Generic.List[hashtable]]::new()
-
-function New-UninstallRow {
-    param([string]$Name, [string]$Id, [string]$Version, [bool]$Alternate)
-
-    $border = New-Object System.Windows.Controls.Border
-    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
-    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-    $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
-    $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
-    $border.Cursor       = [System.Windows.Input.Cursors]::Hand
-
-    $grid = New-Object System.Windows.Controls.Grid
-    $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::Auto
-    $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-    $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = [System.Windows.GridLength]::Auto
-    $c3 = New-Object System.Windows.Controls.ColumnDefinition; $c3.Width = [System.Windows.GridLength]::Auto
-    $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1)
-    $grid.ColumnDefinitions.Add($c2); $grid.ColumnDefinitions.Add($c3)
-
-    $cb = New-Object System.Windows.Controls.CheckBox
-    $cb.Margin            = [System.Windows.Thickness]::new(0, 0, 12, 0)
-    $cb.VerticalAlignment = "Center"
-    [System.Windows.Controls.Grid]::SetColumn($cb, 0)
-
-    $nameBlock = New-Object System.Windows.Controls.TextBlock
-    $nameBlock.Text              = $Name
-    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-    $nameBlock.FontSize          = 12
-    $nameBlock.VerticalAlignment = "Center"
-    $nameBlock.TextTrimming      = "CharacterEllipsis"
-    [System.Windows.Controls.Grid]::SetColumn($nameBlock, 1)
-
-    $idBlock = New-Object System.Windows.Controls.TextBlock
-    $idBlock.Text              = $Id
-    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-    $idBlock.FontSize          = 11
-    $idBlock.Margin            = [System.Windows.Thickness]::new(12, 0, 16, 0)
-    $idBlock.VerticalAlignment = "Center"
-    [System.Windows.Controls.Grid]::SetColumn($idBlock, 2)
-
-    $verBlock = New-Object System.Windows.Controls.TextBlock
-    $verBlock.Text              = $Version
-    $verBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
-    $verBlock.FontSize          = 11
-    $verBlock.VerticalAlignment = "Center"
-    [System.Windows.Controls.Grid]::SetColumn($verBlock, 3)
-
-    $grid.Children.Add($cb)        | Out-Null
-    $grid.Children.Add($nameBlock) | Out-Null
-    $grid.Children.Add($idBlock)   | Out-Null
-    $grid.Children.Add($verBlock)  | Out-Null
-    $border.Child = $grid
-
-    $border.Add_MouseLeftButtonUp(({ $cb.IsChecked = -not $cb.IsChecked }.GetNewClosure()))
-
-    return @{ Border = $border; CheckBox = $cb; Id = $Id; Name = $Name; Tag = ($Name + " " + $Id).ToLower() }
-}
-
-function New-ResultRow {
-    param([string]$Name, [string]$Id, [bool]$Success, [bool]$Alternate)
-
-    $accentKey = if ($Success) { "SuccessBrush" } else { "DangerBrush" }
-    $iconChar  = if ($Success)   { [char]0x2714 } else { [char]0x2716 }
-    $statusTxt = if ($Success)   { "removed" } else { "failed" }
-
-    $border = New-Object System.Windows.Controls.Border
-    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
-    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-    $border.Padding      = [System.Windows.Thickness]::new(10, 7, 10, 7)
-    $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
-
-    $grid = New-Object System.Windows.Controls.Grid
-    $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::Auto
-    $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-    $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = [System.Windows.GridLength]::Auto
-    $c3 = New-Object System.Windows.Controls.ColumnDefinition; $c3.Width = [System.Windows.GridLength]::Auto
-    $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1)
-    $grid.ColumnDefinitions.Add($c2); $grid.ColumnDefinitions.Add($c3)
-
-    $icon                   = New-Object System.Windows.Controls.TextBlock
-    $icon.Text              = $iconChar
-    $icon.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $accentKey)
-    $icon.FontSize          = 13
-    $icon.Margin            = [System.Windows.Thickness]::new(0, 0, 12, 0)
-    $icon.VerticalAlignment = "Center"
-    [System.Windows.Controls.Grid]::SetColumn($icon, 0)
-
-    $nameBlock                   = New-Object System.Windows.Controls.TextBlock
-    $nameBlock.Text              = $Name
-    $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-    $nameBlock.FontSize          = 12
-    $nameBlock.VerticalAlignment = "Center"
-    $nameBlock.TextTrimming      = "CharacterEllipsis"
-    [System.Windows.Controls.Grid]::SetColumn($nameBlock, 1)
-
-    $idBlock                   = New-Object System.Windows.Controls.TextBlock
-    $idBlock.Text              = $Id
-    $idBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-    $idBlock.FontSize          = 11
-    $idBlock.Margin            = [System.Windows.Thickness]::new(12, 0, 16, 0)
-    $idBlock.VerticalAlignment = "Center"
-    [System.Windows.Controls.Grid]::SetColumn($idBlock, 2)
-
-    $statusBlock                   = New-Object System.Windows.Controls.TextBlock
-    $statusBlock.Text              = $statusTxt
-    $statusBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $accentKey)
-    $statusBlock.FontSize          = 11
-    $statusBlock.FontWeight        = [System.Windows.FontWeights]::SemiBold
-    $statusBlock.VerticalAlignment = "Center"
-    [System.Windows.Controls.Grid]::SetColumn($statusBlock, 3)
-
-    $grid.Children.Add($icon)        | Out-Null
-    $grid.Children.Add($nameBlock)   | Out-Null
-    $grid.Children.Add($idBlock)     | Out-Null
-    $grid.Children.Add($statusBlock) | Out-Null
-    $border.Child = $grid
-
-    return $border
-}
-
-(Find "BtnScanInstalled").Add_Click({
-    $statusIndicator.Text       = "● Scanning..."
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
-    $footerStatus.Text          = "Scy - Scanning installed apps..."
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-
-    $pkgPanel.Children.Clear()
-    $script:uninstallItems.Clear()
-    (Find "PkgSearchBox").Text               = ""
-    (Find "PkgSearchPlaceholder").Visibility = "Visible"
-
-    try {
-        $raw   = & winget list --accept-source-agreements 2>&1
-        $lines = @($raw | ForEach-Object { [string]$_ })
-        $rows  = @(Get-WingetRows $lines)
-
-        if ($rows.Count -eq 0) { throw "No apps returned by winget." }
-
-        $alt = $false
-        foreach ($row in $rows) {
-            $name = if ($row.Count -gt 0) { $row[0] } else { "" }
-            $id   = if ($row.Count -gt 1) { $row[1] } else { "" }
-            $ver  = if ($row.Count -gt 2) { $row[2] } else { "" }
-            if ([string]::IsNullOrWhiteSpace($name)) { continue }
-
-            $item = New-UninstallRow $name $id $ver $alt
-            $pkgPanel.Children.Add($item.Border) | Out-Null
-            $script:uninstallItems.Add($item)
-            $alt = -not $alt
-        }
-
-        $pkgCountLabel.Text                    = [string]$script:uninstallItems.Count + " apps installed"
-        (Find "PkgListBorder").Visibility       = "Visible"
-        (Find "BtnUninstallSelected").IsEnabled = $true
-
-    } catch {
-        Show-ThemedDialog ("Scan failed:`n" + $_.Exception.Message) "Scan error" "OK" "Error"
-    }
-
-    $statusIndicator.Text       = "● Ready"
-    $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
-    $footerStatus.Text          = "Ready"
-})
-
-$script:pkgSearchClear = Find "PkgSearchClear"
-
-(Find "PkgSearchBox").Add_TextChanged({
-    $q           = (Find "PkgSearchBox").Text.ToLower()
-    $placeholder = Find "PkgSearchPlaceholder"
-    $placeholder.Visibility = if ($q) { "Collapsed" } else { "Visible" }
-    $script:pkgSearchClear.Visibility = if ($q) { "Visible" } else { "Collapsed" }
-
-    $visible = 0
-    foreach ($item in $script:uninstallItems) {
-        $show = (-not $q) -or $item.Tag.Contains($q)
-        $item.Border.Visibility = if ($show) { "Visible" } else { "Collapsed" }
-        if ($show) { $visible++ }
-    }
-    $total = $script:uninstallItems.Count
-    $pkgCountLabel.Text = if ($q) { [string]$visible + " of " + [string]$total + " apps" } else { [string]$total + " apps installed" }
-})
-
-$script:pkgSearchClear.Add_Click({
-    (Find "PkgSearchBox").Text = ""
-})
-
-(Find "BtnSelectAll").Add_Click({
-    foreach ($item in $script:uninstallItems) { $item.CheckBox.IsChecked = $true }
-})
-
-(Find "BtnDeselectAll").Add_Click({
-    foreach ($item in $script:uninstallItems) { $item.CheckBox.IsChecked = $false }
-})
-
-(Find "BtnUninstallSelected").Add_Click({
-    $selected = @($script:uninstallItems | Where-Object { $_.CheckBox.IsChecked -eq $true })
-    if ($selected.Count -eq 0) {
-        Show-ThemedDialog "No apps selected. Click a row or check the box to select apps." "Nothing selected" "OK" "Information"
-        return
-    }
-
-    # Settings > Apps & groups > App behavior > "Skip confirmation for single-app uninstalls"
-    $needsConfirm = -not ($selected.Count -eq 1 -and $script:skipSingleUninstallConfirm)
-    if ($needsConfirm) {
-        $list    = ($selected | ForEach-Object { "  - " + $_.Id }) -join "`n"
-        $confirm = Show-ThemedDialog ("Uninstall " + [string]$selected.Count + " app(s)?`n`n" + $list) "Confirm uninstall" "YesNo" "Warning"
-        if ($confirm -ne "Yes") { return }
-    }
-
-    $statusIndicator.Text       = "● Uninstalling..."
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
-
-    $uninstallResultsPanel.Children.Clear()
-    $uninstallResultsCount.Text  = ""
-    $uninstallResultsStatus.Text = "Working..."
-    $uninstallResultsCard.Visibility = "Visible"
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-
-    $succeeded = 0
-    $failed    = 0
-    $i         = 0
-    foreach ($item in $selected) {
-        $uninstallResultsStatus.Text = "Removing " + $item.Name + " (" + ($i + 1) + " of " + $selected.Count + ")..."
-        $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-
-        & winget uninstall --id $item.Id --silent --accept-source-agreements 2>&1 | Out-Null
-        $success = ($LASTEXITCODE -eq 0)
-
-        if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) {
-            Write-ScyLog ("Uninstall " + $(if ($success) { "ok" } else { "FAILED" }) + ": $($item.Name) ($($item.Id))") $(if ($success) { "INFO" } else { "ERROR" })
-        }
-        if ($success) { $succeeded++ } else { $failed++ }
-
-        $uninstallResultsPanel.Children.Add((New-ResultRow $item.Name $item.Id $success ($i % 2 -eq 0))) | Out-Null
-        $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-        $i++
-    }
-
-    $uninstallResultsCount.Text = [string]$succeeded
-    if ($failed -gt 0) {
-        $uninstallResultsCount.Foreground = $window.Resources["WarningBrush"]
-        $uninstallResultsStatus.Text = "$succeeded removed, $failed failed - re-scan to refresh the list"
-    } else {
-        $uninstallResultsCount.Foreground = $window.Resources["SuccessBrush"]
-        $uninstallResultsStatus.Text = "$succeeded removed - re-scan to refresh the list"
-    }
-
-    $statusIndicator.Text       = "● Ready"
-    $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
-    if ($selected.Count -gt 1) {
-        Show-ScyToast -Title "Scy" -Body ("Uninstall complete: " + [string]$succeeded + " removed, " + [string]$failed + " failed.")
-    }
 })

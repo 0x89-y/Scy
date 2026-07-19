@@ -6,45 +6,28 @@ $adStatusBannerText = Find "AdStatusBannerText"
 $btnAdInstallRsat   = Find "BtnAdInstallRsat"
 $btnAdRecheck       = Find "BtnAdRecheck"
 
-# -- Sub-navigation ------------------------------------------------------------
-$adNavUsers     = Find "AdNav_Users"
-$adNavGroups    = Find "AdNav_Groups"
-$adNavComputers = Find "AdNav_Computers"
-$adNavOUs       = Find "AdNav_OUs"
-$adNavDomain    = Find "AdNav_Domain"
-
+# -- Rail navigation (replaces the old sub-nav pills) --------------------------
 $adSectionUsers     = Find "AdSection_Users"
 $adSectionGroups    = Find "AdSection_Groups"
 $adSectionComputers = Find "AdSection_Computers"
 $adSectionOUs       = Find "AdSection_OUs"
 $adSectionDomain    = Find "AdSection_Domain"
 
-$script:adNavButtons = @($adNavUsers, $adNavGroups, $adNavComputers, $adNavOUs, $adNavDomain)
-$script:adSections   = @($adSectionUsers, $adSectionGroups, $adSectionComputers, $adSectionOUs, $adSectionDomain)
+$script:adSections  = @($adSectionUsers, $adSectionGroups, $adSectionComputers, $adSectionOUs, $adSectionDomain)
+$script:adNavLabels = @("Users", "Groups", "Computers", "OUs", "Domain")
 
 function Set-AdSubNav {
     param([int]$Index)
+    if ($Index -lt 0 -or $Index -ge $script:adSections.Count) { $Index = 0 }
     $script:adSubNavIndex = $Index
     for ($i = 0; $i -lt $script:adSections.Count; $i++) {
         $script:adSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
-        $btn = $script:adNavButtons[$i]
-        if ($i -eq $Index) {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "AccentBrush")
-        } else {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
-        }
     }
+    Build-Rail -Panel (Find "AdRail") -Labels $script:adNavLabels `
+               -ActiveIndex $Index -OnSelect { param($i) Set-AdSubNav $i }
 }
 
 Set-AdSubNav 0
-
-$adNavUsers.Add_Click({     Set-AdSubNav 0 })
-$adNavGroups.Add_Click({    Set-AdSubNav 1 })
-$adNavComputers.Add_Click({ Set-AdSubNav 2 })
-$adNavOUs.Add_Click({       Set-AdSubNav 3 })
-$adNavDomain.Add_Click({    Set-AdSubNav 4 })
 
 # -- Action controls -----------------------------------------------------------
 $adUserSearchBox          = Find "AdUserSearchBox"

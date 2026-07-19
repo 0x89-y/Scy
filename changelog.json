@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.12.0",
+    "date": "2026-07-19",
+    "changes": [
+      "Reworked interface: a cleaner, consistent design across every tab, with side-rail navigation, reorganized Settings, and Settings now opening from a cog in the title bar",
+      "Apps: install or uninstall straight from an app's right-click menu",
+      "Apps: after scanning your installed apps, the Store marks what you already have and offers Uninstall",
+      "Faster tab switching: Apps and System no longer gather data just from opening them; load it on demand with the on-screen buttons",
+      "New tweaks: Disable WPBT execution, Disable Windows AI, Prevent device metadata download from the network"
+    ]
+  },
+  {
     "version": "0.11.6",
     "date": "2026-06-15",
     "changes": [

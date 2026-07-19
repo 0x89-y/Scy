@@ -122,11 +122,12 @@ function Populate-BatteryInfo {
             function _MakeRow {
                 param([string]$Label, [string]$Value, [string]$BrushKey = "FgBrush", [bool]$Alt = $false)
                 $border = New-Object System.Windows.Controls.Border
-                $bgKey = if ($Alt) { "SurfaceBrush" } else { "InputBgBrush" }
-                $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
-                $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-                $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
-                $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)
+                $border.Background   = [System.Windows.Media.Brushes]::Transparent
+                $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+                $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+                $border.CornerRadius = [System.Windows.CornerRadius]::new(0)
+                $border.Padding      = [System.Windows.Thickness]::new(4, 8, 4, 8)
+                $border.Margin       = [System.Windows.Thickness]::new(0)
 
                 $grid = New-Object System.Windows.Controls.Grid
                 $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::Auto
@@ -304,11 +305,12 @@ function Populate-BatteryInfo {
                 $alt = $false
                 foreach ($entry in $d.HistoryData) {
                     $row = New-Object System.Windows.Controls.Border
-                    $rowBgKey = if ($alt) { "SurfaceBrush" } else { "InputBgBrush" }
-                    $row.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $rowBgKey)
-                    $row.CornerRadius = [System.Windows.CornerRadius]::new(4)
-                    $row.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
-                    $row.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 2)
+                    $row.Background   = [System.Windows.Media.Brushes]::Transparent
+                    $row.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+                    $row.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+                    $row.CornerRadius = [System.Windows.CornerRadius]::new(0)
+                    $row.Padding      = [System.Windows.Thickness]::new(4, 8, 4, 8)
+                    $row.Margin       = [System.Windows.Thickness]::new(0)
 
                     $rGrid = New-Object System.Windows.Controls.Grid
                     $rc0 = New-Object System.Windows.Controls.ColumnDefinition; $rc0.Width = New-Object System.Windows.GridLength(2, [System.Windows.GridUnitType]::Star)

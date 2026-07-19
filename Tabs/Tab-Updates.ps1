@@ -20,7 +20,7 @@ function Set-UpdateBadge {
     param([string]$State, [int]$Count = 0)
     switch ($State) {
         "checking" {
-            $updateStatusDot.Foreground  = New-ColorBrush "#fdcb6e"
+            $updateStatusDot.Foreground  = $window.Resources["WarningBrush"]
             $updateStatusTitle.Text      = "Checking..."
             $updateStatusSub.Text        = "Scanning installed apps for available updates"
             $updateBadgeHint.Visibility  = "Collapsed"
@@ -28,14 +28,14 @@ function Set-UpdateBadge {
         }
         "available" {
             $label = if ($Count -eq 1) { "1 update available" } else { "$Count updates available" }
-            $updateStatusDot.Foreground  = New-ColorBrush "#fdcb6e"
+            $updateStatusDot.Foreground  = $window.Resources["WarningBrush"]
             $updateStatusTitle.Text      = $label
             $updateStatusSub.Text        = "Click to view and select which updates to install"
             $updateBadgeHint.Visibility  = "Visible"
             $updateStatusBadge.Cursor    = [System.Windows.Input.Cursors]::Hand
         }
         "uptodate" {
-            $updateStatusDot.Foreground  = New-ColorBrush "#00b894"
+            $updateStatusDot.Foreground  = $window.Resources["SuccessBrush"]
             $updateStatusTitle.Text      = "Up to date"
             $updateStatusSub.Text        = "All apps are up to date"
             $updateBadgeHint.Visibility  = "Collapsed"
@@ -43,7 +43,7 @@ function Set-UpdateBadge {
             $updatePkgList.Visibility    = "Collapsed"
         }
         "updated" {
-            $updateStatusDot.Foreground  = New-ColorBrush "#00b894"
+            $updateStatusDot.Foreground  = $window.Resources["SuccessBrush"]
             $updateStatusTitle.Text      = "Updated"
             $updateStatusSub.Text        = "Run 'Check for Updates' to verify all apps are current"
             $updateBadgeHint.Visibility  = "Collapsed"
@@ -74,7 +74,7 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
 
 (Find "BtnCheckUpdates").Add_Click({
     $statusIndicator.Text       = "● Checking for updates..."
-    $statusIndicator.Foreground = New-ColorBrush "#fdcb6e"
+    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
     $footerStatus.Text          = "Scy - Checking for updates..."
     Set-UpdateBadge "checking"
     $updatePkgPanel.Children.Clear()
@@ -207,7 +207,7 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
             }
 
             if ($capturedPkgs.Count -eq 0 -and $capturedSummary -gt 0) {
-                $_statusDot.Foreground  = _NewColorBrush "#fdcb6e"
+                $_statusDot.Foreground  = $window.Resources["WarningBrush"]
                 $_statusTitle.Text      = if ($capturedSummary -eq 1) { "1 update available" } else { "$capturedSummary updates available" }
                 $_statusSub.Text        = "Click to view and select which updates to install"
                 $_badgeHint.Visibility  = "Visible"
@@ -230,12 +230,12 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
                     $nameBlock = New-Object System.Windows.Controls.TextBlock
                     $nameBlock.Text       = $pkg.Name
                     $nameBlock.FontSize   = 12
-                    $nameBlock.Foreground = _NewColorBrush "#e0e0e8"
+                    $nameBlock.Foreground = $window.Resources["FgBrush"]
 
                     $verBlock = New-Object System.Windows.Controls.TextBlock
                     $verBlock.Text       = "$($pkg.Id)  $_uDot  $($pkg.Version) $_uArrow $($pkg.Available)"
                     $verBlock.FontSize   = 11
-                    $verBlock.Foreground = _NewColorBrush "#6b6b80"
+                    $verBlock.Foreground = $window.Resources["MutedText"]
 
                     $inner.Children.Add($nameBlock)
                     $inner.Children.Add($verBlock)
@@ -247,13 +247,13 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
                 $_pkgList.Visibility  = "Visible"
                 $_badgeHint.Text      = "$_uUpArrow  hide list"
 
-                $_statusDot.Foreground  = _NewColorBrush "#fdcb6e"
+                $_statusDot.Foreground  = $window.Resources["WarningBrush"]
                 $_statusTitle.Text      = if ($capturedPkgs.Count -eq 1) { "1 update available" } else { "$($capturedPkgs.Count) updates available" }
                 $_statusSub.Text        = "Click to view and select which updates to install"
                 $_badgeHint.Visibility  = "Visible"
                 $_statusBadge.Cursor    = [System.Windows.Input.Cursors]::Hand
             } elseif ($capturedSummary -eq 0) {
-                $_statusDot.Foreground  = _NewColorBrush "#00b894"
+                $_statusDot.Foreground  = $window.Resources["SuccessBrush"]
                 $_statusTitle.Text      = "Up to date"
                 $_statusSub.Text        = "All apps are up to date"
                 $_badgeHint.Visibility  = "Collapsed"
@@ -262,7 +262,7 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
             }
 
             $_si.Text       = "$_uBullet Ready"
-            $_si.Foreground = _NewColorBrush "#00b894"
+            $_si.Foreground = $window.Resources["SuccessBrush"]
             $_fs.Text       = "Ready"
         }
     }) | Out-Null
@@ -298,7 +298,7 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
     Write-Output-Box $outputUpdates "`r`n▶ Installing $($pkgIds.Count) selected update(s)...`r`n$('─' * 60)" -Clear
 
     $statusIndicator.Text       = "● Installing updates..."
-    $statusIndicator.Foreground = New-ColorBrush "#fdcb6e"
+    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
     $footerStatus.Text          = "Scy - Installing updates..."
 
     $rs = [runspacefactory]::CreateRunspace()
@@ -351,7 +351,7 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
             $i++
             Ui {
                 $_si.Text             = "$_uBullet Installing $pkgId..."
-                $_si.Foreground       = _NewColorBrush "#fdcb6e"
+                $_si.Foreground       = $window.Resources["WarningBrush"]
                 $_fs.Text             = "Scy - Installing $pkgId..."
                 $_progressLabel.Text  = "Installing $i of ${total}: $pkgId"
             }
@@ -404,10 +404,10 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
             $_progressBorder.Visibility = "Collapsed"
 
             $_si.Text       = "$_uBullet Ready"
-            $_si.Foreground = _NewColorBrush "#00b894"
+            $_si.Foreground = $window.Resources["SuccessBrush"]
             $_fs.Text       = "Ready"
 
-            $_statusDot.Foreground  = _NewColorBrush "#00b894"
+            $_statusDot.Foreground  = $window.Resources["SuccessBrush"]
             $_statusTitle.Text      = "Updated"
             $_statusSub.Text        = "Run 'Check for Updates' to verify all packages are current"
             $_badgeHint.Visibility  = "Collapsed"
@@ -421,7 +421,7 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
 
 (Find "BtnUpdateAll").Add_Click({
     $statusIndicator.Text       = "● Updating all packages..."
-    $statusIndicator.Foreground = New-ColorBrush "#fdcb6e"
+    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
     $footerStatus.Text          = "Scy - Updating all packages..."
 
     Write-Output-Box $outputUpdates "`r`n▶ Running: winget upgrade --all`r`n$('─' * 60)" -Clear
@@ -476,11 +476,11 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
             $_progressBar.IsIndeterminate = $false
 
             $_si.Text       = "$_uBullet Ready"
-            $_si.Foreground = _NewColorBrush "#00b894"
+            $_si.Foreground = $window.Resources["SuccessBrush"]
             $_fs.Text       = "Ready"
 
             $_pkgPanel.Children.Clear()
-            $_statusDot.Foreground  = _NewColorBrush "#00b894"
+            $_statusDot.Foreground  = $window.Resources["SuccessBrush"]
             $_statusTitle.Text      = "Updated"
             $_statusSub.Text        = "Run 'Check for Updates' to verify all packages are current"
             $_badgeHint.Visibility  = "Collapsed"

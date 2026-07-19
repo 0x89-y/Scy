@@ -35,15 +35,33 @@ function Get-RecycleBinSize {
     return $size
 }
 
+# Async so the recycle-bin walk (which can be slow) never blocks the UI thread.
+# Triggered on demand by the Cleanup scan, not on tab entry.
 function Update-RecycleBinSize {
-    $size = Get-RecycleBinSize
-    if ($size -gt 0) {
-        $recycleBinSize.Text       = Format-Size $size
-        $recycleBinSize.Visibility = "Visible"
-    } else {
-        $recycleBinSize.Text       = "Empty"
-        $recycleBinSize.Visibility = "Visible"
-    }
+    if (-not $recycleBinSize) { return }
+    $recycleBinSize.Text       = "Checking..."
+    $recycleBinSize.Visibility = "Visible"
+    Start-ScyJob `
+        -Work {
+            param($emit)
+            $size = 0L
+            foreach ($drive in (Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue)) {
+                $path = Join-Path $drive.Root '$Recycle.Bin'
+                if (Test-Path $path) {
+                    $sum = (Get-ChildItem $path -Recurse -Force -ErrorAction SilentlyContinue |
+                             Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                    if ($null -ne $sum) { $size += [long]$sum }
+                }
+            }
+            return @{ Size = $size }
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            if (-not $recycleBinSize) { return }
+            if ($err -or $null -eq $result) { $recycleBinSize.Visibility = "Collapsed"; return }
+            $recycleBinSize.Text       = if ([long]$result.Size -gt 0) { Format-Size ([long]$result.Size) } else { "Empty" }
+            $recycleBinSize.Visibility = "Visible"
+        } | Out-Null
 }
 
 function Get-DirSize {
@@ -91,13 +109,13 @@ function Update-CleanTotal {
 function New-PathRow {
     param([string]$Label, [long]$SizeBytes, [bool]$Alternate, [bool]$IsPreview, [bool]$ShowCheckbox = $false)
 
-    $bgKey = if ($Alternate) { "Surface2Brush" } else { "SurfaceBrush" }
-
     $border              = New-Object System.Windows.Controls.Border
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
-    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-    $border.Padding      = [System.Windows.Thickness]::new(10, 7, 10, 7)
-    $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)
+    $border.Background   = [System.Windows.Media.Brushes]::Transparent
+    $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+    $border.CornerRadius = [System.Windows.CornerRadius]::new(0)
+    $border.Padding      = [System.Windows.Thickness]::new(4, 9, 4, 9)
+    $border.Margin       = [System.Windows.Thickness]::new(0)
 
     $grid = New-Object System.Windows.Controls.Grid
 
@@ -170,8 +188,11 @@ function Save-CleanTargetSelection {
 
 $btnScan = Find "BtnScan"
 $btnScan.Add_Click({
+    # Recycle-bin size loads on demand with the scan (not on tab entry).
+    Update-RecycleBinSize
+
     $statusIndicator.Text       = "● Scanning..."
-    $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#fdcb6e")
+    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
     $cleanTempStatus.Text       = "Scanning..."
     $cleanTempStatus.Foreground = $window.Resources["MutedText"]
     $btnScan.IsEnabled = $false
@@ -190,7 +211,7 @@ $btnScan.Add_Click({
             $cleanTempStatus.Text       = "Scan failed: $err"
             $cleanTempStatus.Foreground = $window.Resources["DangerBrush"]
             $statusIndicator.Text       = "● Ready"
-            $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+            $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
             return
         }
 
@@ -218,7 +239,7 @@ $btnScan.Add_Click({
         $btnClean.IsEnabled = $true
 
         $statusIndicator.Text       = "● Ready"
-        $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+        $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
     }
 
     $onLineCtx = {
@@ -291,7 +312,7 @@ $btnClean.Add_Click({
     }
 
     $statusIndicator.Text       = "● Cleaning..."
-    $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#fdcb6e")
+    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
     $cleanTempStatus.Text       = "Cleaning..."
     $cleanTempStatus.Foreground = $window.Resources["MutedText"]
     $btnClean.IsEnabled = $false
@@ -340,7 +361,7 @@ $btnClean.Add_Click({
             $cleanTempStatus.Text       = "Cleanup failed: $err"
             $cleanTempStatus.Foreground = $window.Resources["DangerBrush"]
             $statusIndicator.Text       = "● Ready"
-            $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+            $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
             return
         }
 
@@ -364,7 +385,7 @@ $btnClean.Add_Click({
         $script:cleanCheckboxes = @{}
 
         $statusIndicator.Text       = "● Ready"
-        $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+        $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
     }
 
     Start-ScyJob `
@@ -399,7 +420,7 @@ $btnEmptyRecycleBin.Add_Click({
     if ($confirm -ne "Yes") { return }
 
     $statusIndicator.Text       = "● Emptying..."
-    $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#fdcb6e")
+    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
     $recycleBinStatus.Text      = "Emptying..."
     $recycleBinStatus.Foreground = $window.Resources["MutedText"]
     $btnEmptyRecycleBin.IsEnabled = $false
@@ -431,7 +452,7 @@ $btnEmptyRecycleBin.Add_Click({
         $recycleBinResult.Visibility = "Visible"
 
         $statusIndicator.Text       = "● Ready"
-        $statusIndicator.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString("#00b894")
+        $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
     }
 
     Start-ScyJob `

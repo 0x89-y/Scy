@@ -26,28 +26,28 @@ if (Test-Path $splashVersionPath) {
 # Load shared theme palette (also used by Tab-Settings.ps1 at runtime)
 . (Join-Path $PSScriptRoot "Themes.ps1")
 
-# Read theme from settings early so the splash matches the user's theme
-$aether = $script:BuiltinThemes["Aether"]
-$script:splashColors = @{ AppBg = $aether.AppBg; Border = $aether.Border; Fg = $aether.FgBrush; Muted = $aether.MutedText }
+# Read theme from settings early so the splash matches the user's theme.
+# cy-design model: mode (System/Light/Dark) picks the base; accent is separate
+# and doesn't affect the splash's neutral colours.
 $script:skipSplash = $false
 $script:enableLogging = $false
+$earlyMode = "System"
 $settingsPath = Join-Path $PSScriptRoot "settings.json"
 if (Test-Path $settingsPath) {
     try {
         $earlySettings = Get-Content $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($null -ne $earlySettings.SkipSplash)     { $script:skipSplash    = [bool]$earlySettings.SkipSplash }
         if ($null -ne $earlySettings.EnableLogging)  { $script:enableLogging = [bool]$earlySettings.EnableLogging }
-        if ($earlySettings.Theme -eq "Custom" -and $earlySettings.CustomTheme) {
-            $ct = $earlySettings.CustomTheme
-            if ($ct.AppBg -and $ct.Border -and $ct.FgBrush -and $ct.MutedText) {
-                $script:splashColors = @{ AppBg = $ct.AppBg; Border = $ct.Border; Fg = $ct.FgBrush; Muted = $ct.MutedText }
-            }
-        } elseif ($earlySettings.Theme -and $script:BuiltinThemes[$earlySettings.Theme]) {
-            $t = $script:BuiltinThemes[$earlySettings.Theme]
-            $script:splashColors = @{ AppBg = $t.AppBg; Border = $t.Border; Fg = $t.FgBrush; Muted = $t.MutedText }
+        if ($earlySettings.ThemeMode) {
+            $earlyMode = [string]$earlySettings.ThemeMode
+        } elseif ($earlySettings.Theme) {
+            # Back-compat: map old named themes to a mode.
+            $earlyMode = if ($earlySettings.Theme -in @("Blossom","Frost")) { "Light" } else { "Dark" }
         }
     } catch {}
 }
+$t = $script:BuiltinThemes[(Resolve-ThemeMode $earlyMode)]
+$script:splashColors = @{ AppBg = $t.AppBg; Border = $t.Border; Fg = $t.FgBrush; Muted = $t.MutedText }
 
 # ── Optional debug log (Settings > General > Write a debug log; off by default) ──
 # Defined early so startup/tab-load events can be logged. The toggle is mirrored
@@ -369,7 +369,7 @@ function Show-ThemedDialog {
     $outerBorder = New-Object System.Windows.Controls.Border
     $outerBorder.BorderBrush     = $window.Resources["BorderBrush"]
     $outerBorder.BorderThickness = [System.Windows.Thickness]::new(1)
-    $outerBorder.CornerRadius    = [System.Windows.CornerRadius]::new(8)
+    $outerBorder.CornerRadius    = [System.Windows.CornerRadius]::new(16)
     $outerBorder.Background      = $window.Resources["WindowBgBrush"]
 
     $root = New-Object System.Windows.Controls.StackPanel
@@ -509,6 +509,8 @@ Pump-Splash
 # Heavy per-tab initial work is deferred to first visit (Invoke-ScyTabInit).
 $__tabFiles = @(
     "Helpers\Helpers-Cards.ps1"
+    "Helpers\Helpers-Rail.ps1"
+    "Helpers\Helpers-Status.ps1"
     "Tabs\Tab-Updates.ps1"
     "Tabs\Tab-Installs.ps1"
     "Tabs\Tab-Tweaks.ps1"
@@ -527,7 +529,7 @@ $__tabFiles = @(
     "Tabs\QRCode.ps1"
     "Tabs\Tab-QRCode.ps1"
     "Tabs\Tab-Notes.ps1"
-    "Tabs\Tab-Export.ps1"
+    "Tabs\Tab-Installed.ps1"
     "Tabs\Tab-FileHash.ps1"
     "Tabs\Tab-PasswordGen.ps1"
     "Tabs\Tab-GlobalSearch.ps1"
@@ -537,10 +539,15 @@ $__tabFiles = @(
 # does not introduce a new scope, so dot-sourcing inside it still defines the
 # module's functions at script scope.
 $script:tabLoadErrors = [System.Collections.Generic.List[string]]::new()
-$__tabIdx = 0
+# Splash text is keyed to the module that is about to load, not to its position,
+# so inserting or reordering a module can't silently mislabel the progress.
+$__splashAt = @{
+    "Tab-Info.ps1"    = "Loading system"
+    "Tab-Network.ps1" = "Loading network"
+}
 foreach ($__rel in $__tabFiles) {
-    if     ($__tabIdx -eq 5)  { $script:splashStatus = "Loading system";  Pump-Splash }
-    elseif ($__tabIdx -eq 11) { $script:splashStatus = "Loading network"; Pump-Splash }
+    $__leaf = Split-Path $__rel -Leaf
+    if ($__splashAt.ContainsKey($__leaf)) { $script:splashStatus = $__splashAt[$__leaf]; Pump-Splash }
     try {
         . (Join-Path $PSScriptRoot $__rel)
     } catch {
@@ -548,7 +555,6 @@ foreach ($__rel in $__tabFiles) {
         $script:tabLoadErrors.Add("$__name : $($_.Exception.Message)")
         Write-ScyLog "Module failed to load: $__rel -> $($_.Exception.Message)" "ERROR"
     }
-    $__tabIdx++
 }
 $script:splashStatus = "Almost ready"
 Pump-Splash
@@ -587,28 +593,27 @@ $window.Add_Closing({
 })
 (Find "BtnClose").Add_Click({ $window.Close() })
 
+# Settings has no tab-strip header; the title-bar cog selects it (find by header
+# so it stays correct regardless of tab index/order).
+(Find "BtnSettingsCog").Add_Click({
+    $tc = Find "MainTabControl"
+    if (-not $tc) { return }
+    foreach ($item in $tc.Items) {
+        if ([string]$item.Header -eq "Settings") { $tc.SelectedItem = $item; break }
+    }
+})
+
 # ── Startup ──────────────────────────────────────────────────────
 $psVersion.Text = "$($PSVersionTable.PSVersion)"
 
 # Reuse version already read for splash
 (Find "AppVersion").Text = $splashVersion
 
-# Single admin check, reused by the button handler
+# Single admin check, reused across tabs
 $script:isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-
-(Find "BtnRunAsAdmin").Add_Click({
-    if ($script:isAdmin) {
-        Show-ThemedDialog "Already running as Administrator!" "Info" "OK" "Information"
-    } else {
-        Start-Process powershell "-ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
-        $window.Close()
-    }
-})
 
 if ($script:isAdmin) {
     $window.Title = "Scy [Administrator]"
-    (Find "BtnRunAsAdmin").Content   = "Admin (active)"
-    (Find "BtnRunAsAdmin").IsEnabled = $false
 }
 
 # ── Update banner click handler (visible from every tab) ───────
@@ -644,8 +649,10 @@ function Invoke-ScyTabInit {
     $global:scyTabInitDone[$Index] = $true
     try {
         switch ($Index) {
+            # Apps (index 0) and System (index 2) intentionally load nothing on
+            # tab entry - their data is fetched on demand (Installed scan / the
+            # System refresh + Cleanup scan buttons) so opening a tab stays instant.
             1 { if (Get-Command Rebuild-TweaksPanel   -EA SilentlyContinue) { Rebuild-TweaksPanel } }          # Tweaks
-            2 { if (Get-Command Update-RecycleBinSize  -EA SilentlyContinue) { Update-RecycleBinSize } }        # System (Cleanup)
             4 {                                                                                                  # Network (incl. Hosts + SSH sub-tabs)
                 if (Get-Command Initialize-DnsDohStatus -EA SilentlyContinue) { Initialize-DnsDohStatus }
                 if (Get-Command Load-HostsEntries       -EA SilentlyContinue) { Load-HostsEntries }

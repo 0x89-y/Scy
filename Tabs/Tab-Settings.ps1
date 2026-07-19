@@ -1,44 +1,30 @@
 # ── Settings Tab ─────────────────────────────────────────────────
 
 # ── Settings sub-navigation ──────────────────────────────────────
-$settingsNavAppearance = Find "SettingsNav_Appearance"
-$settingsNavGeneral    = Find "SettingsNav_General"
-$settingsNavGroups     = Find "SettingsNav_Groups"
-$settingsNavBackup     = Find "SettingsNav_Backup"
+$script:settingsNavLabels = @("General", "Appearance", "Apps & Groups", "About")
 
 $settingsSectionAppearance = Find "SettingsSection_Appearance"
 $settingsSectionGeneral    = Find "SettingsSection_General"
 $settingsSectionGroups     = Find "SettingsSection_Groups"
-$settingsSectionBackup     = Find "SettingsSection_Backup"
+$settingsSectionAbout      = Find "SettingsSection_About"
 
-$script:settingsNavButtons  = @($settingsNavGeneral, $settingsNavAppearance, $settingsNavGroups, $settingsNavBackup)
-$script:settingsSections    = @($settingsSectionGeneral, $settingsSectionAppearance, $settingsSectionGroups, $settingsSectionBackup)
+$script:settingsSections    = @($settingsSectionGeneral, $settingsSectionAppearance, $settingsSectionGroups, $settingsSectionAbout)
 
 function Set-SettingsSubNav {
     param([int]$Index)
+    if ($Index -lt 0 -or $Index -ge $script:settingsSections.Count) { $Index = 0 }
     $script:settingsSubNavIndex = $Index
     for ($i = 0; $i -lt $script:settingsSections.Count; $i++) {
         $script:settingsSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
-        $btn = $script:settingsNavButtons[$i]
-        if ($i -eq $Index) {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "AccentBrush")
-        } else {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
-        }
     }
+    Build-Rail -Panel (Find "SettingsRail") -Labels $script:settingsNavLabels `
+               -ActiveIndex $Index -OnSelect { param($i) Set-SettingsSubNav $i }
 }
 
 Set-SettingsSubNav 0
 
-$settingsNavGeneral.Add_Click({    Set-SettingsSubNav 0 })
-$settingsNavAppearance.Add_Click({ Set-SettingsSubNav 1 })
-$settingsNavGroups.Add_Click({     Set-SettingsSubNav 2 })
-$settingsNavBackup.Add_Click({     Set-SettingsSubNav 3 })
-
 # ── Collapsible settings cards ──────────────────────────────────
-foreach ($section in @("Appearance", "Updates", "Changelog", "General", "VisibleTabs", "Credits", "Catalog", "Groups", "LocalInstallers", "AppUpdates", "AppBehavior", "IconCache", "Backup")) {
+foreach ($section in @("Updates", "Changelog", "General", "VisibleTabs", "Backup", "Credits", "Catalog", "Groups", "LocalInstallers", "AppUpdates", "AppBehavior", "IconCache")) {
     $header  = Find "SettingsHeader_$section"
     $header.Tag = $section
     $header.Add_MouseLeftButtonUp({
@@ -65,27 +51,13 @@ $script:hiddenCuratedApps              = [System.Collections.Generic.List[string
 $script:customRegBookmarkGroups        = [System.Collections.Generic.List[string]]::new()
 $script:hiddenTabs                     = [System.Collections.Generic.List[string]]::new()
 
-# ── Theme definitions ─────────────────────────────────────────────
-# Built-in palettes come from Themes.ps1 (shared with the splash screen).
-# Custom is user state and stays defined here.
-$script:themes = [ordered]@{
-    Custom = @{
-        WindowBg  = "#2e2e42"
-        AppBg     = "#0a0a0f"
-        Accent    = "#6c5ce7"
-        Surface   = "#13131a"
-        Surface2  = "#1a1a24"
-        Border    = "#2a2a3a"
-        MutedText = "#6b6b80"
-        FgBrush   = "#e0e0e8"
-        Success   = "#00b894"
-        Warning   = "#fdcb6e"
-        Danger    = "#e17055"
-    }
-}
-foreach ($name in $script:BuiltinThemes.Keys) {
-    $script:themes[$name] = $script:BuiltinThemes[$name]
-}
+# ── Theme model (cy-design) ───────────────────────────────────────
+# Base palettes (Light/Dark zinc) come from Themes.ps1, shared with the splash.
+# The accent is chosen separately; state lives in these three script vars,
+# initialized from settings further down and applied by Apply-Theme.
+#   $script:themeMode   = "System" | "Light" | "Dark"
+#   $script:accentName  = <preset> | "windows" | "custom"
+#   $script:customAccent = "#rrggbb"  (used when accentName -eq "custom")
 
 function script:New-Brush($hex) {
     $color = [System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString($hex)
@@ -116,96 +88,128 @@ function script:Get-WindowsAccentHex {
     } catch { return $null }
 }
 
-function script:Apply-Theme {
-    param([string]$ThemeName)
-    $t = $script:themes[$ThemeName]
-    if (-not $t) { return }
-
-    # For Custom, derive the 6 auto-computed colors from the 11 primary keys
-    if ($ThemeName -eq "Custom") {
-        $t = $t.Clone()
-        $t["AccentHover"]  = LightenHex $t["Accent"]    20
-        $t["InputBg"]      = $t["AppBg"]
-        $t["HoverSurface"] = LightenHex $t["Surface2"]  8
-        $t["ScrollThumb"]  = LightenHex $t["Border"]    16
-        $t["WinCtrlFg"]    = LerpHex    $t["MutedText"] $t["FgBrush"] 0.32
-        $t["SubText"]      = LerpHex    $t["MutedText"] $t["FgBrush"] 0.73
+# Resolve the currently-selected accent to a concrete hex for the given mode.
+function script:Get-AccentHex {
+    param([string]$Mode)   # "Light" | "Dark"
+    switch ($script:accentName) {
+        "windows" {
+            $wa = Get-WindowsAccentHex
+            if ($wa) { $wa } else { $script:AccentPresets["purple"][$Mode] }
+        }
+        "custom" {
+            if ($script:customAccent) { $script:customAccent } else { $script:AccentPresets["purple"][$Mode] }
+        }
+        default {
+            $p = $script:AccentPresets[$script:accentName]
+            if ($p) { $p[$Mode] } else { $script:AccentPresets["purple"][$Mode] }
+        }
     }
+}
+
+function script:Apply-Theme {
+    # cy-design: pick the Light/Dark zinc base from the mode, then overlay the
+    # separately-chosen accent (preset / Windows / custom) and derive its
+    # hover + 16% container wash.
+    $mode = Resolve-ThemeMode $script:themeMode      # "Light" | "Dark"
+    $base = $script:BuiltinThemes[$mode]
+    if (-not $base) { return }
+    $t = @{}
+    foreach ($k in $base.Keys) { $t[$k] = $base[$k] }
+
+    $accent = Get-AccentHex $mode
+    $t.Accent          = $accent
+    $t.AccentHover     = if ($mode -eq "Light") { LerpHex $accent "#000000" 0.15 } else { LerpHex $accent "#ffffff" 0.20 }
+    $t.AccentContainer = LerpHex $t.Surface $accent 0.16
 
     # Replace each resource entry with a new SolidColorBrush (.psobject.BaseObject ensures
     # the actual CLR object is stored, not a PowerShell PSObject wrapper)
-    $window.Resources["WindowBgBrush"]     = New-Brush $t.WindowBg
-    $window.Resources["AppBgBrush"]        = New-Brush $t.AppBg
-    $window.Resources["AccentBrush"]       = New-Brush $t.Accent
-    $window.Resources["AccentHoverBrush"]  = New-Brush $t.AccentHover
-    $window.Resources["SurfaceBrush"]      = New-Brush $t.Surface
-    $window.Resources["Surface2Brush"]     = New-Brush $t.Surface2
-    $window.Resources["BorderBrush"]       = New-Brush $t.Border
-    $window.Resources["MutedText"]         = New-Brush $t.MutedText
-    $window.Resources["FgBrush"]           = New-Brush $t.FgBrush
-    $window.Resources["SubTextBrush"]      = New-Brush $t.SubText
-    $window.Resources["WinCtrlFgBrush"]    = New-Brush $t.WinCtrlFg
-    $window.Resources["ScrollThumbBrush"]  = New-Brush $t.ScrollThumb
-    $window.Resources["InputBgBrush"]      = New-Brush $t.InputBg
-    $window.Resources["HoverSurfaceBrush"] = New-Brush $t.HoverSurface
-    $window.Resources["SuccessBrush"]      = New-Brush $t.Success
-    $window.Resources["WarningBrush"]      = New-Brush $t.Warning
-    $window.Resources["DangerBrush"]       = New-Brush $t.Danger
-
-    # Override accent with Windows system color if enabled
-    if ($script:useWindowsAccent) {
-        $winAccent = Get-WindowsAccentHex
-        if ($winAccent) {
-            $window.Resources["AccentBrush"]      = New-Brush $winAccent
-            $window.Resources["AccentHoverBrush"] = New-Brush (LightenHex $winAccent 20)
-        }
-    }
+    $window.Resources["WindowBgBrush"]        = New-Brush $t.WindowBg
+    $window.Resources["AppBgBrush"]           = New-Brush $t.AppBg
+    $window.Resources["GridDotBrush"]         = New-Brush $t.GridDot
+    $window.Resources["AccentBrush"]          = New-Brush $t.Accent
+    $window.Resources["AccentHoverBrush"]     = New-Brush $t.AccentHover
+    $window.Resources["AccentContainerBrush"] = New-Brush $t.AccentContainer
+    $window.Resources["AccentContrastBrush"]  = New-Brush $t.AccentContrast
+    $window.Resources["SurfaceBrush"]         = New-Brush $t.Surface
+    $window.Resources["Surface2Brush"]        = New-Brush $t.Surface2
+    $window.Resources["BorderBrush"]          = New-Brush $t.Border
+    $window.Resources["BorderStrongBrush"]    = New-Brush $t.BorderStrong
+    $window.Resources["MutedText"]            = New-Brush $t.MutedText
+    $window.Resources["FgBrush"]              = New-Brush $t.FgBrush
+    $window.Resources["SubTextBrush"]         = New-Brush $t.SubText
+    $window.Resources["WinCtrlFgBrush"]       = New-Brush $t.WinCtrlFg
+    $window.Resources["ScrollThumbBrush"]     = New-Brush $t.ScrollThumb
+    $window.Resources["InputBgBrush"]         = New-Brush $t.InputBg
+    $window.Resources["HoverSurfaceBrush"]    = New-Brush $t.HoverSurface
+    $window.Resources["SuccessBrush"]         = New-Brush $t.Success
+    $window.Resources["WarningBrush"]         = New-Brush $t.Warning
+    $window.Resources["DangerBrush"]          = New-Brush $t.Danger
 
     # Window Background/Foreground set directly (root Window element can't use resource refs)
     $window.Background = New-Brush $t.WindowBg
     $window.Foreground = New-Brush $t.FgBrush
 
-    # Highlight the active theme button
-    foreach ($name in @("Aether","Midnight","Blossom","Frost","Custom")) {
-        $btn = Find "Theme$name"
+    Update-ThemePickerUI
+    Save-Settings
+
+    # No sub-nav re-apply needed: every tab's nav is now a rail whose entries
+    # bind their brushes via SetResourceReference, so they retint themselves.
+    # Re-running the Set-*SubNav functions here would only risk resetting the
+    # user's current rail selection (e.g. Network's flat rail maps section 0 to
+    # its first tool, which would bounce them off "Speed test").
+}
+
+# Highlight the active mode button + paint/ring the accent swatches.
+function script:Update-ThemePickerUI {
+    foreach ($m in @("System","Light","Dark")) {
+        $btn = Find "Mode$m"
         if ($btn) {
-            if ($name -eq $ThemeName) {
+            if ($m -eq $script:themeMode) {
                 $btn.BorderBrush = $window.Resources["AccentBrush"]
+                $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
             } else {
-                $btn.BorderBrush = $window.Resources["BorderBrush"]
+                $btn.BorderBrush = $window.Resources["BorderStrongBrush"]
+                $btn.Background = [System.Windows.Media.Brushes]::Transparent
+                $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
             }
         }
     }
 
-    # Show/hide custom color editor
-    $customEditor = Find "CustomThemeEditor"
-    if ($customEditor) {
-        $customEditor.Visibility = if ($ThemeName -eq "Custom") {
-            [System.Windows.Visibility]::Visible
-        } else {
-            [System.Windows.Visibility]::Collapsed
+    $mode = Resolve-ThemeMode $script:themeMode
+    $ringOn  = $window.Resources["FgBrush"]
+    $ringOff = $window.Resources["BorderBrush"]
+    foreach ($name in @($script:AccentPresets.Keys)) {
+        $sw = Find "AccentSwatch_$name"
+        if ($sw) {
+            $sw.Background  = New-Brush $script:AccentPresets[$name][$mode]
+            $sw.BorderBrush = if ($script:accentName -eq $name) { $ringOn } else { $ringOff }
         }
-        if ($ThemeName -eq "Custom") { Update-CustomSwatches }
     }
-
-    $script:currentTheme = $ThemeName
-    Save-Settings
-
-    # Re-apply sub-nav borders so they pick up the new theme brushes
-    if ($null -ne $script:pkgSubNavIndex)       { Set-PkgSubNav       $script:pkgSubNavIndex }
-    if ($null -ne $script:systemSubNavIndex)     { Set-SystemSubNav    $script:systemSubNavIndex }
-    if ($null -ne $script:settingsSubNavIndex)   { Set-SettingsSubNav  $script:settingsSubNavIndex }
-    if ($null -ne $script:netSubNavIndex)        { Set-NetSubNav       $script:netSubNavIndex }
-    if ($null -ne $script:toolsSubNavIndex)      { Set-ToolsSubNav     $script:toolsSubNavIndex }
-    if ($null -ne $script:bookmarksSubNavIndex)  { Set-BookmarksSubNav $script:bookmarksSubNavIndex }
+    $swWin = Find "AccentSwatch_windows"
+    if ($swWin) {
+        $wa = Get-WindowsAccentHex
+        if ($wa) { $swWin.Background = New-Brush $wa }
+        $swWin.BorderBrush = if ($script:accentName -eq "windows") { $ringOn } else { $ringOff }
+    }
+    $swCus = Find "AccentSwatch_custom"
+    if ($swCus) {
+        if ($script:customAccent) { $swCus.Background = New-Brush $script:customAccent }
+        $swCus.BorderBrush = if ($script:accentName -eq "custom") { $ringOn } else { $ringOff }
+    }
 }
 
-function script:Update-CustomSwatches {
-    $t = $script:themes["Custom"]
-    foreach ($key in $t.Keys) {
-        $swatch = Find "CustomSwatch_$key"
-        if ($swatch) { $swatch.Background = New-Brush $t[$key] }
-    }
+# Change the theme mode (System/Light/Dark) and re-apply.
+function script:Set-ThemeMode {
+    param([string]$Mode)
+    $script:themeMode = $Mode
+    Apply-Theme
+}
+
+# Change the accent (preset name / "windows" / "custom") and re-apply.
+function script:Set-Accent {
+    param([string]$Name)
+    $script:accentName = $Name
+    Apply-Theme
 }
 
 # ── Load / Save settings ──────────────────────────────────────────
@@ -213,13 +217,13 @@ function Save-Settings {
     try {
         @{
             LocalInstallFolder = $script:localInstallFolder
-            Theme              = $script:currentTheme
-            CustomTheme        = $script:themes["Custom"]
+            ThemeMode          = $script:themeMode
+            Accent             = $script:accentName
+            CustomAccent       = $script:customAccent
             AutoCheckUpdates   = $script:autoCheckUpdates
             AutoCheckSelfUpdate = $script:autoCheckSelfUpdate
             UseDevBranch       = $script:useDevBranch
             RememberWindowPosition = $script:rememberWindowPosition
-            ExperimentalSidebarTabs = $script:experimentalSidebarTabs
             DisableAutoIconFetch    = $script:disableAutoIconFetch
             SkipSplash                  = $script:skipSplash
             EnableNotifications         = $script:enableNotifications
@@ -248,7 +252,6 @@ function Save-Settings {
             RegBookmarks                   = $script:settings.RegBookmarks
             CustomRegBookmarkGroups        = @($script:customRegBookmarkGroups)
             NotesPreviewMode               = $script:notesPreviewMode
-            UseWindowsAccent               = $script:useWindowsAccent
         } | ConvertTo-Json -Depth 5 | Set-Content -Path $script:settingsFile -Encoding UTF8
     } catch {}
 }
@@ -262,12 +265,13 @@ function Set-LocalInstallFolder {
 }
 
 # ── Load saved settings ───────────────────────────────────────────
-$script:currentTheme       = "Aether"
+$script:themeMode          = "System"
+$script:accentName         = "purple"
+$script:customAccent       = "#7c3aed"
 $script:autoCheckUpdates   = $false
 $script:autoCheckSelfUpdate = $false
 $script:useDevBranch        = $false
 $script:rememberWindowPosition = $false
-$script:experimentalSidebarTabs = $false
 $script:disableAutoIconFetch    = $true   # default ON - user opts in via Settings > Groups > Icon cache
 $script:skipSplash                  = $false
 $script:enableNotifications         = $true
@@ -286,18 +290,23 @@ $script:localInstallerExtensions.Add('.msi')
 $script:cleanTargetSelection   = @{}
 $script:windowGeometry     = $null
 $script:speedTestServer    = "Hetzner FSN1 (DE)"
-$script:useWindowsAccent   = $false
 
 if (Test-Path $script:settingsFile) {
     try {
         $saved = Get-Content $script:settingsFile -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($saved.LocalInstallFolder) { $script:localInstallFolder = $saved.LocalInstallFolder }
-        if ($saved.Theme)              { $script:currentTheme = $saved.Theme }
+        # Theme: new schema (ThemeMode + Accent + CustomAccent) with back-compat
+        # migration from the old named-theme model.
+        if ($saved.ThemeMode)   { $script:themeMode  = [string]$saved.ThemeMode }
+        elseif ($saved.Theme)   { $script:themeMode  = if ([string]$saved.Theme -in @("Blossom","Frost")) { "Light" } else { "Dark" } }
+        if ($saved.Accent)      { $script:accentName = [string]$saved.Accent }
+        elseif ($null -ne $saved.UseWindowsAccent -and [bool]$saved.UseWindowsAccent) { $script:accentName = "windows" }
+        if ($saved.CustomAccent -and [string]$saved.CustomAccent -match '^#[0-9a-fA-F]{6}$') { $script:customAccent = [string]$saved.CustomAccent }
+        elseif ($saved.CustomTheme -and $saved.CustomTheme.Accent -match '^#[0-9a-fA-F]{6}$') { $script:customAccent = [string]$saved.CustomTheme.Accent }
         if ($null -ne $saved.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$saved.AutoCheckUpdates }
         if ($null -ne $saved.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$saved.AutoCheckSelfUpdate }
         if ($null -ne $saved.UseDevBranch)         { $script:useDevBranch        = [bool]$saved.UseDevBranch }
         if ($null -ne $saved.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$saved.RememberWindowPosition }
-        if ($null -ne $saved.ExperimentalSidebarTabs) { $script:experimentalSidebarTabs = [bool]$saved.ExperimentalSidebarTabs }
         if ($null -ne $saved.DisableAutoIconFetch)    { $script:disableAutoIconFetch    = [bool]$saved.DisableAutoIconFetch }
         if ($null -ne $saved.SkipSplash)                  { $script:skipSplash                  = [bool]$saved.SkipSplash }
         if ($null -ne $saved.EnableNotifications)         { $script:enableNotifications         = [bool]$saved.EnableNotifications }
@@ -318,11 +327,6 @@ if (Test-Path $script:settingsFile) {
                 Width  = [double]$wg.Width
                 Height = [double]$wg.Height
                 State  = [string]$wg.State
-            }
-        }
-        if ($saved.CustomTheme) {
-            foreach ($prop in $saved.CustomTheme.PSObject.Properties) {
-                $script:themes["Custom"][$prop.Name] = $prop.Value
             }
         }
         if ($null -ne $saved.QuickInstalls) {
@@ -396,43 +400,26 @@ if (Test-Path $script:settingsFile) {
             foreach ($g in $saved.CustomRegBookmarkGroups) { $script:customRegBookmarkGroups.Add([string]$g) }
         }
         if ($null -ne $saved.NotesPreviewMode) { $script:notesPreviewMode = [bool]$saved.NotesPreviewMode }
-        if ($null -ne $saved.UseWindowsAccent) { $script:useWindowsAccent = [bool]$saved.UseWindowsAccent }
     } catch {}
 }
 
-# Remove stale derived keys from older settings files
-foreach ($staleKey in @("AccentHover","SubText","WinCtrlFg","ScrollThumb","InputBg","HoverSurface")) {
-    $script:themes["Custom"].Remove($staleKey)
-}
-
-# ── Sidebar tabs (experimental) ──────────────────────────────────
-function Apply-SidebarLayout {
+# ── Top nav strip layout ──────────────────────────────────────────
+function Apply-NavLayout {
     $tc     = Find "MainTabControl"
     $search = Find "GlobalSearchContainer"
     if (-not $tc) { return }
 
-    if ($script:experimentalSidebarTabs) {
-        $tc.TabStripPlacement  = [System.Windows.Controls.Dock]::Left
-        $tc.ItemContainerStyle = $window.FindResource("SidebarTabItem")
-        $tc.Margin    = [System.Windows.Thickness]::new(16, 8, 16, 8)
-        $tc.Padding   = [System.Windows.Thickness]::new(8, 0, 0, 0)
-        $headerMargin = [System.Windows.Thickness]::new(4, 48, 0, 8)
-        if ($search) {
-            $search.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
-            $search.Width  = 150
-            $search.Margin = [System.Windows.Thickness]::new(20, 14, 0, 0)
-        }
-    } else {
-        $tc.TabStripPlacement  = [System.Windows.Controls.Dock]::Top
-        $tc.ItemContainerStyle = $null
-        $tc.Margin    = [System.Windows.Thickness]::new(16, 8, 16, 8)
-        $tc.Padding   = [System.Windows.Thickness]::new(0)
-        $headerMargin = [System.Windows.Thickness]::new(4, 4, 0, 8)
-        if ($search) {
-            $search.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
-            $search.Width  = 260
-            $search.Margin = [System.Windows.Thickness]::new(0, 14, 20, 0)
-        }
+    $tc.TabStripPlacement = [System.Windows.Controls.Dock]::Top
+    # cy-design: pane fills the window edge-to-edge (no floating margin)
+    $tc.Margin    = [System.Windows.Thickness]::new(0)
+    $tc.Padding   = [System.Windows.Thickness]::new(0)
+    $headerMargin = [System.Windows.Thickness]::new(16, 4, 0, 8)
+    if ($search) {
+        # Top 6 centres the 32px search inside the ~37px tab strip band
+        # (headerMargin top 4). At 14 it hung below the tabs onto the pane.
+        $search.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
+        $search.Width  = 260
+        $search.Margin = [System.Windows.Thickness]::new(0, 6, 20, 0)
     }
 
     # Reach into the default TabControl template and set the inner TabPanel's margin directly.
@@ -453,11 +440,16 @@ function Apply-TabVisibility {
     $firstVisible = $null
     foreach ($item in $tc.Items) {
         $header = [string]$item.Header
-        $hidden = ($header -ne "Settings") -and ($script:hiddenTabs -contains $header)
+        # Settings has no strip header - it opens from the title-bar cog - so it
+        # stays collapsed in the strip yet remains programmatically selectable.
+        if ($header -eq "Settings") { $item.Visibility = "Collapsed"; continue }
+        $hidden = ($script:hiddenTabs -contains $header)
         $item.Visibility = if ($hidden) { "Collapsed" } else { "Visible" }
         if (-not $hidden -and $null -eq $firstVisible) { $firstVisible = $item }
     }
-    if ($tc.SelectedItem -and $tc.SelectedItem.Visibility -eq "Collapsed" -and $firstVisible) {
+    # Kick selection off a hidden tab, but never off Settings (cog-opened).
+    if ($tc.SelectedItem -and $tc.SelectedItem.Visibility -eq "Collapsed" `
+        -and [string]$tc.SelectedItem.Header -ne "Settings" -and $firstVisible) {
         $tc.SelectedItem = $firstVisible
     }
 }
@@ -484,42 +476,10 @@ function Apply-TabContextMenus {
             if (Get-Command Update-GlobalSearchIndex -ErrorAction SilentlyContinue) { Update-GlobalSearchIndex }
         })
         $menu.Items.Add($hide) | Out-Null
+        # A TabItem's body is hosted by the TabControl's content presenter, not a
+        # visual child of the TabItem, and ContextMenu doesn't inherit to it - so
+        # this menu only ever opens from the tab header in the strip. No guard needed.
         $item.ContextMenu = $menu
-
-        # Walk up from the directly-hit element. Three outcomes:
-        #   - hit a descendant with its own ContextMenu first -> bail; let
-        #     the descendant's menu open (we'd otherwise stomp it because
-        #     ContextMenuOpening is a routed event and bubbles).
-        #   - reach a TabPanel -> click is in the tab strip; allow our menu.
-        #   - reach the TabItem with neither -> click is in the body; suppress.
-        $item.Add_ContextMenuOpening({
-            param($s, $e)
-            $hit = [System.Windows.Input.Mouse]::DirectlyOver -as [System.Windows.DependencyObject]
-            $allow = $false
-            while ($hit) {
-                if ($hit -eq $s) { break }
-                if ($hit -is [System.Windows.FrameworkElement] -and $null -ne $hit.ContextMenu) {
-                    return     # descendant menu wins
-                }
-                if ($hit -is [System.Windows.Controls.Primitives.TabPanel]) { $allow = $true; break }
-                $hit = [System.Windows.Media.VisualTreeHelper]::GetParent($hit)
-            }
-            if (-not $allow) { $e.Handled = $true }
-        })
-    }
-}
-
-function Style-TabChip {
-    param([System.Windows.Controls.Border]$Chip, [bool]$IsVisible)
-    $label = $Chip.Child
-    if ($IsVisible) {
-        $Chip.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
-        $Chip.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "AccentBrush")
-        $label.Foreground = [System.Windows.Media.Brushes]::White
-    } else {
-        $Chip.ClearValue([System.Windows.Controls.Border]::BackgroundProperty)
-        $Chip.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-        $label.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     }
 }
 
@@ -529,47 +489,76 @@ function Build-TabVisibilityList {
     if (-not $list -or -not $tc) { return }
     $list.Children.Clear()
 
-    $wrap = New-Object System.Windows.Controls.WrapPanel
-    $wrap.Margin = [System.Windows.Thickness]::new(0, 6, 0, 0)
-
     foreach ($item in $tc.Items) {
         $header = [string]$item.Header
         if ($header -eq "Settings") { continue }
 
-        $chip                    = New-Object System.Windows.Controls.Border
-        $chip.CornerRadius       = [System.Windows.CornerRadius]::new(4)
-        $chip.BorderThickness    = [System.Windows.Thickness]::new(1)
-        $chip.Padding            = [System.Windows.Thickness]::new(10, 5, 10, 5)
-        $chip.Margin             = [System.Windows.Thickness]::new(0, 0, 6, 6)
-        $chip.Cursor             = [System.Windows.Input.Cursors]::Hand
-        $chip.Tag                = $header
+        # cy-design divided-list row: flush, hairline bottom divider, toggle switch
+        $row = New-Object System.Windows.Controls.Border
+        $row.Background      = [System.Windows.Media.Brushes]::Transparent
+        $row.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+        $row.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+        $row.Padding         = [System.Windows.Thickness]::new(0, 9, 0, 9)
+        $row.Cursor          = [System.Windows.Input.Cursors]::Hand
+        $row.Add_MouseEnter({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush") })
+        $row.Add_MouseLeave({ $this.Background = [System.Windows.Media.Brushes]::Transparent })
 
-        $label             = New-Object System.Windows.Controls.TextBlock
-        $label.Text        = $header
-        $label.FontSize    = 12
-        $label.FontWeight  = "SemiBold"
-        $chip.Child        = $label
+        $grid = New-Object System.Windows.Controls.Grid
+        $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
+        $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = [System.Windows.GridLength]::Auto
+        $grid.ColumnDefinitions.Add($c0); $grid.ColumnDefinitions.Add($c1)
 
-        Style-TabChip -Chip $chip -IsVisible (-not ($script:hiddenTabs -contains $header))
+        $label                   = New-Object System.Windows.Controls.TextBlock
+        $label.Text              = $header
+        $label.FontSize          = 12
+        $label.FontWeight        = [System.Windows.FontWeights]::SemiBold
+        $label.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+        $label.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+        [System.Windows.Controls.Grid]::SetColumn($label, 0)
 
-        $chip.Add_MouseLeftButtonUp({
+        $cb                   = New-Object System.Windows.Controls.CheckBox
+        $cb.Style             = $window.Resources["TweakToggle"]
+        $cb.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+        $cb.Margin            = [System.Windows.Thickness]::new(12, 0, 0, 0)
+        $cb.Tag               = $header
+        $cb.IsChecked         = -not ($script:hiddenTabs -contains $header)
+        [System.Windows.Controls.Grid]::SetColumn($cb, 1)
+
+        # IsChecked set above BEFORE wiring handlers so the initial state doesn't fire them
+        $onToggle = {
             param($s, $e)
             $h = [string]$s.Tag
-            if ($script:hiddenTabs -contains $h) {
+            if ($s.IsChecked) {
                 $script:hiddenTabs.Remove($h) | Out-Null
-            } else {
+            } elseif (-not ($script:hiddenTabs -contains $h)) {
                 $script:hiddenTabs.Add($h) | Out-Null
             }
             Save-Settings
             Apply-TabVisibility
             if (Get-Command Update-GlobalSearchIndex -ErrorAction SilentlyContinue) { Update-GlobalSearchIndex }
-            Style-TabChip -Chip $s -IsVisible (-not ($script:hiddenTabs -contains $h))
+        }
+        $cb.Add_Checked($onToggle)
+        $cb.Add_Unchecked($onToggle)
+
+        # Click anywhere on the row toggles the switch (unless the click hit the switch itself)
+        $row.Tag = $cb
+        $row.Add_MouseLeftButtonUp({
+            param($s, $e)
+            $captured = $s.Tag
+            if (-not $captured) { return }
+            $src = $e.OriginalSource
+            while ($src) {
+                if ($src -eq $captured) { return }
+                try { $src = [System.Windows.Media.VisualTreeHelper]::GetParent($src) } catch { $src = $null }
+            }
+            $captured.IsChecked = -not $captured.IsChecked
         })
 
-        $wrap.Children.Add($chip) | Out-Null
+        $grid.Children.Add($label) | Out-Null
+        $grid.Children.Add($cb)    | Out-Null
+        $row.Child = $grid
+        $list.Children.Add($row) | Out-Null
     }
-
-    $list.Children.Add($wrap) | Out-Null
 }
 
 (Find "SettingsLocalFolder").Text = $script:localInstallFolder
@@ -580,17 +569,29 @@ function Build-TabVisibilityList {
 (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
 (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
 (Find "ToggleRememberLocalInstallers").IsChecked = $script:rememberLocalInstallers
-(Find "ToggleSidebarTabs").IsChecked = $script:experimentalSidebarTabs
 # Build-TabVisibilityList deferred to first Settings-tab visit (Invoke-ScyTabInit
-# in Scy.ps1). Apply-TabVisibility/ContextMenus/SidebarLayout stay eager - they
+# in Scy.ps1). Apply-TabVisibility/ContextMenus/NavLayout stay eager - they
 # affect the whole window, not just the Settings tab.
 Apply-TabVisibility
 Apply-TabContextMenus
-Apply-SidebarLayout
+Apply-NavLayout
 $window.Dispatcher.BeginInvoke([action]{ Update-QuickInstalls }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 
 # Apply the saved/default theme on startup
-Apply-Theme $script:currentTheme
+Apply-Theme
+
+# Follow the Windows light/dark setting live when mode is "System": re-apply the
+# theme whenever the window regains focus and the resolved OS mode has changed.
+$script:lastResolvedMode = Resolve-ThemeMode $script:themeMode
+$window.Add_Activated({
+    if ($script:themeMode -eq "System") {
+        $now = Resolve-ThemeMode "System"
+        if ($now -ne $script:lastResolvedMode) {
+            $script:lastResolvedMode = $now
+            Apply-Theme
+        }
+    }
+})
 
 # Initialize shortcuts after settings are loaded
 $window.Dispatcher.BeginInvoke([action]{ Initialize-Shortcuts }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
@@ -635,54 +636,34 @@ if ($script:autoCheckSelfUpdate) {
     }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 }
 
-# ── Theme button handlers ─────────────────────────────────────────
-(Find "ThemeAether").Add_Click(   { Apply-Theme "Aether"   })
-(Find "ThemeMidnight").Add_Click( { Apply-Theme "Midnight" })
-(Find "ThemeBlossom").Add_Click(  { Apply-Theme "Blossom"  })
-(Find "ThemeFrost").Add_Click(    { Apply-Theme "Frost"    })
-(Find "ThemeCustom").Add_Click(   { Apply-Theme "Custom"   })
-
-# ── Theme restart banner (info only, no auto-restart) ──────────
-
-# ── Custom theme color pick handlers ─────────────────────────────
+# ── Theme mode + accent handlers ──────────────────────────────────
 Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
 Add-Type -AssemblyName System.Drawing       -ErrorAction SilentlyContinue
 
-$script:customColorKeys = @(
-    "WindowBg","AppBg","Accent","Surface","Surface2",
-    "Border","MutedText","FgBrush","Success","Warning","Danger"
-)
+(Find "ModeSystem").Add_Click({ Set-ThemeMode "System" })
+(Find "ModeLight").Add_Click( { Set-ThemeMode "Light"  })
+(Find "ModeDark").Add_Click(  { Set-ThemeMode "Dark"   })
 
-foreach ($colorKey in $script:customColorKeys) {
-    $capturedKey = $colorKey
-    $handler = {
-        $hex = $script:themes["Custom"][$capturedKey]
-        $r = [Convert]::ToInt32($hex.Substring(1,2), 16)
-        $g = [Convert]::ToInt32($hex.Substring(3,2), 16)
-        $b = [Convert]::ToInt32($hex.Substring(5,2), 16)
-        $dlg          = New-Object System.Windows.Forms.ColorDialog
-        $dlg.FullOpen = $true
-        $dlg.Color    = [System.Drawing.Color]::FromArgb($r, $g, $b)
-        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $c    = $dlg.Color
-            $script:themes["Custom"][$capturedKey] = "#{0:X2}{1:X2}{2:X2}" -f $c.R, $c.G, $c.B
-            Apply-Theme "Custom"
-        }
-    }.GetNewClosure()
-    (Find "CustomPick_$capturedKey").Add_Click($handler)
+foreach ($presetName in @($script:AccentPresets.Keys)) {
+    $captured = $presetName
+    $sw = Find "AccentSwatch_$captured"
+    if ($sw) { $sw.Add_MouseLeftButtonUp(({ Set-Accent $captured }).GetNewClosure()) }
 }
-
-# ── Custom theme color reset handlers ────────────────────────────
-$script:aetherDefaults = $script:themes["Aether"]
-
-foreach ($colorKey in $script:customColorKeys) {
-    $capturedKey = $colorKey
-    $handler = {
-        $script:themes["Custom"][$capturedKey] = $script:aetherDefaults[$capturedKey]
-        Apply-Theme "Custom"
-    }.GetNewClosure()
-    (Find "CustomReset_$capturedKey").Add_Click($handler)
-}
+(Find "AccentSwatch_windows").Add_MouseLeftButtonUp({ Set-Accent "windows" })
+(Find "AccentSwatch_custom").Add_MouseLeftButtonUp({
+    $hex = if ($script:customAccent) { $script:customAccent } else { "#7c3aed" }
+    $r = [Convert]::ToInt32($hex.Substring(1,2), 16)
+    $g = [Convert]::ToInt32($hex.Substring(3,2), 16)
+    $b = [Convert]::ToInt32($hex.Substring(5,2), 16)
+    $dlg          = New-Object System.Windows.Forms.ColorDialog
+    $dlg.FullOpen = $true
+    $dlg.Color    = [System.Drawing.Color]::FromArgb($r, $g, $b)
+    if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $c = $dlg.Color
+        $script:customAccent = "#{0:X2}{1:X2}{2:X2}" -f $c.R, $c.G, $c.B
+        Set-Accent "custom"
+    }
+})
 
 # ── Settings tab - change folder ─────────────────────────────────
 (Find "BtnSettingsChangeFolder").Add_Click({
@@ -726,10 +707,6 @@ foreach ($colorKey in $script:customColorKeys) {
 # ── Remember window position toggle ──────────────────────────────
 (Find "ToggleRememberPosition").Add_Checked({   $script:rememberWindowPosition = $true;  Save-Settings })
 (Find "ToggleRememberPosition").Add_Unchecked({ $script:rememberWindowPosition = $false; Save-Settings })
-
-# ── Sidebar tabs (experimental) toggle ───────────────────────────
-(Find "ToggleSidebarTabs").Add_Checked({   $script:experimentalSidebarTabs = $true;  Save-Settings; Apply-SidebarLayout })
-(Find "ToggleSidebarTabs").Add_Unchecked({ $script:experimentalSidebarTabs = $false; Save-Settings; Apply-SidebarLayout })
 
 # ── Auto-fetch icons toggle (positive label maps to NOT $disableAutoIconFetch) ──
 (Find "ToggleDisableAutoIconFetch").IsChecked = (-not $script:disableAutoIconFetch)
@@ -864,15 +841,6 @@ $localExtBox.Add_KeyDown({
     $localExtBox.Text = ""
     Save-Settings
     Render-LocalExtensions
-})
-
-# ── Use Windows accent color toggle ───────────────────────────
-(Find "ToggleUseWindowsAccent").IsChecked = $script:useWindowsAccent
-(Find "ToggleUseWindowsAccent").Add_Checked({
-    $script:useWindowsAccent = $true; Save-Settings; Apply-Theme $script:currentTheme
-})
-(Find "ToggleUseWindowsAccent").Add_Unchecked({
-    $script:useWindowsAccent = $false; Save-Settings; Apply-Theme $script:currentTheme
 })
 
 # ── Scy self-update ──────────────────────────────────────────────
@@ -1028,12 +996,13 @@ function Render-Changelog {
 
     foreach ($entry in @($entries)) {
         $card = New-Object System.Windows.Controls.Border
-        $card.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+        # cy-design divided list: one flush entry per release, hairline between.
+        $card.Background = [System.Windows.Media.Brushes]::Transparent
         $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-        $card.BorderThickness = [System.Windows.Thickness]::new(1)
-        $card.CornerRadius    = [System.Windows.CornerRadius]::new(4)
-        $card.Padding         = [System.Windows.Thickness]::new(12, 10, 12, 10)
-        $card.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 8)
+        $card.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+        $card.CornerRadius    = [System.Windows.CornerRadius]::new(0)
+        $card.Padding         = [System.Windows.Thickness]::new(2, 12, 2, 12)
+        $card.Margin          = [System.Windows.Thickness]::new(0)
 
         $stack = New-Object System.Windows.Controls.StackPanel
 
@@ -1104,51 +1073,6 @@ function Render-Changelog {
     }
 })
 
-# ── Custom theme export / import ──────────────────────────────────
-(Find "BtnExportTheme").Add_Click({
-    Add-Type -AssemblyName System.Windows.Forms
-    $dlg = New-Object System.Windows.Forms.SaveFileDialog
-    $dlg.Filter           = "Scy theme (*.scytheme)|*.scytheme|JSON (*.json)|*.json"
-    $dlg.FileName         = "my-theme.scytheme"
-    $dlg.InitialDirectory = [System.Environment]::GetFolderPath("Desktop")
-    if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        try {
-            $export = @{ ScyTheme = "1.0" }
-            foreach ($key in $script:themes["Custom"].Keys) { $export[$key] = $script:themes["Custom"][$key] }
-            $export | ConvertTo-Json | Set-Content -Path $dlg.FileName -Encoding UTF8
-            Show-ThemedDialog "Theme exported to:`n$($dlg.FileName)" "Export complete" "OK" "Information"
-        } catch {
-            Show-ThemedDialog "Export failed:`n$_" "Export failed" "OK" "Error"
-        }
-    }
-})
-
-(Find "BtnImportTheme").Add_Click({
-    Add-Type -AssemblyName System.Windows.Forms
-    $dlg        = New-Object System.Windows.Forms.OpenFileDialog
-    $dlg.Filter = "Scy theme (*.scytheme)|*.scytheme|JSON (*.json)|*.json"
-    $dlg.Title  = "Import theme"
-    if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        try {
-            $imported = Get-Content $dlg.FileName -Raw -Encoding UTF8 | ConvertFrom-Json
-            if ($null -eq $imported.ScyTheme) {
-                Show-ThemedDialog "This does not appear to be a valid Scy theme file." "Import failed" "OK" "Warning"
-                return
-            }
-            $validKeys = @("WindowBg","AppBg","Accent","Surface","Surface2","Border","MutedText","FgBrush","Success","Warning","Danger")
-            foreach ($key in $validKeys) {
-                if ($imported.PSObject.Properties[$key]) {
-                    $script:themes["Custom"][$key] = $imported.$key
-                }
-            }
-            Apply-Theme "Custom"
-            Show-ThemedDialog "Theme imported successfully." "Import complete" "OK" "Information"
-        } catch {
-            Show-ThemedDialog "Import failed:`n$_" "Import failed" "OK" "Error"
-        }
-    }
-})
-
 (Find "BtnImportSettings").Add_Click({
     Add-Type -AssemblyName System.Windows.Forms
     $dlg        = New-Object System.Windows.Forms.OpenFileDialog
@@ -1157,24 +1081,23 @@ function Render-Changelog {
     if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         try {
             $imported = Get-Content $dlg.FileName -Raw -Encoding UTF8 | ConvertFrom-Json
-            if ($null -eq $imported.Theme) {
+            if ($null -eq $imported.ThemeMode -and $null -eq $imported.Theme) {
                 Show-ThemedDialog "This does not appear to be a valid Scy settings file." "Import failed" "OK" "Warning"
                 return
             }
 
             if ($imported.LocalInstallFolder) { $script:localInstallFolder = $imported.LocalInstallFolder }
-            if ($imported.Theme)              { $script:currentTheme = $imported.Theme }
+            if ($imported.ThemeMode)  { $script:themeMode  = [string]$imported.ThemeMode }
+            elseif ($imported.Theme)  { $script:themeMode  = if ([string]$imported.Theme -in @("Blossom","Frost")) { "Light" } else { "Dark" } }
+            if ($imported.Accent)     { $script:accentName = [string]$imported.Accent }
+            elseif ($null -ne $imported.UseWindowsAccent -and [bool]$imported.UseWindowsAccent) { $script:accentName = "windows" }
+            if ($imported.CustomAccent -and [string]$imported.CustomAccent -match '^#[0-9a-fA-F]{6}$') { $script:customAccent = [string]$imported.CustomAccent }
+            elseif ($imported.CustomTheme -and $imported.CustomTheme.Accent -match '^#[0-9a-fA-F]{6}$') { $script:customAccent = [string]$imported.CustomTheme.Accent }
             if ($null -ne $imported.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$imported.AutoCheckUpdates }
             if ($null -ne $imported.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$imported.AutoCheckSelfUpdate }
             if ($null -ne $imported.UseDevBranch)         { $script:useDevBranch        = [bool]$imported.UseDevBranch }
             if ($null -ne $imported.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$imported.RememberWindowPosition }
-            if ($null -ne $imported.ExperimentalSidebarTabs) { $script:experimentalSidebarTabs = [bool]$imported.ExperimentalSidebarTabs }
             if ($imported.SpeedTestServer)              { $script:speedTestServer    = [string]$imported.SpeedTestServer }
-            if ($imported.CustomTheme) {
-                foreach ($prop in $imported.CustomTheme.PSObject.Properties) {
-                    $script:themes["Custom"][$prop.Name] = $prop.Value
-                }
-            }
             if ($null -ne $imported.QuickInstalls) {
                 $script:quickInstalls.Clear()
                 foreach ($qi in $imported.QuickInstalls) {
@@ -1221,16 +1144,11 @@ function Render-Changelog {
                 $script:localInstallerExtensions.Clear()
                 foreach ($ext in $imported.LocalInstallerExtensions) { $script:localInstallerExtensions.Add([string]$ext) }
             }
-            if ($null -ne $imported.UseWindowsAccent) { $script:useWindowsAccent = [bool]$imported.UseWindowsAccent }
             if ($null -ne $imported.CleanTargetSelection) {
                 $script:cleanTargetSelection = @{}
                 foreach ($prop in $imported.CleanTargetSelection.PSObject.Properties) {
                     $script:cleanTargetSelection[$prop.Name] = [bool]$prop.Value
                 }
-            }
-
-            foreach ($staleKey in @("AccentHover","SubText","WinCtrlFg","ScrollThumb","InputBg","HoverSurface")) {
-                $script:themes["Custom"].Remove($staleKey)
             }
 
             (Find "SettingsLocalFolder").Text = $script:localInstallFolder
@@ -1241,10 +1159,7 @@ function Render-Changelog {
             (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
             (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
             (Find "ToggleRememberLocalInstallers").IsChecked = $script:rememberLocalInstallers
-            (Find "ToggleSidebarTabs").IsChecked = $script:experimentalSidebarTabs
-            (Find "ToggleUseWindowsAccent").IsChecked = $script:useWindowsAccent
-            Apply-SidebarLayout
-            Apply-Theme $script:currentTheme
+            Apply-Theme
             Update-LocalInstallers
             Update-QuickInstalls
             Render-GroupSettings
@@ -1280,12 +1195,13 @@ function Render-GroupSettings {
         $isHidden = $g -in $capturedHiddenList
 
         $card = New-Object System.Windows.Controls.Border
-        $card.CornerRadius = [System.Windows.CornerRadius]::new(4)
-        $card.Padding = [System.Windows.Thickness]::new(12, 8, 12, 8)
-        $card.Margin = [System.Windows.Thickness]::new(0, 0, 0, 4)
-        $card.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+        # cy-design divided list: flush row, hairline bottom divider, no fill.
+        $card.CornerRadius = [System.Windows.CornerRadius]::new(0)
+        $card.Padding = [System.Windows.Thickness]::new(2, 9, 2, 9)
+        $card.Margin = [System.Windows.Thickness]::new(0)
+        $card.Background = [System.Windows.Media.Brushes]::Transparent
         $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-        $card.BorderThickness = [System.Windows.Thickness]::new(1)
+        $card.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
         if ($isHidden) { $card.Opacity = 0.5 }
 
         $row = New-Object System.Windows.Controls.Grid
@@ -1326,7 +1242,7 @@ function Render-GroupSettings {
         }.GetNewClosure()))
 
         $badge = New-Object System.Windows.Controls.Border
-        $badge.CornerRadius = [System.Windows.CornerRadius]::new(3)
+        $badge.CornerRadius = [System.Windows.CornerRadius]::new(7)
         $badge.Padding = [System.Windows.Thickness]::new(8, 2, 8, 2)
         $badge.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
         $badgeText = New-Object System.Windows.Controls.TextBlock
@@ -1349,12 +1265,13 @@ function Render-GroupSettings {
         $capturedShortcuts      = $script:shortcuts
 
         $card = New-Object System.Windows.Controls.Border
-        $card.CornerRadius = [System.Windows.CornerRadius]::new(4)
-        $card.Padding = [System.Windows.Thickness]::new(12, 8, 12, 8)
-        $card.Margin = [System.Windows.Thickness]::new(0, 0, 0, 4)
-        $card.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+        # cy-design divided list: flush row, hairline bottom divider, no fill.
+        $card.CornerRadius = [System.Windows.CornerRadius]::new(0)
+        $card.Padding = [System.Windows.Thickness]::new(2, 9, 2, 9)
+        $card.Margin = [System.Windows.Thickness]::new(0)
+        $card.Background = [System.Windows.Media.Brushes]::Transparent
         $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-        $card.BorderThickness = [System.Windows.Thickness]::new(1)
+        $card.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
 
         $row = New-Object System.Windows.Controls.Grid
         $rc0 = New-Object System.Windows.Controls.ColumnDefinition; $rc0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
@@ -1434,12 +1351,13 @@ function Render-GroupSettings {
         $isHidden = $g -in $capturedHiddenList
 
         $card = New-Object System.Windows.Controls.Border
-        $card.CornerRadius = [System.Windows.CornerRadius]::new(4)
-        $card.Padding = [System.Windows.Thickness]::new(12, 8, 12, 8)
-        $card.Margin = [System.Windows.Thickness]::new(0, 0, 0, 4)
-        $card.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+        # cy-design divided list: flush row, hairline bottom divider, no fill.
+        $card.CornerRadius = [System.Windows.CornerRadius]::new(0)
+        $card.Padding = [System.Windows.Thickness]::new(2, 9, 2, 9)
+        $card.Margin = [System.Windows.Thickness]::new(0)
+        $card.Background = [System.Windows.Media.Brushes]::Transparent
         $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-        $card.BorderThickness = [System.Windows.Thickness]::new(1)
+        $card.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
         if ($isHidden) { $card.Opacity = 0.5 }
 
         $row = New-Object System.Windows.Controls.Grid
@@ -1480,7 +1398,7 @@ function Render-GroupSettings {
         }.GetNewClosure()))
 
         $badge = New-Object System.Windows.Controls.Border
-        $badge.CornerRadius = [System.Windows.CornerRadius]::new(3)
+        $badge.CornerRadius = [System.Windows.CornerRadius]::new(7)
         $badge.Padding = [System.Windows.Thickness]::new(8, 2, 8, 2)
         $badge.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
         $badgeText = New-Object System.Windows.Controls.TextBlock
@@ -1503,12 +1421,13 @@ function Render-GroupSettings {
         $capturedQuickInstalls      = $script:quickInstalls
 
         $card = New-Object System.Windows.Controls.Border
-        $card.CornerRadius = [System.Windows.CornerRadius]::new(4)
-        $card.Padding = [System.Windows.Thickness]::new(12, 8, 12, 8)
-        $card.Margin = [System.Windows.Thickness]::new(0, 0, 0, 4)
-        $card.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
+        # cy-design divided list: flush row, hairline bottom divider, no fill.
+        $card.CornerRadius = [System.Windows.CornerRadius]::new(0)
+        $card.Padding = [System.Windows.Thickness]::new(2, 9, 2, 9)
+        $card.Margin = [System.Windows.Thickness]::new(0)
+        $card.Background = [System.Windows.Media.Brushes]::Transparent
         $card.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-        $card.BorderThickness = [System.Windows.Thickness]::new(1)
+        $card.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
 
         $row = New-Object System.Windows.Controls.Grid
         $rc0 = New-Object System.Windows.Controls.ColumnDefinition; $rc0.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)

@@ -125,10 +125,12 @@ function Populate-FirmwareInfo {
             function _MakeRow {
                 param([string]$Label, [string]$Value, [string]$BrushKey = "FgBrush", [bool]$Alt = $false)
                 $border = New-Object System.Windows.Controls.Border
-                $border.Background   = if ($Alt) { $window.Resources["SurfaceBrush"] } else { $window.Resources["InputBgBrush"] }
-                $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-                $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
-                $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)
+                $border.Background   = [System.Windows.Media.Brushes]::Transparent
+                $border.BorderBrush  = $window.Resources["BorderBrush"]
+                $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+                $border.CornerRadius = [System.Windows.CornerRadius]::new(0)
+                $border.Padding      = [System.Windows.Thickness]::new(4, 8, 4, 8)
+                $border.Margin       = [System.Windows.Thickness]::new(0)
 
                 $grid = New-Object System.Windows.Controls.Grid
                 $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::Auto

@@ -59,10 +59,12 @@ function Read-HostsFile {
 function New-HostsRow {
     param($Entry, [bool]$Alternate = $false)
 
+    # cy-design divided list: flush row, hairline bottom divider (no zebra fill).
     $border = New-Object System.Windows.Controls.Border
-    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
-    $border.Padding         = [System.Windows.Thickness]::new(14, 7, 14, 7)
+    $border.Background      = [System.Windows.Media.Brushes]::Transparent
+    $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+    $border.Padding         = [System.Windows.Thickness]::new(14, 9, 14, 9)
     $border.Margin          = [System.Windows.Thickness]::new(0)
 
     $grid = New-Object System.Windows.Controls.Grid

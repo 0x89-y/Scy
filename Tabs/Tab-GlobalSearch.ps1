@@ -180,9 +180,9 @@ function New-SearchResultRow {
     param([hashtable]$Item)
 
     $row = New-Object System.Windows.Controls.Border
-    $row.Padding         = [System.Windows.Thickness]::new(10, 7, 10, 7)
-    $row.Margin          = [System.Windows.Thickness]::new(0, 1, 0, 1)
-    $row.CornerRadius    = [System.Windows.CornerRadius]::new(4)
+    $row.Padding         = [System.Windows.Thickness]::new(8, 8, 8, 8)
+    $row.Margin          = [System.Windows.Thickness]::new(0)
+    $row.CornerRadius    = [System.Windows.CornerRadius]::new(0)
     $row.Cursor          = [System.Windows.Input.Cursors]::Hand
     $row.Background      = [System.Windows.Media.Brushes]::Transparent
 

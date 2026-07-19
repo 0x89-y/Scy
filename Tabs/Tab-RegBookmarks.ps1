@@ -92,6 +92,7 @@ function Render-RegBookmarks {
     $script:regBookmarkSectionElements = @{}
 
     $allGroups = Get-AllRegBookmarkGroups
+    $script:regGroupOrder = @($allGroups)
 
     # Organize bookmarks by section
     $sections = [ordered]@{}
@@ -119,42 +120,16 @@ function Render-RegBookmarks {
     }
 
     foreach ($sectionName in $sections.Keys) {
+        # No group header: the rail carries the groups now, so each group is just
+        # a flush run of rows (rows draw their own bottom hairline).
         $border              = New-Object System.Windows.Controls.Border
-        $border.Background   = $window.Resources["Surface2Brush"]
-        $border.CornerRadius = [System.Windows.CornerRadius]::new(6)
-        $border.BorderBrush  = $window.Resources["BorderBrush"]
-        $border.BorderThickness = [System.Windows.Thickness]::new(1)
-        $border.Padding      = [System.Windows.Thickness]::new(14, 12, 14, 12)
-        $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 8)
-
-        $stack = New-Object System.Windows.Controls.StackPanel
-
-        # Header with accent bar (matches Tweaks / Settings cards)
-        $headerPanel        = New-Object System.Windows.Controls.DockPanel
-        $headerPanel.Margin = [System.Windows.Thickness]::new(0, 0, 0, 10)
-
-        $accentBar = New-Object System.Windows.Controls.Border
-        $accentBar.Width             = 3
-        $accentBar.CornerRadius      = [System.Windows.CornerRadius]::new(2)
-        $accentBar.VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
-        $accentBar.Margin            = [System.Windows.Thickness]::new(0, 0, 8, 0)
-        $accentBar.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
-        [System.Windows.Controls.DockPanel]::SetDock($accentBar, [System.Windows.Controls.Dock]::Left)
-        $headerPanel.Children.Add($accentBar) | Out-Null
-
-        $header            = New-Object System.Windows.Controls.TextBlock
-        $header.Text       = $sectionName
-        $header.FontSize   = 14
-        $header.FontWeight = [System.Windows.FontWeights]::SemiBold
-        $header.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-        $header.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-        $headerPanel.Children.Add($header) | Out-Null
-
-        $stack.Children.Add($headerPanel) | Out-Null
+        $border.CornerRadius = [System.Windows.CornerRadius]::new(0)
+        $border.BorderThickness = [System.Windows.Thickness]::new(0)
+        $border.Padding      = [System.Windows.Thickness]::new(0)
+        $border.Margin       = [System.Windows.Thickness]::new(0)
 
         $itemsPanel = New-Object System.Windows.Controls.StackPanel
-        $stack.Children.Add($itemsPanel) | Out-Null
-        $border.Child = $stack
+        $border.Child = $itemsPanel
 
         if ($sections[$sectionName].Count -eq 0) {
             $border.Visibility = [System.Windows.Visibility]::Collapsed
@@ -164,15 +139,15 @@ function Render-RegBookmarks {
 
         foreach ($bookmark in $sections[$sectionName]) {
             $row = New-Object System.Windows.Controls.Border
-            $row.CornerRadius = [System.Windows.CornerRadius]::new(4)
-            $row.Padding      = [System.Windows.Thickness]::new(10, 7, 10, 7)
-            $row.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 4)
+            $row.CornerRadius = [System.Windows.CornerRadius]::new(0)
+            $row.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+            $row.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+            $row.Padding      = [System.Windows.Thickness]::new(24, 9, 24, 9)
+            $row.Margin       = [System.Windows.Thickness]::new(0)
             $row.Cursor       = [System.Windows.Input.Cursors]::Hand
-            $row.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "SurfaceBrush")
-
-            # Hover effect
+            $row.Background    = [System.Windows.Media.Brushes]::Transparent
             $row.Add_MouseEnter({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush") })
-            $row.Add_MouseLeave({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "SurfaceBrush") })
+            $row.Add_MouseLeave({ $this.Background = [System.Windows.Media.Brushes]::Transparent })
 
             $leftStack = New-Object System.Windows.Controls.StackPanel
 
@@ -285,6 +260,39 @@ function Render-RegBookmarks {
     }
 
     Refresh-RegBookmarkGroupBox
+    Apply-RegGroupFilter
+    if (Get-Command Build-BookmarksRail -ErrorAction SilentlyContinue) { Build-BookmarksRail }
+}
+
+# ── Registry group filtering (driven by the Bookmarks rail) ──────
+function Get-RegGroupCounts {
+    $counts = [ordered]@{}
+    foreach ($g in (Get-AllRegBookmarkGroups)) { $counts[$g] = 0 }
+    foreach ($b in $script:regBookmarks) {
+        if ($b.IsHidden) { continue }
+        $sec = $b.Section
+        if (-not $counts.Contains($sec)) { $counts[$sec] = 0 }
+        $counts[$sec] = $counts[$sec] + 1
+    }
+    return $counts
+}
+
+# Show only the selected group's section ("All" shows every group).
+function Apply-RegGroupFilter {
+    $group = $script:regGroupFilter
+    foreach ($secName in $script:regBookmarkSectionElements.Keys) {
+        $el = $script:regBookmarkSectionElements[$secName]
+        if ($el.Border) {
+            $el.Border.Visibility = if ($group -eq "All" -or $secName -eq $group) { "Visible" } else { "Collapsed" }
+        }
+    }
+}
+
+function Set-RegGroupFilter {
+    param([string]$Group)
+    $script:regGroupFilter = $Group
+    Apply-RegGroupFilter
+    if (Get-Command Build-BookmarksRail -ErrorAction SilentlyContinue) { Build-BookmarksRail }
 }
 
 # ── Save ─────────────────────────────────────────────────────────

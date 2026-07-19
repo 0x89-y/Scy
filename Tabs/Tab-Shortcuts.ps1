@@ -1,33 +1,89 @@
-  # ── Bookmarks sub-navigation ──────────────────────────────────────
-  $bookmarksNavShortcuts = Find "BookmarksNav_Shortcuts"
-  $bookmarksNavRegistry  = Find "BookmarksNav_Registry"
-
+  # ── Bookmarks rail (replaces the old sub-nav pills) ───────────────
   $bookmarksSectionShortcuts = Find "BookmarksSection_Shortcuts"
   $bookmarksSectionRegistry  = Find "BookmarksSection_Registry"
 
-  $script:bookmarksNavButtons = @($bookmarksNavShortcuts, $bookmarksNavRegistry)
   $script:bookmarksSections   = @($bookmarksSectionShortcuts, $bookmarksSectionRegistry)
+  $script:bookmarksNavLabels  = @("Shortcuts", "Registry")
 
-  function Set-BookmarksSubNav {
-      param([int]$Index)
-      $script:bookmarksSubNavIndex = $Index
-      for ($i = 0; $i -lt $script:bookmarksSections.Count; $i++) {
-          $script:bookmarksSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
-          $btn = $script:bookmarksNavButtons[$i]
-          if ($i -eq $Index) {
-              $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
-              $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "AccentBrush")
-          } else {
-              $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
-              $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
+  # Two-level rail: both sections always listed; the selected one expands to show
+  # "All" + its groups, indented underneath.
+  $script:shortcutGroupFilter = "All"
+  $script:regGroupFilter      = "All"
+
+  function Build-BookmarksRail {
+      $panel = Find "BookmarksRail"
+      if (-not $panel) { return }
+      # Shortcut groups/data are defined further down this file, so an early call
+      # (from the initial Set-BookmarksSubNav below) must no-op. Render-Shortcuts
+      # rebuilds the rail once the data is loaded.
+      if (-not (Get-Command Get-AllShortcutGroups -ErrorAction SilentlyContinue)) { return }
+      $panel.Children.Clear()
+
+      # ── Shortcuts ──
+      $panel.Children.Add(
+          (New-RailEntry -Label "Shortcuts" -IsSection $true `
+                         -IsActive ($script:bookmarksSubNavIndex -eq 0 -and $script:shortcutGroupFilter -eq "All") `
+                         -OnClick { Set-BookmarksSubNav 0; Set-ShortcutGroupFilter "All" })) | Out-Null
+
+      if ($script:bookmarksSubNavIndex -eq 0) {
+          foreach ($g in (Get-ShortcutGroupCounts).Keys) {
+              $gName = $g
+              $panel.Children.Add(
+                  (New-RailEntry -Label $gName -Indent 1 -Count (Get-ShortcutGroupCounts)[$gName] `
+                                 -IsActive ($script:shortcutGroupFilter -eq $gName) `
+                                 -OnClick ({ Set-ShortcutGroupFilter $gName }).GetNewClosure())) | Out-Null
+          }
+      }
+
+      # ── Registry ──
+      $panel.Children.Add(
+          (New-RailEntry -Label "Registry" -IsSection $true `
+                         -IsActive ($script:bookmarksSubNavIndex -eq 1 -and $script:regGroupFilter -eq "All") `
+                         -OnClick { Set-BookmarksSubNav 1; Set-RegGroupFilter "All" })) | Out-Null
+
+      if ($script:bookmarksSubNavIndex -eq 1 -and (Get-Command Get-RegGroupCounts -ErrorAction SilentlyContinue)) {
+          foreach ($g in (Get-RegGroupCounts).Keys) {
+              $gName = $g
+              $panel.Children.Add(
+                  (New-RailEntry -Label $gName -Indent 1 -Count (Get-RegGroupCounts)[$gName] `
+                                 -IsActive ($script:regGroupFilter -eq $gName) `
+                                 -OnClick ({ Set-RegGroupFilter $gName }).GetNewClosure())) | Out-Null
           }
       }
   }
 
-  Set-BookmarksSubNav 0
+  # Shortcut counts per group (hidden shortcuts excluded)
+  function Get-ShortcutGroupCounts {
+      $counts = [ordered]@{}
+      foreach ($g in (Get-AllShortcutGroups)) { $counts[$g] = 0 }
+      foreach ($s in $script:shortcuts) {
+          if ($s.IsHidden) { continue }
+          $sec = $s.Section
+          if (-not $counts.Contains($sec)) { $counts[$sec] = 0 }
+          $counts[$sec] = $counts[$sec] + 1
+      }
+      return $counts
+  }
 
-  $bookmarksNavShortcuts.Add_Click({ Set-BookmarksSubNav 0 })
-  $bookmarksNavRegistry.Add_Click({  Set-BookmarksSubNav 1 })
+  function Set-ShortcutGroupFilter {
+      param([string]$Group)
+      $script:shortcutGroupFilter = $Group
+      Build-BookmarksRail
+      if (Get-Command Apply-ShortcutFilter -ErrorAction SilentlyContinue) { Apply-ShortcutFilter }
+  }
+
+  function Set-BookmarksSubNav {
+      param([int]$Index)
+      if ($Index -lt 0 -or $Index -ge $script:bookmarksSections.Count) { $Index = 0 }
+      $script:bookmarksSubNavIndex = $Index
+      for ($i = 0; $i -lt $script:bookmarksSections.Count; $i++) {
+          $script:bookmarksSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
+      }
+      Build-BookmarksRail
+  }
+
+  $script:bookmarksSubNavIndex = 0
+  Set-BookmarksSubNav 0
 
   # ── Shortcuts Tab ────────────────────────────────────────────────
 
@@ -83,7 +139,21 @@
   # ── Shortcuts Management ───────────────────────────────────────
   $script:shortcuts = [System.Collections.Generic.List[hashtable]]::new()
   # Tracks dynamic section UI elements for search
-  $script:shortcutSectionElements = @{}
+  # Flat list of rendered shortcut cells: @{ Button; Section; Name; Command }
+  $script:shortcutElements = @()
+
+  # Dynamic grid columns, same rule as the Apps tiles
+  $script:shortcutTileMinWidth = 220
+  $__scGrid = Find "ShortcutGrid"
+  if ($__scGrid) {
+      $__scGrid.Add_SizeChanged({
+          param($s, $e)
+          if ($s.ActualWidth -le 0) { return }
+          $cols = [Math]::Floor($s.ActualWidth / $script:shortcutTileMinWidth)
+          if ($cols -lt 1) { $cols = 1 }
+          if ($s.Columns -ne $cols) { $s.Columns = [int]$cols }
+      })
+  }
 
   function Initialize-Shortcuts {
       $script:shortcuts.Clear()
@@ -152,11 +222,11 @@
   }
 
   function Render-Shortcuts {
-      $leftPanel  = Find "ShortcutGroupsPanel_Left"
-      $rightPanel = Find "ShortcutGroupsPanel_Right"
-      $leftPanel.Children.Clear()
-      $rightPanel.Children.Clear()
-      $script:shortcutSectionElements = @{}
+      # One flat dynamic grid: the rail carries the groups, so no per-group
+      # headers or left/right columns any more.
+      $itemsPanel = Find "ShortcutGrid"
+      $itemsPanel.Children.Clear()
+      $script:shortcutElements = @()
 
       $allGroups = Get-AllShortcutGroups
 
@@ -171,70 +241,8 @@
           }
       }
 
-      $colIdx = 0
       foreach ($sectionName in $sections.Keys) {
-          $displayName = if ($script:sectionDisplayNames.ContainsKey($sectionName)) {
-              $script:sectionDisplayNames[$sectionName]
-          } else { $sectionName }
-
-          $border              = New-Object System.Windows.Controls.Border
-          $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
-          $border.CornerRadius = [System.Windows.CornerRadius]::new(6)
-          $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-          $border.BorderThickness = [System.Windows.Thickness]::new(1)
-          $border.Padding      = [System.Windows.Thickness]::new(14, 12, 14, 12)
-          $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 8)
-
-          $stack = New-Object System.Windows.Controls.StackPanel
-
-          # Header with accent bar (matches Tweaks / Settings cards)
-          $headerPanel        = New-Object System.Windows.Controls.DockPanel
-          $headerPanel.Margin = [System.Windows.Thickness]::new(0, 0, 0, 10)
-
-          $accentBar = New-Object System.Windows.Controls.Border
-          $accentBar.Width             = 3
-          $accentBar.CornerRadius      = [System.Windows.CornerRadius]::new(2)
-          $accentBar.VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
-          $accentBar.Margin            = [System.Windows.Thickness]::new(0, 0, 8, 0)
-          $accentBar.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
-          [System.Windows.Controls.DockPanel]::SetDock($accentBar, [System.Windows.Controls.Dock]::Left)
-          $headerPanel.Children.Add($accentBar) | Out-Null
-
-          $header            = New-Object System.Windows.Controls.TextBlock
-          $header.Text       = $displayName
-          $header.FontSize   = 14
-          $header.FontWeight = [System.Windows.FontWeights]::SemiBold
-          $header.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-          $header.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-          $headerPanel.Children.Add($header) | Out-Null
-
-          $stack.Children.Add($headerPanel) | Out-Null
-
-          $itemsPanel = New-Object System.Windows.Controls.StackPanel
-          $stack.Children.Add($itemsPanel) | Out-Null
-          $border.Child = $stack
-
-          if ($sections[$sectionName].Count -eq 0) {
-              $border.Visibility = [System.Windows.Visibility]::Collapsed
-              $leftPanel.Children.Add($border) | Out-Null
-          } else {
-              if ($colIdx % 2 -eq 0) { $leftPanel.Children.Add($border)  | Out-Null }
-              else                   { $rightPanel.Children.Add($border) | Out-Null }
-              $colIdx++
-          }
-
-          # Store references for search
-          $script:shortcutSectionElements[$sectionName] = @{ Border = $border; Panel = $itemsPanel }
-
-          $isFirst = $true
           foreach ($shortcut in $sections[$sectionName]) {
-              if (-not $isFirst) {
-                  $sep = New-Object System.Windows.Shapes.Rectangle
-                  $sep.Height = 1
-                  $sep.SetResourceReference([System.Windows.Shapes.Rectangle]::FillProperty, "BorderBrush")
-                  $itemsPanel.Children.Add($sep) | Out-Null
-              }
-              $isFirst = $false
 
               $btn = New-Object System.Windows.Controls.Button
               $btn.Style = $window.FindResource("ShortcutRowButton")
@@ -268,7 +276,7 @@
               if ($shortcut.RequiresAdmin) {
                   $adminBadge                = New-Object System.Windows.Controls.Border
                   $adminBadge.BorderThickness = [System.Windows.Thickness]::new(1)
-                  $adminBadge.CornerRadius   = [System.Windows.CornerRadius]::new(4)
+                  $adminBadge.CornerRadius   = [System.Windows.CornerRadius]::new(7)
                   $adminBadge.Padding        = [System.Windows.Thickness]::new(6, 1, 6, 1)
                   $adminBadge.Margin         = [System.Windows.Thickness]::new(8, 0, 0, 0)
                   $adminBadge.VerticalAlignment = "Center"
@@ -417,10 +425,35 @@
               }.GetNewClosure())
 
               $itemsPanel.Children.Add($btn) | Out-Null
+              # Track for rail/search filtering
+              $script:shortcutElements += @{
+                  Button  = $btn
+                  Section = $sectionName
+                  Name    = $shortcut.Name
+                  Command = $shortcut.Command
+              }
           }
       }
 
       Refresh-ShortcutGroupBox
+      Apply-ShortcutFilter
+      Build-BookmarksRail
+  }
+
+  # Show only the shortcuts matching the rail group + the search query.
+  function Apply-ShortcutFilter {
+      $box   = Find "ShortcutSearchBox"
+      $query = if ($box) { $box.Text.Trim().ToLower() } else { "" }
+      $group = $script:shortcutGroupFilter
+
+      foreach ($el in $script:shortcutElements) {
+          $inGroup = ($group -eq "All" -or $el.Section -eq $group)
+          # NB: not $matches - that's a PowerShell automatic variable
+          $isMatch = (-not $query) -or
+                     $el.Name.ToLower().Contains($query) -or
+                     ($el.Command -and $el.Command.ToLower().Contains($query))
+          $el.Button.Visibility = if ($inGroup -and $isMatch) { "Visible" } else { "Collapsed" }
+      }
   }
 
   function Save-ShortcutsToSettings {
@@ -614,28 +647,8 @@ $script:shortcutSearchClear = Find "ShortcutSearchClear"
     $query = $this.Text.Trim()
     (Find "ShortcutSearchPlaceholder").Visibility = if ($query -eq "") { "Visible" } else { "Collapsed" }
     $script:shortcutSearchClear.Visibility = if ($query -ne "") { "Visible" } else { "Collapsed" }
-
-    foreach ($secName in $script:shortcutSectionElements.Keys) {
-        $el = $script:shortcutSectionElements[$secName]
-        $anyVisible = $false
-        foreach ($child in $el.Panel.Children) {
-            if ($child -is [System.Windows.Controls.Button]) {
-                $visible = ($query -eq "") -or ($child.Tag.Name -like "*$query*")
-                $child.Visibility = if ($visible) { "Visible" } else { "Collapsed" }
-                if ($visible) { $anyVisible = $true }
-            }
-        }
-        # hide separators whose preceding button is hidden
-        $prevBtn = $null
-        foreach ($child in $el.Panel.Children) {
-            if ($child -is [System.Windows.Controls.Button]) {
-                $prevBtn = $child
-            } elseif ($child -is [System.Windows.Shapes.Rectangle]) {
-                $child.Visibility = if ($prevBtn -and $prevBtn.Visibility -eq "Visible") { "Visible" } else { "Collapsed" }
-            }
-        }
-        $el.Border.Visibility = if ($anyVisible) { "Visible" } else { "Collapsed" }
-    }
+    # Group + query filtering both live in Apply-ShortcutFilter
+    Apply-ShortcutFilter
 })
 
 $script:shortcutSearchClear.Add_Click({
