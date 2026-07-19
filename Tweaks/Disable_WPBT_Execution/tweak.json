@@ -1,0 +1,5 @@
+{
+    "group": "System",
+    "description": "Prevents the firmware vendor from running programs at boot via the Windows Platform Binary Table",
+    "requiresAdmin": true
+}

@@ -57,10 +57,10 @@ function Get-PasswordStrength {
     if ($len -ge 16) { $score++ }
     if ($len -ge 24) { $score++ }
 
-    if ($score -le 2) { return @{ Label = "Weak";        Color = "#e17055" } }
-    if ($score -le 4) { return @{ Label = "Fair";        Color = "#fdcb6e" } }
-    if ($score -le 5) { return @{ Label = "Strong";      Color = "#00b894" } }
-    return                    @{ Label = "Very Strong";  Color = "#00cec9" }
+    if ($score -le 2) { return @{ Label = "Weak";        Color = "DangerBrush"  } }
+    if ($score -le 4) { return @{ Label = "Fair";        Color = "WarningBrush" } }
+    if ($score -le 5) { return @{ Label = "Strong";      Color = "SuccessBrush" } }
+    return                    @{ Label = "Very Strong";  Color = "SuccessBrush" }
 }
 
 function Invoke-GeneratePasswords {
@@ -97,7 +97,7 @@ function Invoke-GeneratePasswords {
 
     $strength = Get-PasswordStrength -Value $passwords[0]
     $pwdStrengthLabel.Text       = $strength.Label
-    $pwdStrengthLabel.Foreground = [System.Windows.Media.SolidColorBrush][System.Windows.Media.ColorConverter]::ConvertFromString($strength.Color)
+    $pwdStrengthLabel.Foreground = $window.Resources[$strength.Color]
 
     $countText = if ($count -eq 1) { "1 password" } else { "$count passwords" }
     $pwdStatus.Text       = "Generated $countText - $length characters each"

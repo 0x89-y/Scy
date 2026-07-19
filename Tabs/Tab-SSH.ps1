@@ -14,11 +14,12 @@ function New-SSHKeyRow {
     try { $pubText = (Get-Content $PubKeyPath -Raw -ErrorAction Stop).Trim() } catch {}
 
     $border            = New-Object System.Windows.Controls.Border
-    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
-    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-    $border.Padding    = [System.Windows.Thickness]::new(10, 8, 10, 8)
-    $border.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 3)
+    $border.Background  = [System.Windows.Media.Brushes]::Transparent
+    $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+    $border.CornerRadius = [System.Windows.CornerRadius]::new(0)
+    $border.Padding    = [System.Windows.Thickness]::new(4, 9, 4, 9)
+    $border.Margin     = [System.Windows.Thickness]::new(0)
 
     $grid = New-Object System.Windows.Controls.Grid
     $c0   = New-Object System.Windows.Controls.ColumnDefinition

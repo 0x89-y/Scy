@@ -1,11 +1,9 @@
 # -- Network Tools Tab ----------------------------------------------------------
 
-# -- Network sub-navigation ---------------------------------------------------
-$netNavDiagnostics = Find "NetNav_Diagnostics"
-$netNavWifi        = Find "NetNav_Wifi"
-$netNavHosts       = Find "NetNav_Hosts"
-$netNavDNS         = Find "NetNav_DNS"
-$netNavSSH         = Find "NetNav_SSH"
+# -- Network rail --------------------------------------------------------------
+# Flat rail: the three Diagnostics tools sit at the top level alongside the
+# other sections (no "Diagnostics" parent entry).
+$script:netNavLabels = @("Diagnostics", "Wi-Fi", "Hosts", "DNS", "SSH")
 
 $netSectionDiagnostics = Find "NetSection_Diagnostics"
 $netSectionWifi        = Find "NetSection_Wifi"
@@ -13,32 +11,81 @@ $netSectionHosts       = Find "NetSection_Hosts"
 $netSectionDNS         = Find "NetSection_DNS"
 $netSectionSSH         = Find "NetSection_SSH"
 
-$script:netNavButtons = @($netNavDiagnostics, $netNavWifi, $netNavHosts, $netNavDNS, $netNavSSH)
 $script:netSections   = @($netSectionDiagnostics, $netSectionWifi, $netSectionHosts, $netSectionDNS, $netSectionSSH)
 
-function Set-NetSubNav {
-    param([int]$Index)
-    $script:netSubNavIndex = $Index
-    for ($i = 0; $i -lt $script:netSections.Count; $i++) {
-        $script:netSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
-        $btn = $script:netNavButtons[$i]
-        if ($i -eq $Index) {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "AccentBrush")
-        } else {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
-        }
+$script:netDiagLabels  = @("Ping & traceroute", "Speed test", "NSLookup")
+$script:netDiagFilter  = $script:netDiagLabels[0]
+
+# Rail entries: Section = index into $netSections, Tool = diagnostics tool (or $null)
+$script:netRailItems = @(
+    @{ Label = "Ping & traceroute"; Section = 0; Tool = "Ping & traceroute" }
+    @{ Label = "Speed test";        Section = 0; Tool = "Speed test"        }
+    @{ Label = "NSLookup";          Section = 0; Tool = "NSLookup"          }
+    @{ Label = "Wi-Fi";             Section = 1; Tool = $null               }
+    @{ Label = "Hosts";             Section = 2; Tool = $null               }
+    @{ Label = "DNS";               Section = 3; Tool = $null               }
+    @{ Label = "SSH";               Section = 4; Tool = $null               }
+)
+$script:netRailIndex = 0
+
+function Get-NetDiagSections {
+    return @((Find "NetDiag_Ping"), (Find "NetDiag_Speed"), (Find "NetDiag_NSLookup"))
+}
+
+# Show only the selected diagnostics tool.
+function Apply-NetDiagFilter {
+    $sections = Get-NetDiagSections
+    for ($i = 0; $i -lt $sections.Count; $i++) {
+        if (-not $sections[$i]) { continue }
+        $sections[$i].Visibility =
+            if ($script:netDiagLabels[$i] -eq $script:netDiagFilter) { "Visible" } else { "Collapsed" }
     }
 }
 
-Set-NetSubNav 0
+# Flat rail: every entry is a top-level section.
+function Build-NetRail {
+    $panel = Find "NetRail"
+    if (-not $panel) { return }
+    $panel.Children.Clear()
 
-$netNavDiagnostics.Add_Click({ Set-NetSubNav 0 })
-$netNavWifi.Add_Click({        Set-NetSubNav 1 })
-$netNavHosts.Add_Click({       Set-NetSubNav 2 })
-$netNavDNS.Add_Click({         Set-NetSubNav 3 })
-$netNavSSH.Add_Click({         Set-NetSubNav 4 })
+    for ($i = 0; $i -lt $script:netRailItems.Count; $i++) {
+        $idx = $i
+        $panel.Children.Add(
+            (New-RailEntry -Label $script:netRailItems[$idx].Label -IsSection $true `
+                           -IsActive ($script:netRailIndex -eq $idx) `
+                           -OnClick ({ Set-NetRail $idx }).GetNewClosure())) | Out-Null
+    }
+}
+
+# Select a rail entry: show its section, and (for diagnostics) just its tool.
+function Set-NetRail {
+    param([int]$Index)
+    if ($Index -lt 0 -or $Index -ge $script:netRailItems.Count) { $Index = 0 }
+    $script:netRailIndex = $Index
+    $item = $script:netRailItems[$Index]
+
+    $script:netSubNavIndex = $item.Section
+    for ($i = 0; $i -lt $script:netSections.Count; $i++) {
+        $script:netSections[$i].Visibility = if ($i -eq $item.Section) { "Visible" } else { "Collapsed" }
+    }
+    if ($item.Tool) { $script:netDiagFilter = $item.Tool }
+
+    Apply-NetDiagFilter
+    Build-NetRail
+}
+
+# Back-compat shim: Global Search still addresses Network by section index
+# (0 = Diagnostics, 1 = Wi-Fi, ...). Map that to the first matching rail entry.
+function Set-NetSubNav {
+    param([int]$Index)
+    for ($i = 0; $i -lt $script:netRailItems.Count; $i++) {
+        if ($script:netRailItems[$i].Section -eq $Index) { Set-NetRail $i; return }
+    }
+    Set-NetRail 0
+}
+
+$script:netSubNavIndex = 0
+Set-NetRail 0
 
 $netHostBox         = Find "NetHostBox"
 $netHostPlaceholder = Find "NetHostPlaceholder"
@@ -351,7 +398,7 @@ function New-NSRecordRow {
 
     $valBlock = New-Object System.Windows.Controls.TextBlock
     $valBlock.Text       = $Value
-    $valBlock.FontFamily = New-Object System.Windows.Media.FontFamily("Consolas, Courier New")
+    $valBlock.FontFamily = New-Object System.Windows.Media.FontFamily("IBM Plex Mono, Cascadia Mono, Consolas")
     $valBlock.FontSize   = 12
     $valBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
     $valBlock.VerticalAlignment = "Center"
@@ -376,11 +423,13 @@ function New-NSRecordRow {
 function New-NSTypeGroup {
     param([string]$TypeLabel, [System.Collections.ArrayList]$Rows)
 
+    # cy-design flush section: no fill/box, hairline top divider.
     $group = New-Object System.Windows.Controls.Border
-    $group.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "InputBgBrush")
-    $group.CornerRadius    = [System.Windows.CornerRadius]::new(4)
-    $group.Padding         = [System.Windows.Thickness]::new(12, 10, 12, 10)
-    $group.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 8)
+    $group.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $group.BorderThickness = [System.Windows.Thickness]::new(0, 1, 0, 0)
+    $group.CornerRadius    = [System.Windows.CornerRadius]::new(0)
+    $group.Padding         = [System.Windows.Thickness]::new(0, 12, 0, 12)
+    $group.Margin          = [System.Windows.Thickness]::new(0)
 
     $stack = New-Object System.Windows.Controls.StackPanel
 
@@ -390,7 +439,7 @@ function New-NSTypeGroup {
 
     $badge = New-Object System.Windows.Controls.Border
     $badge.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
-    $badge.CornerRadius = [System.Windows.CornerRadius]::new(3)
+    $badge.CornerRadius = [System.Windows.CornerRadius]::new(7)
     $badge.Padding      = [System.Windows.Thickness]::new(8, 2, 8, 2)
     $badgeText = New-Object System.Windows.Controls.TextBlock
     $badgeText.Text       = $TypeLabel
@@ -600,7 +649,7 @@ function Show-WifiQRDialog([string]$ssid, [string]$password, [string]$authType) 
     $outerBorder = New-Object System.Windows.Controls.Border
     $outerBorder.BorderBrush     = $window.Resources["BorderBrush"]
     $outerBorder.BorderThickness = [System.Windows.Thickness]::new(1)
-    $outerBorder.CornerRadius    = [System.Windows.CornerRadius]::new(8)
+    $outerBorder.CornerRadius    = [System.Windows.CornerRadius]::new(16)   # cy dialog radius
     $outerBorder.Background      = $window.Resources["WindowBgBrush"]
 
     $root = New-Object System.Windows.Controls.StackPanel
@@ -660,7 +709,7 @@ function Show-WifiQRDialog([string]$ssid, [string]$password, [string]$authType) 
     # QR code image (white background border for contrast in dark theme)
     $qrBorder = New-Object System.Windows.Controls.Border
     $qrBorder.Background   = [System.Windows.Media.Brushes]::White
-    $qrBorder.CornerRadius = [System.Windows.CornerRadius]::new(6)
+    $qrBorder.CornerRadius = [System.Windows.CornerRadius]::new(10)
     $qrBorder.Padding      = [System.Windows.Thickness]::new(8)
     $qrBorder.HorizontalAlignment = "Center"
 
@@ -755,11 +804,12 @@ $btnNetWifi.Add_Click({
                 $authType = $prof.AuthType
 
                 $border              = [System.Windows.Controls.Border]::new()
-                $bgKey = if ($alt) { "SurfaceBrush" } else { "InputBgBrush" }
-                $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
-                $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-                $border.Padding      = [System.Windows.Thickness]::new(10, 7, 10, 7)
-                $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)
+                $border.Background   = [System.Windows.Media.Brushes]::Transparent
+                $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+                $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+                $border.CornerRadius = [System.Windows.CornerRadius]::new(0)
+                $border.Padding      = [System.Windows.Thickness]::new(4, 9, 4, 9)
+                $border.Margin       = [System.Windows.Thickness]::new(0)
 
                 $grid = [System.Windows.Controls.Grid]::new()
                 $c0   = [System.Windows.Controls.ColumnDefinition]::new()
@@ -784,7 +834,7 @@ $btnNetWifi.Add_Click({
                 $pwBlock                     = [System.Windows.Controls.TextBlock]::new()
                 $pwBlock.Text                = $password
                 $pwBlock.FontSize            = 12
-                $pwBlock.FontFamily          = [System.Windows.Media.FontFamily]::new("Consolas")
+                $pwBlock.FontFamily          = [System.Windows.Media.FontFamily]::new("IBM Plex Mono, Cascadia Mono, Consolas")
                 $pwBlock.HorizontalAlignment = "Right"
                 $pwBlock.VerticalAlignment   = "Center"
                 $pwBlock.SetResourceReference(

@@ -1,82 +1,87 @@
-# Built-in theme palettes. Single source of truth for both the splash
-# screen (Scy.ps1) and the runtime theme system (Tabs/Tab-Settings.ps1).
+# Built-in theme palettes — the cy-design system (shared across the "cy" family:
+# Acy, Ncy, Scy). Single source of truth for the splash screen (Scy.ps1) and the
+# runtime theme system (Tabs/Tab-Settings.ps1).
+#
+# cy-design uses ONE first-class Light + ONE Dark theme built on a zinc neutral
+# ramp. The accent is chosen SEPARATELY by the user (see $AccentPresets) and
+# overlaid onto the base by Apply-Theme — it is not baked into the palette.
 # The Custom theme is user state and lives in Tab-Settings.ps1.
 
 $script:BuiltinThemes = [ordered]@{
-    Aether = @{
-        WindowBg     = "#2e2e42"
-        AppBg        = "#0a0a0f"
-        Accent       = "#6c5ce7"
-        AccentHover  = "#7f70f0"
-        Surface      = "#13131a"
-        Surface2     = "#1a1a24"
-        Border       = "#2a2a3a"
-        MutedText    = "#6b6b80"
-        FgBrush      = "#e0e0e8"
-        SubText      = "#c0c0d0"
-        WinCtrlFg    = "#9090a8"
-        ScrollThumb  = "#3a3a52"
-        InputBg      = "#0d0d16"
-        HoverSurface = "#1e1e2e"
-        Success      = "#00b894"
-        Warning      = "#fdcb6e"
-        Danger       = "#e17055"
+    # ── Light (zinc) ──────────────────────────────────────────────
+    Light = @{
+        WindowBg       = "#ffffff"   # title bar / window frame (surface)
+        AppBg          = "#f4f4f5"   # app background, under the dots
+        GridDot        = "#0F000000" # dotted "graph-paper" ground (~6% black)
+        Surface        = "#ffffff"   # cards, bars, sheets
+        Surface2       = "#f7f7f8"   # inset / rail / quiet hover
+        HoverSurface   = "#f0f0f2"   # row hover / pressed
+        FgBrush        = "#18181b"   # primary text
+        SubText        = "#52525b"   # secondary text
+        MutedText      = "#71717a"   # muted text, icons
+        WinCtrlFg      = "#71717a"   # window control glyphs
+        Border         = "#e4e4e7"   # hairlines
+        BorderStrong   = "#d4d4d8"   # inputs, scrollbar, back button
+        ScrollThumb    = "#d4d4d8"
+        InputBg        = "#f7f7f8"   # inset field fill
+        AccentContrast = "#ffffff"   # text/icon on accent
+        Success        = "#16a34a"
+        Warning        = "#d97706"
+        Danger         = "#dc2626"
+        # Accent is overlaid from the chosen preset; default shown for reference.
+        Accent         = "#7c3aed"
     }
-    Midnight = @{
-        WindowBg     = "#1a1f2e"
-        AppBg        = "#080c14"
-        Accent       = "#4d9cf6"
-        AccentHover  = "#6ab0ff"
-        Surface      = "#0d1117"
-        Surface2     = "#161b22"
-        Border       = "#30363d"
-        MutedText    = "#656d76"
-        FgBrush      = "#e6edf3"
-        SubText      = "#b1bac4"
-        WinCtrlFg    = "#8b949e"
-        ScrollThumb  = "#30363d"
-        InputBg      = "#0a0e16"
-        HoverSurface = "#161b22"
-        Success      = "#3fb950"
-        Warning      = "#d29922"
-        Danger       = "#f85149"
+    # ── Dark (zinc) ───────────────────────────────────────────────
+    Dark = @{
+        WindowBg       = "#202024"
+        AppBg          = "#161619"
+        GridDot        = "#0AFFFFFF" # ~4% white
+        Surface        = "#202024"
+        Surface2       = "#27272c"
+        HoverSurface   = "#2e2e34"
+        FgBrush        = "#f4f4f5"
+        SubText        = "#c4c4cd"
+        MutedText      = "#a8a8b2"
+        WinCtrlFg      = "#a8a8b2"
+        Border         = "#313139"
+        BorderStrong   = "#43434d"
+        ScrollThumb    = "#43434d"
+        InputBg        = "#27272c"
+        AccentContrast = "#ffffff"
+        Success        = "#4ade80"
+        Warning        = "#fbbf24"
+        Danger         = "#f87171"
+        Accent         = "#8b5cf6"
     }
-    Blossom = @{
-        WindowBg     = "#ede8f8"
-        AppBg        = "#f8f5ff"
-        Accent       = "#6c5ce7"
-        AccentHover  = "#7f70f0"
-        Surface      = "#ffffff"
-        Surface2     = "#f0ebfa"
-        Border       = "#d4cce8"
-        MutedText    = "#8c84a8"
-        FgBrush      = "#2e2842"
-        SubText      = "#4a4466"
-        WinCtrlFg    = "#6e6890"
-        ScrollThumb  = "#c8bef0"
-        InputBg      = "#f8f5ff"
-        HoverSurface = "#ede8f8"
-        Success      = "#00896e"
-        Warning      = "#c07c00"
-        Danger       = "#c0392b"
-    }
-    Frost = @{
-        WindowBg     = "#dde6f0"
-        AppBg        = "#f1f5f9"
-        Accent       = "#2563eb"
-        AccentHover  = "#1d4ed8"
-        Surface      = "#ffffff"
-        Surface2     = "#eef2f8"
-        Border       = "#cbd5e1"
-        MutedText    = "#64748b"
-        FgBrush      = "#1e293b"
-        SubText      = "#334155"
-        WinCtrlFg    = "#475569"
-        ScrollThumb  = "#94a3b8"
-        InputBg      = "#f8fafc"
-        HoverSurface = "#e2e8f0"
-        Success      = "#059669"
-        Warning      = "#d97706"
-        Danger       = "#dc2626"
+}
+
+# User-selectable accent presets (cy-design §2). Each has a Light + Dark hex.
+# purple is the default. Overlaid onto the base palette by Apply-Theme.
+$script:AccentPresets = [ordered]@{
+    purple = @{ Light = "#7c3aed"; Dark = "#8b5cf6" }
+    blue   = @{ Light = "#2563eb"; Dark = "#3b82f6" }
+    green  = @{ Light = "#059669"; Dark = "#10b981" }
+    pink   = @{ Light = "#db2777"; Dark = "#ec4899" }
+    orange = @{ Light = "#ea580c"; Dark = "#f97316" }
+    teal   = @{ Light = "#0d9488"; Dark = "#14b8a6" }
+}
+
+# Read the Windows apps light/dark preference. Returns "Light" or "Dark".
+function script:Get-WindowsThemeMode {
+    try {
+        $v = Get-ItemPropertyValue `
+            "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" `
+            "AppsUseLightTheme"
+        if ($v -eq 1) { return "Light" } else { return "Dark" }
+    } catch { return "Dark" }
+}
+
+# Resolve a stored ThemeMode ("System"|"Light"|"Dark") to a concrete "Light"/"Dark".
+function script:Resolve-ThemeMode {
+    param([string]$Mode)
+    switch ($Mode) {
+        "Light" { "Light" }
+        "Dark"  { "Dark" }
+        default { Get-WindowsThemeMode }   # "System" or unset → follow Windows
     }
 }

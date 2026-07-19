@@ -1,0 +1,6 @@
+{
+    "group": "System",
+    "description": "Removes Copilot, CoreAI and Recall, disables the AI service and Notepad AI. Removed apps must be reinstalled manually to undo",
+    "requiresAdmin": true,
+    "caution": true
+}

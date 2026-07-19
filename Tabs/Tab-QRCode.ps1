@@ -1,4 +1,4 @@
-# -- QR Code Generator Tab -----------------------------------------------------
+﻿# -- QR Code Generator Tab -----------------------------------------------------
 
 $qrInputBox         = Find "QRInputBox"
 $qrInputPlaceholder = Find "QRInputPlaceholder"
@@ -227,7 +227,7 @@ function Invoke-QRGenerate {
         # Background border for contrast in dark theme (uses chosen bg color)
         $qrBorder = New-Object System.Windows.Controls.Border
         $qrBorder.Background   = ([System.Windows.Media.SolidColorBrush]::new($light)).psobject.BaseObject
-        $qrBorder.CornerRadius = [System.Windows.CornerRadius]::new(6)
+        $qrBorder.CornerRadius = [System.Windows.CornerRadius]::new(10)
         $qrBorder.Padding      = [System.Windows.Thickness]::new(8)
         $qrBorder.HorizontalAlignment = "Center"
         $qrBorder.Margin       = [System.Windows.Thickness]::new(0, 4, 0, 8)

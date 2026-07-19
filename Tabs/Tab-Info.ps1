@@ -1,42 +1,86 @@
-﻿# ── System sub-navigation ──────────────────────────────────────
-$systemNavInfo     = Find "SystemNav_Info"
-$systemNavCleanup  = Find "SystemNav_Cleanup"
-$systemNavBattery  = Find "SystemNav_Battery"
-$systemNavFirmware = Find "SystemNav_Firmware"
-$systemNavSfcDism  = Find "SystemNav_SfcDism"
-
+﻿# ── System rail ───────────────────────────────────────────────
+# Flat rail: Info's four blocks sit at the top level (they replace the old
+# per-block load buttons), followed by the other sections.
 $systemSectionInfo     = Find "SystemSection_Info"
 $systemSectionCleanup  = Find "SystemSection_Cleanup"
 $systemSectionBattery  = Find "SystemSection_Battery"
 $systemSectionFirmware = Find "SystemSection_Firmware"
 $systemSectionSfcDism  = Find "SystemSection_SfcDism"
 
-$script:systemNavButtons = @($systemNavInfo, $systemNavCleanup, $systemNavBattery, $systemNavFirmware, $systemNavSfcDism)
 $script:systemSections   = @($systemSectionInfo, $systemSectionCleanup, $systemSectionBattery, $systemSectionFirmware, $systemSectionSfcDism)
+$script:systemNavLabels  = @("Info", "Cleanup", "Battery", "BIOS/UEFI", "SFC/DISM")
 
-function Set-SystemSubNav {
-    param([int]$Index)
-    $script:systemSubNavIndex = $Index
-    for ($i = 0; $i -lt $script:systemSections.Count; $i++) {
-        $script:systemSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
-        $btn = $script:systemNavButtons[$i]
-        if ($i -eq $Index) {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "AccentBrush")
-        } else {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
-        }
+# Info blocks. Selecting one only shows it - it never gathers. The per-block
+# Populate-* functions run Get-CimInstance on the UI thread and would freeze the
+# window; the gather is done once, asynchronously, by Populate-SysInfo on the
+# System tab's first visit (Invoke-ScyTabInit in Scy.ps1).
+$script:sysInfoBlocks = @(
+    @{ Label = "Operating system"; Block = "SysInfo_OS"       }
+    @{ Label = "Hardware";         Block = "SysInfo_Hardware" }
+    @{ Label = "Drives";           Block = "SysInfo_Drives"   }
+    @{ Label = "Network adapters"; Block = "SysInfo_Network"  }
+)
+
+# Rail entries: Section = index into $systemSections, Info = index into $sysInfoBlocks
+$script:systemRailItems = @()
+for ($i = 0; $i -lt $script:sysInfoBlocks.Count; $i++) {
+    $script:systemRailItems += @{ Label = $script:sysInfoBlocks[$i].Label; Section = 0; Info = $i }
+}
+for ($i = 1; $i -lt $script:systemNavLabels.Count; $i++) {
+    $script:systemRailItems += @{ Label = $script:systemNavLabels[$i]; Section = $i; Info = -1 }
+}
+$script:systemRailIndex = 0
+
+function Build-SystemRail {
+    $panel = Find "SystemRail"
+    if (-not $panel) { return }
+    $panel.Children.Clear()
+    for ($i = 0; $i -lt $script:systemRailItems.Count; $i++) {
+        $idx = $i
+        $panel.Children.Add(
+            (New-RailEntry -Label $script:systemRailItems[$idx].Label -IsSection $true `
+                           -IsActive ($script:systemRailIndex -eq $idx) `
+                           -OnClick ({ Set-SystemRail $idx }).GetNewClosure())) | Out-Null
     }
 }
 
-Set-SystemSubNav 0
+# Show only the selected Info block. Deliberately does no gathering.
+function Apply-SysInfoFilter {
+    param([int]$InfoIndex)
+    for ($i = 0; $i -lt $script:sysInfoBlocks.Count; $i++) {
+        $el = Find $script:sysInfoBlocks[$i].Block
+        if ($el) { $el.Visibility = if ($i -eq $InfoIndex) { "Visible" } else { "Collapsed" } }
+    }
+}
 
-$systemNavInfo.Add_Click({    Set-SystemSubNav 0 })
-$systemNavCleanup.Add_Click({ Set-SystemSubNav 1 })
-$systemNavBattery.Add_Click({  Set-SystemSubNav 2 })
-$systemNavFirmware.Add_Click({ Set-SystemSubNav 3 })
-$systemNavSfcDism.Add_Click({  Set-SystemSubNav 4 })
+function Set-SystemRail {
+    param([int]$Index)
+    if ($Index -lt 0 -or $Index -ge $script:systemRailItems.Count) { $Index = 0 }
+    $script:systemRailIndex = $Index
+    $item = $script:systemRailItems[$Index]
+
+    $script:systemSubNavIndex = $item.Section
+    for ($i = 0; $i -lt $script:systemSections.Count; $i++) {
+        $script:systemSections[$i].Visibility = if ($i -eq $item.Section) { "Visible" } else { "Collapsed" }
+    }
+    if ($item.Section -eq 0) { Apply-SysInfoFilter $item.Info }
+
+    # Nothing gathers on section entry - Battery and BIOS/UEFI load on demand via
+    # their Refresh buttons, like the rest of the System tab.
+
+    Build-SystemRail
+}
+
+# Back-compat shim: Global Search addresses System by section index.
+function Set-SystemSubNav {
+    param([int]$Index)
+    for ($i = 0; $i -lt $script:systemRailItems.Count; $i++) {
+        if ($script:systemRailItems[$i].Section -eq $Index) { Set-SystemRail $i; return }
+    }
+    Set-SystemRail 0
+}
+
+Set-SystemRail 0
 
 # -- System Info Tab ----------------------------------------------------------
 $sysOS         = Find "SysOS"
@@ -366,11 +410,12 @@ function Populate-ExecPolicy {
     }
 }
 
-(Find "BtnSysInfo").Add_Click({      Populate-SysInfo; Populate-ExecPolicy })
-(Find "BtnOSInfo").Add_Click({       Populate-OSInfo       })
-(Find "BtnHardwareInfo").Add_Click({ Populate-HardwareInfo })
-(Find "BtnDriveInfo").Add_Click({    Populate-DriveInfo    })
-(Find "BtnNetworkInfo").Add_Click({  Populate-NetInfo      })
+# Each Info block's header has a refresh icon next to its copy icon. They all
+# force the same async re-gather (Populate-SysInfo fills every block in one job).
+foreach ($__refreshBtn in @("BtnRefreshOS", "BtnRefreshHardware", "BtnRefreshDrives", "BtnRefreshNetwork")) {
+    $__b = Find $__refreshBtn
+    if ($__b) { $__b.Add_Click({ Populate-SysInfo; Populate-ExecPolicy }) }
+}
 
 # ── Copy-all buttons (OS, Hardware, Drives, Network) ─────────────
 function Invoke-CopyAllFlash {

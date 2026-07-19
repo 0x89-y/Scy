@@ -1,16 +1,12 @@
 # ── Tools sub-navigation ──────────────────────────────────────────
 # (Software Export moved to Apps > Installed)
-$toolsNavQRCode      = Find "ToolsNav_QRCode"
-$toolsNavNotes       = Find "ToolsNav_Notes"
-$toolsNavHashing     = Find "ToolsNav_Hashing"
-$toolsNavPasswordGen = Find "ToolsNav_PasswordGen"
+$script:toolsNavLabels = @("QR Code", "Notes", "File Hashing", "Passwords")
 
 $toolsSectionQRCode      = Find "ToolsSection_QRCode"
 $toolsSectionNotes       = Find "ToolsSection_Notes"
 $toolsSectionHashing     = Find "ToolsSection_Hashing"
 $toolsSectionPasswordGen = Find "ToolsSection_PasswordGen"
 
-$script:toolsNavButtons = @($toolsNavQRCode, $toolsNavNotes, $toolsNavHashing, $toolsNavPasswordGen)
 $script:toolsSections   = @($toolsSectionQRCode, $toolsSectionNotes, $toolsSectionHashing, $toolsSectionPasswordGen)
 
 function Set-ToolsSubNav {
@@ -19,23 +15,12 @@ function Set-ToolsSubNav {
     $script:toolsSubNavIndex = $Index
     for ($i = 0; $i -lt $script:toolsSections.Count; $i++) {
         $script:toolsSections[$i].Visibility = if ($i -eq $Index) { "Visible" } else { "Collapsed" }
-        $btn = $script:toolsNavButtons[$i]
-        if ($i -eq $Index) {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "FgBrush")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "AccentBrush")
-        } else {
-            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "MutedText")
-            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
-        }
     }
+    Build-Rail -Panel (Find "ToolsRail") -Labels $script:toolsNavLabels `
+               -ActiveIndex $Index -OnSelect { param($i) Set-ToolsSubNav $i }
 }
 
 Set-ToolsSubNav 0
-
-$toolsNavQRCode.Add_Click({      Set-ToolsSubNav 0 })
-$toolsNavNotes.Add_Click({       Set-ToolsSubNav 1 })
-$toolsNavHashing.Add_Click({     Set-ToolsSubNav 2 })
-$toolsNavPasswordGen.Add_Click({ Set-ToolsSubNav 3 })
 
 # ── Quick Notes / Scratchpad ─────────────────────────────────────
 $notesTextBox    = Find "NotesTextBox"
@@ -119,8 +104,8 @@ function ConvertTo-NotesFlowDocument {
     $mutedBrush   = $window.Resources["MutedText"]
     $accentBrush  = $window.Resources["AccentBrush"]
     $codeBgBrush  = $window.Resources["InputBgBrush"]
-    $monoFont     = New-Object System.Windows.Media.FontFamily("Consolas, Courier New")
-    $defaultFont  = New-Object System.Windows.Media.FontFamily("Segoe UI, Arial")
+    $monoFont     = New-Object System.Windows.Media.FontFamily("IBM Plex Mono, Cascadia Mono, Consolas")
+    $defaultFont  = New-Object System.Windows.Media.FontFamily("IBM Plex Sans, Segoe UI")
 
     $lines = $Markdown -split "`n"
     $inCodeBlock = $false

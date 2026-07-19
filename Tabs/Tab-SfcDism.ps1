@@ -69,7 +69,10 @@ function New-SfcDismResultRow([string]$Label, [string]$Value, [string]$Color) {
     $val = New-Object System.Windows.Controls.TextBlock
     $val.Text       = $Value
     $val.FontSize   = 12
-    $val.Foreground = if ($Color) { New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($Color)) } else { $window.Resources["MutedText"] }
+    $val.Foreground = if ($Color) {
+        if ($window.Resources.Contains($Color)) { $window.Resources[$Color] }
+        else { New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($Color)) }
+    } else { $window.Resources["MutedText"] }
     $sp.Children.Add($val) | Out-Null
 
     return $sp
@@ -81,27 +84,27 @@ function Parse-SfcOutput([string]$RawText) {
 
     if ($RawText -match "did not find any integrity violations") {
         $result.Status = "Healthy"
-        $result.Color  = "#2ecc71"
+        $result.Color  = "SuccessBrush"
         $result.Details += "No integrity violations found."
     }
     elseif ($RawText -match "found corrupt files and successfully repaired") {
         $result.Status = "Repaired"
-        $result.Color  = "#f39c12"
+        $result.Color  = "WarningBrush"
         $result.Details += "Corrupt files were found and repaired."
     }
     elseif ($RawText -match "found corrupt files but was unable to fix") {
         $result.Status = "Failed"
-        $result.Color  = "#e74c3c"
+        $result.Color  = "DangerBrush"
         $result.Details += "Corrupt files found but could not be repaired."
         $result.Details += "Try running DISM first, then SFC again."
     }
     elseif ($RawText -match "could not perform the requested operation") {
         $result.Status = "Error"
-        $result.Color  = "#e74c3c"
+        $result.Color  = "DangerBrush"
         $result.Details += "SFC could not run. Try booting into Safe Mode."
     }
     else {
-        $result.Color = "#95a5a6"
+        $result.Color = "MutedText"
         $result.Details += "Could not determine result -- check the output log."
     }
 
@@ -119,23 +122,23 @@ function Parse-DismOutput([string]$RawText) {
 
     if ($RawText -match "The restore operation completed successfully") {
         $result.Status = "Healthy"
-        $result.Color  = "#2ecc71"
+        $result.Color  = "SuccessBrush"
         $result.Details += "Component store is healthy. No repairs needed."
     }
     elseif ($RawText -match "The component store corruption was repaired") {
         $result.Status = "Repaired"
-        $result.Color  = "#f39c12"
+        $result.Color  = "WarningBrush"
         $result.Details += "Corruption was found and successfully repaired."
     }
     elseif ($RawText -match "Error:") {
         $result.Status = "Failed"
-        $result.Color  = "#e74c3c"
+        $result.Color  = "DangerBrush"
         $errs = [regex]::Matches($RawText, "Error:\s*(.+)")
         foreach ($m in $errs) { $result.Details += $m.Groups[1].Value.Trim() }
         if ($result.Details.Count -eq 0) { $result.Details += "DISM encountered an error." }
     }
     else {
-        $result.Color = "#95a5a6"
+        $result.Color = "MutedText"
         $result.Details += "Could not determine result -- check the output log."
     }
 
@@ -377,45 +380,45 @@ function Start-SfcDismRunner {
             $raw = RunTool $cmd
 
             if ([string]::IsNullOrWhiteSpace($raw)) {
-                $allResults += @{ Tool = $cmd.ToUpper(); Status = "Error"; Color = "#e74c3c"; Details = @("Failed to start. Run as Administrator.") }
+                $allResults += @{ Tool = $cmd.ToUpper(); Status = "Error"; Color = "DangerBrush"; Details = @("Failed to start. Run as Administrator.") }
                 continue
             }
 
             # Parse results
             if ($cmd -eq "sfc") {
-                $parsed = @{ Tool = "SFC /scannow"; Status = "Unknown"; Color = "#95a5a6"; Details = @() }
+                $parsed = @{ Tool = "SFC /scannow"; Status = "Unknown"; Color = "MutedText"; Details = @() }
                 if ($raw -match "did not find any integrity violations") {
-                    $parsed.Status = "Healthy"; $parsed.Color = "#2ecc71"
+                    $parsed.Status = "Healthy"; $parsed.Color = "SuccessBrush"
                     $parsed.Details += "No integrity violations found."
                 }
                 elseif ($raw -match "found corrupt files and successfully repaired") {
-                    $parsed.Status = "Repaired"; $parsed.Color = "#f39c12"
+                    $parsed.Status = "Repaired"; $parsed.Color = "WarningBrush"
                     $parsed.Details += "Corrupt files were found and repaired."
                 }
                 elseif ($raw -match "found corrupt files but was unable to fix") {
-                    $parsed.Status = "Failed"; $parsed.Color = "#e74c3c"
+                    $parsed.Status = "Failed"; $parsed.Color = "DangerBrush"
                     $parsed.Details += "Corrupt files found but could not be repaired."
                     $parsed.Details += "Try running DISM first, then SFC again."
                 }
                 elseif ($raw -match "could not perform the requested operation") {
-                    $parsed.Status = "Error"; $parsed.Color = "#e74c3c"
+                    $parsed.Status = "Error"; $parsed.Color = "DangerBrush"
                     $parsed.Details += "SFC could not run. Try booting into Safe Mode."
                 }
                 else {
                     $parsed.Details += "Could not determine result -- check the output log."
                 }
             } else {
-                $parsed = @{ Tool = "DISM RestoreHealth"; Status = "Unknown"; Color = "#95a5a6"; Details = @() }
+                $parsed = @{ Tool = "DISM RestoreHealth"; Status = "Unknown"; Color = "MutedText"; Details = @() }
                 if ($raw -match "The restore operation completed successfully") {
-                    $parsed.Status = "Healthy"; $parsed.Color = "#2ecc71"
+                    $parsed.Status = "Healthy"; $parsed.Color = "SuccessBrush"
                     $parsed.Details += "Component store is healthy."
                 }
                 elseif ($raw -match "The component store corruption was repaired") {
-                    $parsed.Status = "Repaired"; $parsed.Color = "#f39c12"
+                    $parsed.Status = "Repaired"; $parsed.Color = "WarningBrush"
                     $parsed.Details += "Corruption was found and repaired."
                 }
                 elseif ($raw -match "Error:") {
-                    $parsed.Status = "Failed"; $parsed.Color = "#e74c3c"
+                    $parsed.Status = "Failed"; $parsed.Color = "DangerBrush"
                     $parsed.Details += "DISM encountered an error. Check the output log."
                 }
                 else {

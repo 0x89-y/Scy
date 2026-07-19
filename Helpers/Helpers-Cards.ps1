@@ -1,4 +1,4 @@
-# Shared card helpers used by Tab-Info and Tab-ActiveDirectory.
+# Shared row helpers used by Tab-Info and Tab-ActiveDirectory.
 # Builds System Info-style key/value rows, headers, and separators.
 
 function New-InfoRow {
@@ -6,17 +6,22 @@ function New-InfoRow {
         [string]$Label,
         [string]$Value,
         [string]$ValueBrushKey = "FgBrush",
+        # Ignored. Rows are separated by hairlines, not by a zebra fill; kept so
+        # the ~20 existing call sites don't all need touching.
         [bool]$Alternate = $false
     )
 
     if ([string]::IsNullOrWhiteSpace($Value)) { $Value = "(none)" }
 
+    # cy-design divided list: flush row, no fill, hairline bottom divider. The
+    # border spans full width so dividers line up; only the text is inset.
     $border = New-Object System.Windows.Controls.Border
-    $bgKey = if ($Alternate) { "SurfaceBrush" } else { "InputBgBrush" }
-    $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $bgKey)
-    $border.CornerRadius = [System.Windows.CornerRadius]::new(4)
-    $border.Padding      = [System.Windows.Thickness]::new(10, 6, 10, 6)
-    $border.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 3)
+    $border.Background = [System.Windows.Media.Brushes]::Transparent
+    $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+    $border.CornerRadius = [System.Windows.CornerRadius]::new(0)
+    $border.Padding      = [System.Windows.Thickness]::new(10, 7, 10, 7)
+    $border.Margin       = [System.Windows.Thickness]::new(0)
 
     $grid = New-Object System.Windows.Controls.Grid
     $c0   = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::Auto
@@ -68,11 +73,13 @@ function New-SectionHeader {
     return $tb
 }
 
+# Group break inside a divided list. Deliberately blank: the preceding row
+# already draws a hairline, so a rule here would render as a double line. The
+# gap plus the next header is what separates the groups.
 function New-Separator {
     $sep = New-Object System.Windows.Controls.Border
-    $sep.Height  = 1
-    $sep.Margin  = [System.Windows.Thickness]::new(0, 4, 0, 4)
-    $sep.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BorderBrush")
+    $sep.Height     = 10
+    $sep.Background = [System.Windows.Media.Brushes]::Transparent
     return $sep
 }
 
@@ -80,7 +87,7 @@ function New-PlainLine {
     param([string]$Text)
     $tb            = New-Object System.Windows.Controls.TextBlock
     $tb.Text       = $Text
-    $tb.FontFamily = New-Object System.Windows.Media.FontFamily("Consolas")
+    $tb.FontFamily = New-Object System.Windows.Media.FontFamily("IBM Plex Mono, Cascadia Mono, Consolas")
     $tb.FontSize   = 11
     $tb.Margin     = [System.Windows.Thickness]::new(2, 1, 2, 1)
     $tb.TextWrapping = "Wrap"

@@ -1,4 +1,4 @@
-﻿# ══════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
 #  TWEAKS TAB - Dynamic folder-based tweak loader
 #
 #  To add a new tweak, create a subfolder inside the Tweaks\ folder:
@@ -30,12 +30,14 @@ function Build-TweakRow {
     $tweakMeta     = if (Test-Path $jsonFile) { Get-Content $jsonFile -Raw -Encoding UTF8 | ConvertFrom-Json } else { $null }
     $description   = if ($tweakMeta -and $tweakMeta.description) { $tweakMeta.description } else { $null }
     $requiresAdmin = if ($tweakMeta -and $tweakMeta.requiresAdmin) { $true } else { $false }
+    $caution       = if ($tweakMeta -and $tweakMeta.caution) { $true } else { $false }
 
-    # Row container (no card styling; lives inside the group card)
+    # cy-design divided-list row: flush, hairline bottom divider, 24px inset
     $border = New-Object System.Windows.Controls.Border
     $border.Background      = [System.Windows.Media.Brushes]::Transparent
-    $border.BorderThickness = [System.Windows.Thickness]::new(0)
-    $border.Padding         = [System.Windows.Thickness]::new(0, 7, 0, 7)
+    $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+    $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+    $border.Padding         = [System.Windows.Thickness]::new(24, 10, 24, 10)
     $border.Cursor          = [System.Windows.Input.Cursors]::Hand
     $border.Add_MouseEnter({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush") })
     $border.Add_MouseLeave({ $this.Background = [System.Windows.Media.Brushes]::Transparent })
@@ -65,7 +67,7 @@ function Build-TweakRow {
     if ($requiresAdmin) {
         $adminBadge                   = New-Object System.Windows.Controls.Border
         $adminBadge.BorderThickness   = [System.Windows.Thickness]::new(1)
-        $adminBadge.CornerRadius      = [System.Windows.CornerRadius]::new(4)
+        $adminBadge.CornerRadius      = [System.Windows.CornerRadius]::new(7)
         $adminBadge.Padding           = [System.Windows.Thickness]::new(6, 1, 6, 1)
         $adminBadge.Margin            = [System.Windows.Thickness]::new(8, 0, 0, 0)
         $adminBadge.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
@@ -77,6 +79,23 @@ function Build-TweakRow {
         $adminBadgeText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
         $adminBadge.Child             = $adminBadgeText
         $nameRow.Children.Add($adminBadge) | Out-Null
+    }
+
+    if ($caution) {
+        $cautionBadge                   = New-Object System.Windows.Controls.Border
+        $cautionBadge.BorderThickness   = [System.Windows.Thickness]::new(1)
+        $cautionBadge.CornerRadius      = [System.Windows.CornerRadius]::new(7)
+        $cautionBadge.Padding           = [System.Windows.Thickness]::new(6, 1, 6, 1)
+        $cautionBadge.Margin            = [System.Windows.Thickness]::new(8, 0, 0, 0)
+        $cautionBadge.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+        $cautionBadge.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "DangerBrush")
+        $cautionBadgeText               = New-Object System.Windows.Controls.TextBlock
+        $cautionBadgeText.Text          = "Caution"
+        $cautionBadgeText.FontSize      = 10
+        $cautionBadgeText.FontWeight    = [System.Windows.FontWeights]::SemiBold
+        $cautionBadgeText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "DangerBrush")
+        $cautionBadge.Child             = $cautionBadgeText
+        $nameRow.Children.Add($cautionBadge) | Out-Null
     }
 
     $stack.Children.Add($nameRow) | Out-Null
@@ -224,72 +243,15 @@ function Resolve-TweakGroups {
 # ── Build grouped panel ──────────────────────────────────────────
 
 $script:tweakGroupPanels = @{}  # groupName -> StackPanel (for search filtering)
+$script:tweakGroupOrder  = @()  # group names in rail order
 
-function Build-GroupHeader {
-    param([string]$GroupName, [int]$Count)
-
-    # Clickable header row embedded inside the group card
-    $headerBorder = New-Object System.Windows.Controls.Border
-    $headerBorder.Background      = [System.Windows.Media.Brushes]::Transparent
-    $headerBorder.BorderThickness = [System.Windows.Thickness]::new(0)
-    $headerBorder.Padding         = [System.Windows.Thickness]::new(0, 0, 0, 10)
-    $headerBorder.Cursor          = [System.Windows.Input.Cursors]::Hand
-
-    $headerGrid = New-Object System.Windows.Controls.Grid
-    $hcol0 = New-Object System.Windows.Controls.ColumnDefinition; $hcol0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
-    $hcol1 = New-Object System.Windows.Controls.ColumnDefinition; $hcol1.Width = [System.Windows.GridLength]::Auto
-    $headerGrid.ColumnDefinitions.Add($hcol0)
-    $headerGrid.ColumnDefinitions.Add($hcol1)
-
-    # Accent bar (3px) - matches Settings card headers
-    $accentBar = New-Object System.Windows.Controls.Border
-    $accentBar.Width             = 3
-    $accentBar.CornerRadius      = [System.Windows.CornerRadius]::new(2)
-    $accentBar.VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
-    $accentBar.Margin            = [System.Windows.Thickness]::new(0, 0, 8, 0)
-    $accentBar.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
-
-    $chevron                   = New-Object System.Windows.Controls.TextBlock
-    $chevron.Text              = [char]0x25BC   # ▼
-    $chevron.FontSize          = 10
-    $chevron.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-    $chevron.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-    $chevron.Margin            = [System.Windows.Thickness]::new(0, 0, 6, 0)
-
-    $titleBlock                = New-Object System.Windows.Controls.TextBlock
-    $titleBlock.Text           = $GroupName
-    $titleBlock.FontSize       = 14
-    $titleBlock.FontWeight     = [System.Windows.FontWeights]::SemiBold
-    $titleBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-    $titleBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-
-    $titleStack                = New-Object System.Windows.Controls.DockPanel
-    [System.Windows.Controls.DockPanel]::SetDock($accentBar, [System.Windows.Controls.Dock]::Left)
-    [System.Windows.Controls.DockPanel]::SetDock($chevron,   [System.Windows.Controls.Dock]::Left)
-    $titleStack.Children.Add($accentBar)  | Out-Null
-    $titleStack.Children.Add($chevron)    | Out-Null
-    $titleStack.Children.Add($titleBlock) | Out-Null
-    [System.Windows.Controls.Grid]::SetColumn($titleStack, 0)
-
-    $countBlock                = New-Object System.Windows.Controls.TextBlock
-    $countBlock.Text           = "$Count"
-    $countBlock.FontSize       = 11
-    $countBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-    $countBlock.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-    [System.Windows.Controls.Grid]::SetColumn($countBlock, 1)
-
-    $headerGrid.Children.Add($titleStack) | Out-Null
-    $headerGrid.Children.Add($countBlock) | Out-Null
-    $headerBorder.Child = $headerGrid
-
-    return @{ Border = $headerBorder; Chevron = $chevron; TitleBlock = $titleBlock; CountBlock = $countBlock }
-}
 
 function Rebuild-TweaksPanel {
     $groupPanel = Find "TweaksGroupPanel"
     $groupPanel.Children.Clear()
     $tweakCheckboxes.Clear()
     $script:tweakGroupPanels = @{}
+    $script:tweakGroupOrder  = @()
 
     if (-not (Test-Path $tweaksFolder)) { return }
 
@@ -302,7 +264,6 @@ function Rebuild-TweaksPanel {
         $emptyBlock.TextWrapping = [System.Windows.TextWrapping]::Wrap
         $emptyBlock.Margin       = [System.Windows.Thickness]::new(0, 8, 0, 0)
         $groupPanel.Children.Add($emptyBlock) | Out-Null
-        (Find "BtnTweakCollapseAll").Visibility = "Collapsed"
         Update-TweakFooterCounts
         return
     }
@@ -325,99 +286,63 @@ function Rebuild-TweaksPanel {
     # Sort group names: named groups first (alphabetical), "Other" last
     $sortedKeys = $groups.Keys | Where-Object { $_ -ne "Other" } | Sort-Object
     if ($groups.Contains("Other")) { $sortedKeys = @($sortedKeys) + @("Other") }
+    $script:tweakGroupOrder = @($sortedKeys)   # drives the rail
 
     foreach ($gName in $sortedKeys) {
         $rows = $groups[$gName]
 
-        # Group card (one card per group, matching shortcuts style)
-        $groupCard              = New-Object System.Windows.Controls.Border
-        $groupCard.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty,  "Surface2Brush")
-        $groupCard.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-        $groupCard.CornerRadius    = [System.Windows.CornerRadius]::new(6)
-        $groupCard.BorderThickness = [System.Windows.Thickness]::new(1)
-        $groupCard.Padding         = [System.Windows.Thickness]::new(14, 12, 14, 12)
-        $groupCard.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 8)
-
-        $cardStack = New-Object System.Windows.Controls.StackPanel
-        $groupCard.Child = $cardStack
-
-        # Header embedded at top of card
-        $header = Build-GroupHeader -GroupName $gName -Count $rows.Count
-        $cardStack.Children.Add($header.Border) | Out-Null
-
-        # Separator between header and items
-        $headerSep = New-Object System.Windows.Shapes.Rectangle
-        $headerSep.Height = 1
-        $headerSep.Margin = [System.Windows.Thickness]::new(0, 0, 0, 0)
-        $headerSep.SetResourceReference([System.Windows.Shapes.Rectangle]::FillProperty, "BorderBrush")
-        $cardStack.Children.Add($headerSep) | Out-Null
-
-        # Items panel
+        # No group header: the rail carries the categories now, so each group is
+        # just a flush run of rows. "All tweaks" then reads as one continuous
+        # divided list (each row draws its own bottom hairline).
         $itemsPanel = New-Object System.Windows.Controls.StackPanel
 
-        $isFirstRow = $true
         foreach ($row in $rows) {
-            if (-not $isFirstRow) {
-                $sep = New-Object System.Windows.Shapes.Rectangle
-                $sep.Height = 1
-                $sep.SetResourceReference([System.Windows.Shapes.Rectangle]::FillProperty, "BorderBrush")
-                $itemsPanel.Children.Add($sep) | Out-Null
-            }
-            $isFirstRow = $false
             $itemsPanel.Children.Add($row.Border) | Out-Null
         }
 
-        $cardStack.Children.Add($itemsPanel) | Out-Null
-
-        # Apply persisted collapsed state
-        if ($script:collapsedTweakGroups -contains $gName) {
-            $itemsPanel.Visibility = "Collapsed"
-            $headerSep.Visibility  = "Collapsed"
-            $header.Chevron.Text   = [char]0x25B6   # ▶
-        }
-
-        # Toggle collapse on header click + persist
-        $header.Border.Tag = [PSCustomObject]@{ ItemsPanel = $itemsPanel; HeaderSep = $headerSep; Chevron = $header.Chevron; GroupName = $gName }
-        $header.Border.Add_MouseLeftButtonUp({
-            param($s, $e)
-            $tag = $s.Tag
-            if ($tag.ItemsPanel.Visibility -eq "Visible") {
-                $tag.ItemsPanel.Visibility = "Collapsed"
-                $tag.HeaderSep.Visibility  = "Collapsed"
-                $tag.Chevron.Text          = [char]0x25B6   # ▶
-                if (-not ($script:collapsedTweakGroups -contains $tag.GroupName)) {
-                    $script:collapsedTweakGroups.Add($tag.GroupName) | Out-Null
-                    Save-Settings
-                }
-            } else {
-                $tag.ItemsPanel.Visibility = "Visible"
-                $tag.HeaderSep.Visibility  = "Visible"
-                $tag.Chevron.Text          = [char]0x25BC   # ▼
-                if ($script:collapsedTweakGroups -contains $tag.GroupName) {
-                    $script:collapsedTweakGroups.Remove($tag.GroupName) | Out-Null
-                    Save-Settings
-                }
-            }
-            Update-TweakCollapseAllButton
-        })
-
-        # Hook checkbox changes to refresh footer counts
         foreach ($r in $rows) {
             $r.CheckBox.Add_Checked({   Update-TweakFooterCounts })
             $r.CheckBox.Add_Unchecked({ Update-TweakFooterCounts })
         }
 
-        $groupPanel.Children.Add($groupCard) | Out-Null
-        $script:tweakGroupPanels[$gName] = @{ Container = $groupCard; ItemsPanel = $itemsPanel; HeaderSep = $headerSep; Rows = $rows; Header = $header }
+        $groupPanel.Children.Add($itemsPanel) | Out-Null
+        $script:tweakGroupPanels[$gName] = @{ Container = $itemsPanel; ItemsPanel = $itemsPanel; Rows = $rows }
     }
-
-    Update-TweakCollapseAllButton
     Update-TweakFooterCounts
+
+    # Rebuild the rail and re-apply the current selection (falls back to All tweaks)
+    $keep = if ($null -ne $script:tweaksSubNavIndex) { $script:tweaksSubNavIndex } else { 0 }
+    Set-TweaksSubNav $keep
 
     # Refresh global search index if available
     if (Get-Command Update-GlobalSearchIndex -ErrorAction SilentlyContinue) {
         Update-GlobalSearchIndex
     }
+}
+
+# ── Tweaks rail: "All tweaks" + one entry per category ────────────
+# Index 0 shows every group; any other index shows just that group.
+function Set-TweaksSubNav {
+    param([int]$Index)
+
+    $labels = @("All tweaks") + @($script:tweakGroupOrder)
+    if ($Index -lt 0 -or $Index -ge $labels.Count) { $Index = 0 }
+    $script:tweaksSubNavIndex = $Index
+
+    $counts = @($tweakCheckboxes.Count)
+    foreach ($g in $script:tweakGroupOrder) {
+        $counts += @($script:tweakGroupPanels[$g].Rows).Count
+    }
+
+    foreach ($g in $script:tweakGroupOrder) {
+        $container = $script:tweakGroupPanels[$g].Container
+        if ($container) {
+            $container.Visibility = if ($Index -eq 0 -or $labels[$Index] -eq $g) { "Visible" } else { "Collapsed" }
+        }
+    }
+
+    Build-Rail -Panel (Find "TweaksRail") -Labels $labels -Counts $counts `
+               -ActiveIndex $Index -OnSelect { param($i) Set-TweaksSubNav $i }
 }
 
 # ── Footer button counts ─────────────────────────────────────────
@@ -426,37 +351,22 @@ function Update-TweakFooterCounts {
     foreach ($key in $tweakCheckboxes.Keys) {
         if ($tweakCheckboxes[$key].CheckBox.IsChecked) { $count++ }
     }
+    # The count lives in the footer label now, so the buttons keep clean labels.
     $btnApply  = Find "BtnApplyTweaks"
     $btnRevert = Find "BtnRevertTweaks"
-    if ($count -gt 0) {
-        $btnApply.Content   = "Apply selected ($count)"
-        $btnRevert.Content  = "Revert selected ($count)"
-        $btnApply.IsEnabled  = $true
-        $btnRevert.IsEnabled = $true
-    } else {
-        $btnApply.Content   = "Apply selected"
-        $btnRevert.Content  = "Revert selected"
-        $btnApply.IsEnabled  = $false
-        $btnRevert.IsEnabled = $false
+    $countText = Find "TweakFooterCount"
+    if ($countText) {
+        $countText.Text = switch ($count) {
+            0       { "" }
+            1       { "1 tweak selected" }
+            default { "$count tweaks selected" }
+        }
     }
+    $btnApply.IsEnabled  = ($count -gt 0)
+    $btnRevert.IsEnabled = ($count -gt 0)
 }
 
 # ── Collapse all button visibility + label ───────────────────────
-function Update-TweakCollapseAllButton {
-    $btn = Find "BtnTweakCollapseAll"
-    $groupCount = $script:tweakGroupPanels.Count
-    if ($groupCount -lt 4) {
-        $btn.Visibility = "Collapsed"
-        return
-    }
-    $btn.Visibility = "Visible"
-    # If any group is expanded, button collapses all. Otherwise it expands.
-    $anyExpanded = $false
-    foreach ($k in $script:tweakGroupPanels.Keys) {
-        if ($script:tweakGroupPanels[$k].ItemsPanel.Visibility -eq "Visible") { $anyExpanded = $true; break }
-    }
-    $btn.Content = if ($anyExpanded) { "Collapse all" } else { "Expand all" }
-}
 
 # ── Initial load ──────────────────────────────────────────────────
 # Deferred to first Tweaks-tab visit (Invoke-ScyTabInit in Scy.ps1) so the
@@ -485,43 +395,16 @@ function Update-TweakCollapseAllButton {
             }
         }
 
-        # Update separator visibility to match their adjacent row
-        $prevRow = $null
-        foreach ($child in $gData.ItemsPanel.Children) {
-            if ($child -is [System.Windows.Controls.Border]) {
-                $prevRow = $child
-            } elseif ($child -is [System.Windows.Shapes.Rectangle]) {
-                $child.Visibility = if ($prevRow -and $prevRow.Visibility -eq "Visible") { "Visible" } else { "Collapsed" }
-            }
-        }
-
-        # Hide entire group if no matches; show and expand if matches
+        # While searching, span every category and hide the ones with no hits
         if ($query) {
-            if ($visible -gt 0) {
-                $gData.Container.Visibility   = "Visible"
-                $gData.ItemsPanel.Visibility  = "Visible"
-                $gData.HeaderSep.Visibility   = "Visible"
-                $gData.Header.Chevron.Text    = [char]0x25BC   # ▼
-                $gData.Header.CountBlock.Text = "$visible"
-            } else {
-                $gData.Container.Visibility = "Collapsed"
-            }
-        } else {
-            $gData.Container.Visibility = "Visible"
-            # Restore saved collapsed/expanded state instead of forcing expand
-            if ($script:collapsedTweakGroups -contains $gName) {
-                $gData.ItemsPanel.Visibility = "Collapsed"
-                $gData.HeaderSep.Visibility  = "Collapsed"
-                $gData.Header.Chevron.Text   = [char]0x25B6   # ▶
-            } else {
-                $gData.ItemsPanel.Visibility = "Visible"
-                $gData.HeaderSep.Visibility  = "Visible"
-                $gData.Header.Chevron.Text   = [char]0x25BC   # ▼
-            }
-            $gData.Header.CountBlock.Text = "$($gData.Rows.Count)"
+            $gData.Container.Visibility = if ($visible -gt 0) { "Visible" } else { "Collapsed" }
         }
     }
-    Update-TweakCollapseAllButton
+
+    # Clearing the box hands control back to the rail selection
+    if (-not $query) {
+        Set-TweaksSubNav $(if ($null -ne $script:tweaksSubNavIndex) { $script:tweaksSubNavIndex } else { 0 })
+    }
 })
 
 (Find "TweakSearchClear").Add_Click({
@@ -530,38 +413,6 @@ function Update-TweakCollapseAllButton {
 })
 
 # ── Collapse all / Expand all button ─────────────────────────────
-(Find "BtnTweakCollapseAll").Add_Click({
-    # Detect intent from current label
-    $btn = Find "BtnTweakCollapseAll"
-    $collapse = ($btn.Content -eq "Collapse all")
-    $changed = $false
-    foreach ($gName in $script:tweakGroupPanels.Keys) {
-        $gData = $script:tweakGroupPanels[$gName]
-        if ($collapse) {
-            if ($gData.ItemsPanel.Visibility -eq "Visible") {
-                $gData.ItemsPanel.Visibility = "Collapsed"
-                $gData.HeaderSep.Visibility  = "Collapsed"
-                $gData.Header.Chevron.Text   = [char]0x25B6   # ▶
-            }
-            if (-not ($script:collapsedTweakGroups -contains $gName)) {
-                $script:collapsedTweakGroups.Add($gName) | Out-Null
-                $changed = $true
-            }
-        } else {
-            if ($gData.ItemsPanel.Visibility -ne "Visible") {
-                $gData.ItemsPanel.Visibility = "Visible"
-                $gData.HeaderSep.Visibility  = "Visible"
-                $gData.Header.Chevron.Text   = [char]0x25BC   # ▼
-            }
-            if ($script:collapsedTweakGroups -contains $gName) {
-                $script:collapsedTweakGroups.Remove($gName) | Out-Null
-                $changed = $true
-            }
-        }
-    }
-    if ($changed) { Save-Settings }
-    Update-TweakCollapseAllButton
-})
 
 # ── Tweak creator ────────────────────────────────────────────────
 (Find "BtnToggleTweakCreator").Add_Click({
@@ -611,6 +462,7 @@ function Update-TweakCollapseAllButton {
     $desc      = (Find "TweakDescBox").Text.Trim()
     $applyPath = (Find "TweakApplyPath").Text.Trim()
     $needsAdmin = (Find "TweakRequiresAdminToggle").IsChecked
+    $needsCaution = (Find "TweakCautionToggle").IsChecked
 
     if (-not $name) {
         Show-ThemedDialog "Please enter a tweak name." "Missing name" "OK" "Warning"
@@ -637,11 +489,12 @@ function Update-TweakCollapseAllButton {
         if ($revertPath) {
             Copy-Item -Path $revertPath -Destination (Join-Path $destDir "Revert.ps1") -Force
         }
-        if ($desc -or $group -or $needsAdmin) {
+        if ($desc -or $group -or $needsAdmin -or $needsCaution) {
             $tweakJson = @{}
             if ($group) { $tweakJson.group = $group }
             if ($desc)  { $tweakJson.description = $desc }
             if ($needsAdmin) { $tweakJson.requiresAdmin = $true }
+            if ($needsCaution) { $tweakJson.caution = $true }
             $tweakJson | ConvertTo-Json | Set-Content -Path (Join-Path $destDir "tweak.json") -Encoding UTF8
         }
 
@@ -658,6 +511,7 @@ function Update-TweakCollapseAllButton {
         (Find "TweakRevertPlaceholder").Visibility   = "Visible"
         (Find "TweakGroupPlaceholder").Visibility    = "Visible"
         (Find "TweakRequiresAdminToggle").IsChecked  = $false
+        (Find "TweakCautionToggle").IsChecked        = $false
         (Find "TweakCreatorPanel").Visibility        = "Collapsed"
 
         $footerStatus.Text = "Scy - Tweak '$name' created"

@@ -1,0 +1,5 @@
+{
+    "group": "Privacy & Telemetry",
+    "description": "Stops Windows from installing extra software when plugging in devices (e.g. ads when connecting a monitor)",
+    "requiresAdmin": true
+}
