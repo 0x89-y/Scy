@@ -79,7 +79,10 @@ $btnExportScan.Add_Click({
     Start-ScyJob `
         -Work {
             param($emit)
+            # Winget rows are keyed by Id (two apps can share a display name);
+            # $byName lets registry entries merge into the matching winget row.
             $allSoftware = @{}
+            $byName      = @{}
 
             # ── Winget list ──────────────────────────────────────
             try {
@@ -117,14 +120,16 @@ $btnExportScan.Add_Click({
                             $version = if ($vals.Count -ge 3) { $vals[2].Trim() } else { "" }
 
                             if ($name -and $name -ne "Name" -and $name -notmatch '^-+$') {
-                                $key = $name.ToLower()
+                                $key = if ($id) { "id:" + $id.ToLower() } else { "name:" + $name.ToLower() }
                                 if (-not $allSoftware.ContainsKey($key)) {
-                                    $allSoftware[$key] = [PSCustomObject]@{
+                                    $obj = [PSCustomObject]@{
                                         Name    = $name
                                         Id      = $id
                                         Version = $version
                                         Source  = "Winget"
                                     }
+                                    $allSoftware[$key] = $obj
+                                    if (-not $byName.ContainsKey($name.ToLower())) { $byName[$name.ToLower()] = $obj }
                                 }
                             }
                         }
@@ -136,20 +141,25 @@ $btnExportScan.Add_Click({
             $regPaths = @(
                 "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
                 "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
-                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"
+                "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                "HKCU:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
             )
             foreach ($path in $regPaths) {
                 try {
+                    # Skip what Programs & Features hides too: system components and
+                    # updates/patches that belong to a parent product.
                     $items = Get-ItemProperty $path -ErrorAction SilentlyContinue |
-                             Where-Object { $_.DisplayName -and $_.DisplayName.Trim() -ne "" }
+                             Where-Object { $_.DisplayName -and $_.DisplayName.Trim() -ne "" -and
+                                            $_.SystemComponent -ne 1 -and -not $_.ParentKeyName -and
+                                            $_.ReleaseType -notin @('Update', 'Hotfix', 'Security Update') }
                     foreach ($item in $items) {
                         $name    = $item.DisplayName.Trim()
                         $version = if ($item.DisplayVersion) { $item.DisplayVersion.Trim() } else { "" }
                         $pub     = if ($item.Publisher) { $item.Publisher.Trim() } else { "" }
                         $key     = $name.ToLower()
 
-                        if (-not $allSoftware.ContainsKey($key)) {
-                            $allSoftware[$key] = [PSCustomObject]@{
+                        if (-not $byName.ContainsKey($key)) {
+                            $byName[$key] = $allSoftware["name:" + $key] = [PSCustomObject]@{
                                 Name      = $name
                                 Id        = ""
                                 Version   = $version
@@ -159,7 +169,7 @@ $btnExportScan.Add_Click({
                                 InstallLocation = if ($item.InstallLocation) { $item.InstallLocation } else { "" }
                             }
                         } else {
-                            $existing = $allSoftware[$key]
+                            $existing = $byName[$key]
                             if (-not $existing.Publisher -and $pub) {
                                 $existing | Add-Member -NotePropertyName "Publisher" -NotePropertyValue $pub -Force
                             }
@@ -274,14 +284,19 @@ function Invoke-ExportRenderBatch {
                 # Only winget-sourced apps can be uninstalled via winget; registry
                 # rows still appear (export needs them) but aren't selectable.
                 $isWinget = ($app.Source -eq "Winget")
+                # winget shortens long IDs with a trailing ellipsis; those can't be targeted with --id
+                $isTruncated = $isWinget -and $app.Id -and $app.Id.EndsWith([string][char]0x2026)
                 $chk = New-Object System.Windows.Controls.CheckBox
                 $chk.Style             = $window.Resources["CleanCheckBox"]
                 $chk.VerticalAlignment = "Center"
                 $chk.Margin            = [System.Windows.Thickness]::new(0, 0, 10, 0)
-                $chk.IsEnabled         = $isWinget
+                $chk.IsEnabled         = $isWinget -and -not $isTruncated
                 if (-not $isWinget) {
                     $chk.Opacity = 0.35
                     $chk.ToolTip = "Only winget apps can be uninstalled from here"
+                } elseif ($isTruncated) {
+                    $chk.Opacity = 0.35
+                    $chk.ToolTip = "winget shortened this app's ID - uninstall it from Windows Settings > Apps"
                 }
                 $chk.Add_Click({ Update-UninstallSelectionCount })
                 [System.Windows.Controls.Grid]::SetColumn($chk, 0)
@@ -557,7 +572,7 @@ function New-ResultRow {
                 $i++
                 & $emit @{ Kind = 'start'; Name = $item.Name; Index = $i }
                 & winget uninstall --id $item.Id --exact --silent --accept-source-agreements 2>&1 | Out-Null
-                & $emit @{ Kind = 'done'; Name = $item.Name; Id = $item.Id; Index = $i; Ok = ($LASTEXITCODE -eq 0); Code = $LASTEXITCODE }
+                & $emit @{ Kind = 'done'; Name = $item.Name; Id = $item.Id; Index = $i; Code = $LASTEXITCODE }
             }
         } `
         -OnLine {
@@ -566,9 +581,12 @@ function New-ResultRow {
                 $uninstallResultsStatus.Text = "Removing " + $m.Name + " (" + $m.Index + " of " + $ctx.Total + ")..."
                 return
             }
-            if ($m.Ok) { $ctx.Succeeded.Value++ } else { $ctx.Failed.Value++ }
-            Write-ScyLog ("Uninstall " + $(if ($m.Ok) { "ok" } else { "FAILED (" + ('0x{0:X8}' -f $m.Code) + ")" }) + ": $($m.Name) ($($m.Id))") $(if ($m.Ok) { "INFO" } else { "ERROR" })
-            $uninstallResultsPanel.Children.Add((New-ResultRow $m.Name $m.Id $m.Ok $false)) | Out-Null
+            $w = Get-WingetResult $m.Code
+            if ($w.Ok) { $ctx.Succeeded.Value++ } else { $ctx.Failed.Value++ }
+            Write-ScyLog ("Uninstall " + $(if ($w.Ok) { "ok" } else { "FAILED (" + $w.Text + ")" }) + ": $($m.Name) ($($m.Id))") $(if ($w.Ok) { "INFO" } else { "ERROR" })
+            $row = New-ResultRow $m.Name $m.Id $w.Ok $false
+            if (-not $w.Ok) { $row.ToolTip = $w.Text }
+            $uninstallResultsPanel.Children.Add($row) | Out-Null
         } `
         -OnComplete {
             param($result, $err, $ctx)

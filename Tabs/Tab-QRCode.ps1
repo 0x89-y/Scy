@@ -87,6 +87,30 @@ function script:Format-WifiValue([string]$v) {
     return $v
 }
 
+# Escape a vCard text value (backslash, comma, semicolon, newline are special).
+function script:Format-VcardValue([string]$v) {
+    if ($null -eq $v) { return "" }
+    $v = $v -replace '\\', '\\'
+    $v = $v -replace ',',  '\,'
+    $v = $v -replace ';',  '\;'
+    $v = $v -replace "\r?\n", '\n'
+    return $v
+}
+
+# WCAG contrast ratio between two colors (1 = identical, 21 = black on white).
+function script:Get-QRContrast($a, $b) {
+    $lum = {
+        param($c)
+        $ch = foreach ($x in @($c.R, $c.G, $c.B)) {
+            $s = $x / 255.0
+            if ($s -le 0.03928) { $s / 12.92 } else { [Math]::Pow(($s + 0.055) / 1.055, 2.4) }
+        }
+        0.2126 * $ch[0] + 0.7152 * $ch[1] + 0.0722 * $ch[2]
+    }
+    $la = & $lum $a; $lb = & $lum $b
+    return ([Math]::Max($la, $lb) + 0.05) / ([Math]::Min($la, $lb) + 0.05)
+}
+
 # Build the encoded payload string from the currently selected data type.
 function script:Build-QRPayload {
     switch ([int]$qrTemplateBox.SelectedIndex) {
@@ -106,7 +130,7 @@ function script:Build-QRPayload {
             return "WIFI:T:$auth;S:$sEsc;P:$pEsc;H:$hidden;;"
         }
         2 {  # Contact (vCard)
-            $name = $script:qrc["QRVcardName"].Text
+            $name = $script:qrc["QRVcardName"].Text.Trim()
             $org  = $script:qrc["QRVcardOrg"].Text
             $tel  = $script:qrc["QRVcardPhone"].Text
             $mail = $script:qrc["QRVcardEmail"].Text
@@ -116,8 +140,15 @@ function script:Build-QRPayload {
             $lines = [System.Collections.Generic.List[string]]::new()
             $lines.Add("BEGIN:VCARD")
             $lines.Add("VERSION:3.0")
-            if (-not [string]::IsNullOrWhiteSpace($name)) { $lines.Add("N:$name"); $lines.Add("FN:$name") }
-            if (-not [string]::IsNullOrWhiteSpace($org))  { $lines.Add("ORG:$org") }
+            if (-not [string]::IsNullOrWhiteSpace($name)) {
+                # N is structured "Last;First": treat the final word as the family name
+                $parts = @($name -split '\s+')
+                $last  = $parts[-1]
+                $first = if ($parts.Count -gt 1) { ($parts[0..($parts.Count - 2)]) -join ' ' } else { "" }
+                $lines.Add("N:" + (script:Format-VcardValue $last) + ";" + (script:Format-VcardValue $first) + ";;;")
+                $lines.Add("FN:" + (script:Format-VcardValue $name))
+            }
+            if (-not [string]::IsNullOrWhiteSpace($org))  { $lines.Add("ORG:" + (script:Format-VcardValue $org)) }
             if (-not [string]::IsNullOrWhiteSpace($tel))  { $lines.Add("TEL:$tel") }
             if (-not [string]::IsNullOrWhiteSpace($mail)) { $lines.Add("EMAIL:$mail") }
             if (-not [string]::IsNullOrWhiteSpace($url))  { $lines.Add("URL:$url") }
@@ -258,6 +289,26 @@ function Invoke-QRGenerate {
         $hint.Foreground = $window.Resources["MutedText"]
         $hint.HorizontalAlignment = "Center"
         $qrOutputPanel.Children.Add($hint) | Out-Null
+
+        # Scanners need dark modules on a light background with clear contrast
+        $contrastWarning = $null
+        $darkLum  = (0.299 * $dark.R + 0.587 * $dark.G + 0.114 * $dark.B)
+        $lightLum = (0.299 * $light.R + 0.587 * $light.G + 0.114 * $light.B)
+        if ($darkLum -gt $lightLum) {
+            $contrastWarning = "Light code on a dark background - many scanners can't read inverted QR codes."
+        } elseif ((script:Get-QRContrast $dark $light) -lt 4) {
+            $contrastWarning = "Low contrast between the colors - some scanners may not read this code."
+        }
+        if ($contrastWarning) {
+            $warn              = New-Object System.Windows.Controls.TextBlock
+            $warn.Text         = $contrastWarning
+            $warn.FontSize     = 11
+            $warn.TextWrapping = "Wrap"
+            $warn.TextAlignment = "Center"
+            $warn.Margin       = [System.Windows.Thickness]::new(0, 4, 0, 0)
+            $warn.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
+            $qrOutputPanel.Children.Add($warn) | Out-Null
+        }
     } catch {
         $tb          = [System.Windows.Controls.TextBlock]::new()
         $tb.Text     = "Error: $_"

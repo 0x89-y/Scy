@@ -51,11 +51,19 @@ function Open-RegEdit {
         if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
         Set-ItemProperty -Path $regPath -Name "LastKey" -Value "Computer\$fullPath" -Type String
 
-        # Kill any running regedit so the new one picks up LastKey
+        # regedit only reads LastKey on start, so an open instance has to close first - ask, don't just kill it
         $existing = Get-Process regedit -ErrorAction SilentlyContinue
         if ($existing) {
-            $existing | Stop-Process -Force
-            Start-Sleep -Milliseconds 300
+            $r = Show-ThemedDialog "Registry Editor is already open. Close it and reopen it at this key?" "Registry Editor" "YesNo" "Question"
+            if ($r -ne "Yes") { return }
+            try {
+                $existing | Stop-Process -Force -ErrorAction Stop
+                Start-Sleep -Milliseconds 300
+            } catch {
+                # e.g. it runs elevated and Scy doesn't
+                Show-ThemedDialog "Couldn't close the open Registry Editor. Close it yourself, then click the bookmark again." "Registry Editor" "OK" "Warning" | Out-Null
+                return
+            }
         }
 
         Start-Process regedit.exe

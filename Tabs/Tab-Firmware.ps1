@@ -69,12 +69,15 @@ function Populate-FirmwareInfo {
             }
 
             $cpu = Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
-            $virtFirmware = if ($cpu.VirtualizationFirmwareEnabled) { "Enabled" } else { "Disabled" }
+            # With a hypervisor running (Hyper-V, WSL2, VBS), Windows reports
+            # VirtualizationFirmwareEnabled = False even though it is on.
+            $hypervisorPresent = [bool](Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue).HypervisorPresent
+            $virtFirmware = if ($cpu.VirtualizationFirmwareEnabled -or $hypervisorPresent) { "Enabled" } else { "Disabled" }
 
             $hyperV = "Not Installed"
             try {
-                $hvFeature = Get-CimInstance Win32_OptionalFeature -ErrorAction SilentlyContinue |
-                             Where-Object { $_.Name -eq "Microsoft-Hyper-V" }
+                # Filtered query: enumerating every optional feature takes seconds
+                $hvFeature = Get-CimInstance Win32_OptionalFeature -Filter "Name='Microsoft-Hyper-V'" -ErrorAction SilentlyContinue
                 if ($hvFeature) {
                     $hyperV = switch ($hvFeature.InstallState) {
                         1 { "Enabled" }; 2 { "Disabled" }; default { "Unknown" }
@@ -91,8 +94,7 @@ function Populate-FirmwareInfo {
 
             $wslStatus = "Not Installed"
             try {
-                $wslFeature = Get-CimInstance Win32_OptionalFeature -ErrorAction SilentlyContinue |
-                              Where-Object { $_.Name -eq "Microsoft-Windows-Subsystem-Linux" }
+                $wslFeature = Get-CimInstance Win32_OptionalFeature -Filter "Name='Microsoft-Windows-Subsystem-Linux'" -ErrorAction SilentlyContinue
                 if ($wslFeature -and $wslFeature.InstallState -eq 1) { $wslStatus = "Enabled" }
             } catch { }
 

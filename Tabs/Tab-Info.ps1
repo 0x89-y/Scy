@@ -107,10 +107,14 @@ function Populate-SysInfo {
             param($emit)
             $os  = Get-CimInstance Win32_OperatingSystem
             $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
-            $gpu = (Get-CimInstance Win32_VideoController | Select-Object -First 1).Name
+            # Every adapter (laptops often have an integrated + a dedicated GPU)
+            $gpu = (@(Get-CimInstance Win32_VideoController | ForEach-Object { ([string]$_.Name).Trim() } | Where-Object { $_ }) -join ", ")
 
             $uptime = (Get-Date) - $os.LastBootUpTime
-            $ram    = [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)
+            # Installed RAM (sum of the modules); "visible" is lower by what the
+            # firmware/GPU reserves, so only fall back to it.
+            $installed = (Get-CimInstance Win32_PhysicalMemory -ErrorAction SilentlyContinue | Measure-Object -Property Capacity -Sum).Sum
+            $ram    = if ($installed) { [math]::Round($installed / 1GB, 1) } else { [math]::Round($os.TotalVisibleMemorySize / 1MB, 1) }
             $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $null -ne $_.Used }
 
             $smartMap = @{}

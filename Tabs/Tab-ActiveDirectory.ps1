@@ -437,11 +437,13 @@ param($emit)
 $q  = $userQuery
 $qe = $q.Replace("'", "''")
 $filter = "SamAccountName -eq '$qe' -or UserPrincipalName -eq '$qe' -or Name -like '*$qe*'"
-$users = Get-ADUser -Filter $filter -Properties LockedOut,LastLogonDate,Enabled,AccountExpirationDate,Description,Title,EmailAddress,PasswordLastSet,PasswordNeverExpires,Department,MemberOf -ErrorAction Stop
+$users = Get-ADUser -Filter $filter -ResultSetSize 50 -Properties LockedOut,LastLogonDate,Enabled,AccountExpirationDate,Description,Title,EmailAddress,PasswordLastSet,PasswordNeverExpires,Department,MemberOf -ErrorAction Stop
 if (-not $users) {
     & $emit "##KV|Status|No users found matching '$q'."
     return
 }
+# Capped so a broad "*name*" match on a large domain stays fast
+if (@($users).Count -ge 50) { & $emit "##KVA|Note|Showing the first 50 matches - refine the search to narrow it down|WarningBrush" }
 $first = $true
 foreach ($u in $users) {
     if (-not $first) { & $emit '##DIV' }
@@ -491,11 +493,13 @@ param($emit)
 $q  = $groupQuery
 $qe = $q.Replace("'", "''")
 $filter = "Name -eq '$qe' -or SamAccountName -eq '$qe' -or Name -like '*$qe*'"
-$groups = Get-ADGroup -Filter $filter -Properties Description,GroupScope,GroupCategory,ManagedBy,Members -ErrorAction Stop
+$groups = Get-ADGroup -Filter $filter -ResultSetSize 50 -Properties Description,GroupScope,GroupCategory,ManagedBy,Members -ErrorAction Stop
 if (-not $groups) {
     & $emit "##KV|Status|No groups found matching '$q'."
     return
 }
+# Capped so a broad "*name*" match on a large domain stays fast
+if (@($groups).Count -ge 50) { & $emit "##KVA|Note|Showing the first 50 matches - refine the search to narrow it down|WarningBrush" }
 $first = $true
 foreach ($g in $groups) {
     if (-not $first) { & $emit '##DIV' }
@@ -556,11 +560,13 @@ param($emit)
 $q  = $computerQuery
 $qe = $q.Replace("'", "''")
 $filter = "Name -eq '$qe' -or DNSHostName -eq '$qe' -or Name -like '*$qe*'"
-$comps = Get-ADComputer -Filter $filter -Properties OperatingSystem,OperatingSystemVersion,LastLogonDate,Enabled,Description,IPv4Address,DNSHostName -ErrorAction Stop
+$comps = Get-ADComputer -Filter $filter -ResultSetSize 50 -Properties OperatingSystem,OperatingSystemVersion,LastLogonDate,Enabled,Description,IPv4Address,DNSHostName -ErrorAction Stop
 if (-not $comps) {
     & $emit "##KV|Status|No computers found matching '$q'."
     return
 }
+# Capped so a broad "*name*" match on a large domain stays fast
+if (@($comps).Count -ge 50) { & $emit "##KVA|Note|Showing the first 50 matches - refine the search to narrow it down|WarningBrush" }
 $first = $true
 foreach ($c in $comps) {
     if (-not $first) { & $emit '##DIV' }

@@ -1,4 +1,4 @@
 {
     "group": "Performance & Startup",
-    "description": "Switch to the High Performance power plan (requires admin)"
+    "description": "Switch to the High Performance power plan (not available on some laptops that use Modern Standby)"
 }

@@ -220,10 +220,22 @@ function Start-NetLiveExe {
         } | Out-Null
 }
 
+# -- Target host -------------------------------------------------------------
+# Returns the host to ping/trace, or $null if the box holds something that isn't
+# a hostname / IP. The value is spliced into a command line, so anything with
+# spaces or a leading dash (e.g. "-t host" -> ping forever) is rejected.
+function Get-NetTargetHost {
+    $h = $netHostBox.Text.Trim()
+    if ([string]::IsNullOrWhiteSpace($h)) { return "8.8.8.8" }
+    if ($h -match '^[A-Za-z0-9_][A-Za-z0-9.\-_:%]*$') { return $h }
+    $netPingOutput.Text = "Enter a hostname or IP address (e.g. example.com or 1.1.1.1)."
+    return $null
+}
+
 # -- Ping --------------------------------------------------------------------
 function Invoke-NetPing {
-    $h = $netHostBox.Text.Trim()
-    if ([string]::IsNullOrWhiteSpace($h)) { $h = "8.8.8.8" }
+    $h = Get-NetTargetHost
+    if (-not $h) { return }
     Start-NetLiveExe -Exe "ping" -Arguments "-n 4 $h" `
                      -OutputBox $netPingOutput -StatusText "Pinging $h..."
 }
@@ -232,8 +244,8 @@ $btnNetPing.Add_Click({ Invoke-NetPing })
 
 # -- Traceroute --------------------------------------------------------------
 function Invoke-NetTrace {
-    $h = $netHostBox.Text.Trim()
-    if ([string]::IsNullOrWhiteSpace($h)) { $h = "8.8.8.8" }
+    $h = Get-NetTargetHost
+    if (-not $h) { return }
     Start-NetLiveExe -Exe "tracert" -Arguments "-d $h" `
                      -OutputBox $netPingOutput -StatusText "Tracing route to $h..."
 }
@@ -288,6 +300,7 @@ $btnNetSpeed.Add_Click({
                     $req           = [System.Net.HttpWebRequest]::Create($u)
                     $req.UserAgent = "Mozilla/5.0"
                     $req.Timeout   = 20000
+                    $req.ServicePoint.ConnectionLimit = 16
                     $resp          = $req.GetResponse()
                     $str           = $resp.GetResponseStream()
                     $buf           = New-Object byte[] 524288
@@ -296,13 +309,18 @@ $btnNetSpeed.Add_Click({
                         if ($r -le 0) { break }
                         if ($phase[0] -eq 1) { $localBytes += $r }
                     }
-                    $str.Close()
-                    $resp.Close()
+                    # Abort rather than Close: closing a half-read response can make
+                    # .NET drain the rest of the 1 GB file before returning.
+                    $req.Abort()
                 } catch {}
                 [System.Threading.Monitor]::Enter($lk)
                 $total[0] += $localBytes
                 [System.Threading.Monitor]::Exit($lk)
             }
+
+            # .NET Framework allows only 2 connections per host by default, which
+            # silently capped the "8 parallel streams" at 2.
+            [System.Net.ServicePointManager]::DefaultConnectionLimit = [Math]::Max([System.Net.ServicePointManager]::DefaultConnectionLimit, 16)
 
             $pool = [runspacefactory]::CreateRunspacePool($numConns, $numConns)
             $pool.Open()
@@ -955,27 +973,41 @@ $dnsSecondaryBox.Add_GotFocus({ $dnsSecondaryPlaceholder.Visibility = "Collapsed
 $dnsSecondaryBox.Add_LostFocus({ if ($dnsSecondaryBox.Text -eq "") { $dnsSecondaryPlaceholder.Visibility = "Visible" } })
 
 # DNS profiles: Name -> @{ Primary; Secondary; DohTemplate }
+# IPv6 servers are set too: with only IPv4 changed, the router's IPv6 DNS
+# (handed out via DHCPv6/RA) kept answering queries on dual-stack networks.
 $script:dnsProfiles = @{
     "Cloudflare" = @{
         Primary     = "1.1.1.1"
         Secondary   = "1.0.0.1"
+        IPv6        = @("2606:4700:4700::1111", "2606:4700:4700::1001")
         DohTemplate = "https://cloudflare-dns.com/dns-query"
     }
     "Google" = @{
         Primary     = "8.8.8.8"
         Secondary   = "8.8.4.4"
+        IPv6        = @("2001:4860:4860::8888", "2001:4860:4860::8844")
         DohTemplate = "https://dns.google/dns-query"
     }
     "Quad9" = @{
         Primary     = "9.9.9.9"
         Secondary   = "149.112.112.112"
+        IPv6        = @("2620:fe::fe", "2620:fe::9")
         DohTemplate = "https://dns.quad9.net/dns-query"
     }
     "OpenDNS" = @{
         Primary     = "208.67.222.222"
         Secondary   = "208.67.220.220"
+        IPv6        = @("2620:119:35::35", "2620:119:53::53")
         DohTemplate = "https://doh.opendns.com/dns-query"
     }
+}
+
+# A valid IPv4 (each octet 0-255) or IPv6 address.
+function Test-DnsServerAddress {
+    param([string]$Value)
+    if ($Value -match '^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$') { return $true }
+    $ip = $null
+    return ($Value.Contains(':') -and [System.Net.IPAddress]::TryParse($Value, [ref]$ip))
 }
 
 function Get-DnsAdapters {
@@ -1099,6 +1131,7 @@ function Set-DnsForAdapter {
         [string]$AdapterName,
         [string]$Primary,
         [string]$Secondary,
+        [string[]]$IPv6 = @(),
         [string]$DohTemplate
     )
     try {
@@ -1109,13 +1142,11 @@ function Set-DnsForAdapter {
 
         $addresses = @($Primary)
         if ($Secondary -and $Secondary.Trim() -ne "") { $addresses += $Secondary }
+        $addresses += @($IPv6 | Where-Object { $_ })
 
         # Register DoH templates before setting DNS addresses
         if ($useDoH -and $DohTemplate) {
-            Register-DohServer -ServerAddress $Primary -DohTemplate $DohTemplate
-            if ($Secondary -and $Secondary.Trim() -ne "") {
-                Register-DohServer -ServerAddress $Secondary -DohTemplate $DohTemplate
-            }
+            foreach ($addr in $addresses) { Register-DohServer -ServerAddress $addr -DohTemplate $DohTemplate }
         }
 
         Set-DnsClientServerAddress -InterfaceAlias $AdapterName -ServerAddresses $addresses -ErrorAction Stop
@@ -1166,25 +1197,25 @@ $btnDnsRefreshAdapters.Add_Click({
 $btnDnsCloudflare.Add_Click({
     if ($dnsAdapterBox.SelectedItem) {
         $p = $script:dnsProfiles["Cloudflare"]
-        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -DohTemplate $p.DohTemplate
+        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -IPv6 $p.IPv6 -DohTemplate $p.DohTemplate
     }
 })
 $btnDnsGoogle.Add_Click({
     if ($dnsAdapterBox.SelectedItem) {
         $p = $script:dnsProfiles["Google"]
-        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -DohTemplate $p.DohTemplate
+        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -IPv6 $p.IPv6 -DohTemplate $p.DohTemplate
     }
 })
 $btnDnsQuad9.Add_Click({
     if ($dnsAdapterBox.SelectedItem) {
         $p = $script:dnsProfiles["Quad9"]
-        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -DohTemplate $p.DohTemplate
+        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -IPv6 $p.IPv6 -DohTemplate $p.DohTemplate
     }
 })
 $btnDnsOpenDNS.Add_Click({
     if ($dnsAdapterBox.SelectedItem) {
         $p = $script:dnsProfiles["OpenDNS"]
-        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -DohTemplate $p.DohTemplate
+        Set-DnsForAdapter -AdapterName $dnsAdapterBox.SelectedItem -Primary $p.Primary -Secondary $p.Secondary -IPv6 $p.IPv6 -DohTemplate $p.DohTemplate
     }
 })
 $btnDnsDHCP.Add_Click({
@@ -1202,15 +1233,14 @@ $btnDnsApplyCustom.Add_Click({
         $dnsStatusText.Foreground = $window.Resources["WarningBrush"]
         return
     }
-    # Basic IP validation
-    $ipRegex = '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$'
-    if ($primary -notmatch $ipRegex) {
+    # IPv4 (octets 0-255) or IPv6
+    if (-not (Test-DnsServerAddress $primary)) {
         $dnsStatusText.Text       = "Invalid primary IP"
         $dnsStatusText.Foreground = $window.Resources["DangerBrush"]
         return
     }
     $secondary = $dnsSecondaryBox.Text.Trim()
-    if ($secondary -ne "" -and $secondary -notmatch $ipRegex) {
+    if ($secondary -ne "" -and -not (Test-DnsServerAddress $secondary)) {
         $dnsStatusText.Text       = "Invalid secondary IP"
         $dnsStatusText.Foreground = $window.Resources["DangerBrush"]
         return

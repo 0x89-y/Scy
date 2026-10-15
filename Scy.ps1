@@ -174,6 +174,40 @@ function Test-ScyAccessDenied {
     return $false
 }
 
+# ── winget exit codes ────────────────────────────────────────────
+# Maps winget's documented return codes to readable text. Ok = the package ends
+# up in the requested state (e.g. "already installed" counts as a success).
+$script:wingetExitCodes = @{
+    "8A150010" = @{ Ok = $false; Text = "No installer applies to this system" }
+    "8A150011" = @{ Ok = $false; Text = "Installer hash mismatch - the download didn't match the manifest" }
+    "8A150014" = @{ Ok = $false; Text = "No package found with that ID" }
+    "8A15002B" = @{ Ok = $true;  Text = "Already up to date" }
+    "8A150061" = @{ Ok = $true;  Text = "Already installed" }
+    "8A150101" = @{ Ok = $false; Text = "The app is running - close it and try again" }
+    "8A150102" = @{ Ok = $false; Text = "Another installation is in progress - try again later" }
+    "8A150103" = @{ Ok = $false; Text = "A file is in use - close the app and try again" }
+    "8A150104" = @{ Ok = $false; Text = "A dependency is missing" }
+    "8A150105" = @{ Ok = $false; Text = "Not enough disk space" }
+    "8A150106" = @{ Ok = $false; Text = "Not enough memory" }
+    "8A150107" = @{ Ok = $false; Text = "No network connection" }
+    "8A150109" = @{ Ok = $true;  Text = "Done - restart Windows to finish" }
+    "8A15010A" = @{ Ok = $false; Text = "Restart Windows first, then try again" }
+    "8A15010C" = @{ Ok = $false; Text = "Cancelled" }
+    "8A15010D" = @{ Ok = $true;  Text = "Already installed" }
+    "8A15010E" = @{ Ok = $false; Text = "A newer version is already installed" }
+    "8A15010F" = @{ Ok = $false; Text = "Blocked by policy" }
+}
+
+# Keys are 8-digit hex strings: '{0:X8}' formats the (negative Int32) exit code
+# the same way on every PowerShell version, unlike 0x8A15... literals.
+function Get-WingetResult {
+    param([int]$ExitCode)
+    if ($ExitCode -eq 0) { return @{ Ok = $true; Text = "Done" } }
+    $hex = '{0:X8}' -f $ExitCode
+    if ($script:wingetExitCodes.ContainsKey($hex)) { return $script:wingetExitCodes[$hex] }
+    return @{ Ok = $false; Text = "winget exit code 0x$hex" }
+}
+
 function Show-AdminRequiredError {
     param([string]$Action)
     Show-ThemedDialog ("$Action requires administrator rights.`n`nClose Scy, then right-click the Scy shortcut and choose 'Run as administrator'.") `

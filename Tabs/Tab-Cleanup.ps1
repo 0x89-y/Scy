@@ -53,6 +53,17 @@ function Update-RecycleBinSize {
 }
 
 
+# Cache folders of every Chromium profile (Default, Profile 1, Profile 2, ...)
+function Get-ChromiumCachePaths {
+    param([string]$UserData)
+    if (-not (Test-Path -LiteralPath $UserData)) { return @() }
+    @(Get-ChildItem -LiteralPath $UserData -Directory -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -eq 'Default' -or $_.Name -like 'Profile *' } |
+      ForEach-Object {
+          foreach ($sub in 'Cache', 'Code Cache', 'GPUCache') { Join-Path $_.FullName $sub }
+      } | Where-Object { Test-Path -LiteralPath $_ })
+}
+
 function Get-CleanTargets {
     $ffPaths = @()
     $ffBase  = "$env:APPDATA\Mozilla\Firefox\Profiles"
@@ -61,15 +72,16 @@ function Get-CleanTargets {
                      ForEach-Object { Join-Path $_.FullName "cache2" } |
                      Where-Object { Test-Path $_ })
     }
+    # Prefetch is deliberately absent: Windows rebuilds it, so clearing it only
+    # slows the next boot and app launches.
     [ordered]@{
         "%TEMP%"              = @{ Paths = @($env:TEMP);                                                   DeleteSelf = $false }
         "%WINDIR%\Temp"       = @{ Paths = @("$env:WINDIR\Temp");                                          DeleteSelf = $false }
         "Windows Update"      = @{ Paths = @("$env:WINDIR\SoftwareDistribution\Download");                 DeleteSelf = $false }
-        "Prefetch"            = @{ Paths = @("$env:WINDIR\Prefetch");                                      DeleteSelf = $false }
-        "Chrome Cache"        = @{ Paths = @("$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache");   DeleteSelf = $false }
-        "Edge Cache"          = @{ Paths = @("$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache");  DeleteSelf = $false }
+        "Chrome Cache"        = @{ Paths = @(Get-ChromiumCachePaths "$env:LOCALAPPDATA\Google\Chrome\User Data"); DeleteSelf = $false }
+        "Edge Cache"          = @{ Paths = @(Get-ChromiumCachePaths "$env:LOCALAPPDATA\Microsoft\Edge\User Data"); DeleteSelf = $false }
         "Firefox Cache"       = @{ Paths = $ffPaths;                                                       DeleteSelf = $true  }
-        "Windows.old"         = @{ Paths = @("C:\Windows.old");                                            DeleteSelf = $true  }
+        "Windows.old"         = @{ Paths = @("$env:SystemDrive\Windows.old");                              DeleteSelf = $true  }
     }
 }
 
@@ -276,7 +288,7 @@ $btnClean.Add_Click({
 
     # Warn if Windows.old is selected; deletion is irreversible
     $winOldCb = $script:cleanCheckboxes["Windows.old"]
-    if (($null -eq $winOldCb -or $winOldCb.IsChecked) -and (Test-Path "C:\Windows.old")) {
+    if (($null -eq $winOldCb -or $winOldCb.IsChecked) -and (Test-Path "$env:SystemDrive\Windows.old")) {
         $warnOld = Show-ThemedDialog "Deleting Windows.old is permanent. You will no longer be able to roll back to your previous Windows installation. Are you sure?" "Warning: irreversible" "YesNo" "Warning"
         if ($warnOld -ne "Yes") { return }
     }
@@ -345,20 +357,34 @@ $btnClean.Add_Click({
             return
         }
 
+        # Freed = measured after deleting (locked / protected files stay behind)
         $totalFreed = 0L
+        $needAdmin  = @()
+        $inUse      = 0
         foreach ($item in $result) {
             if ($item.Skip) {
                 $cleanTempRows.Children.Add((New-PathRow $item.Label 0L $item.Alternate $false $false)) | Out-Null
             } else {
-                $totalFreed += $item.SizeBytes
-                $cleanTempRows.Children.Add((New-PathRow $item.Label $item.SizeBytes $item.Alternate $false $false)) | Out-Null
+                $totalFreed += $item.Freed
+                $row = New-PathRow $item.Label $item.Freed $item.Alternate $false $false
+                if ($item.Denied) {
+                    $needAdmin += $item.Label
+                    $row.ToolTip = "Some files here need administrator rights"
+                } elseif ($item.InUse -gt 0) {
+                    $row.ToolTip = "$($item.InUse) item(s) were in use and skipped"
+                }
+                $inUse += $item.InUse
+                $cleanTempRows.Children.Add($row) | Out-Null
             }
         }
 
         $cleanTempTotal.Text        = Format-Size $totalFreed
         $cleanTempTotal.Visibility  = "Visible"
-        $cleanTempStatus.Text       = "Freed $(Format-Size $totalFreed)"
+        $cleanTempStatus.Text       = "Freed $(Format-Size $totalFreed)" + $(if ($inUse -gt 0) { " - some files were in use and skipped" } else { "" })
         $cleanTempStatus.Foreground = $window.Resources["SuccessBrush"]
+        if ($needAdmin.Count -gt 0) {
+            Show-AdminRequiredError ("Cleaning " + ($needAdmin -join ", "))
+        }
 
         $btnClean.IsEnabled     = $false
         $script:cleanScanData   = $null
@@ -373,20 +399,40 @@ $btnClean.Add_Click({
         -Context   @{ Total = $toCleanCount } `
         -Work {
             param($emit)
+            function Get-DirSize {
+                param([string]$Path)
+                if (-not (Test-Path -LiteralPath $Path)) { return 0L }
+                $sum = (Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue |
+                         Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+                if ($null -eq $sum) { return 0L }
+                return [long]$sum
+            }
             $i = 0
             foreach ($item in $worklist) {
+                $item.Freed = 0L; $item.Denied = $false; $item.InUse = 0
                 if ($item.Skip) { continue }
                 $i++
                 & $emit @{ Index = $i; Label = $item.Label }
+                $errs = @()
                 foreach ($p in $item.Paths) {
-                    if (Test-Path $p) {
-                        if ($item.DeleteSelf) {
-                            Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue
-                        } else {
-                            Remove-Item "$p\*" -Recurse -Force -ErrorAction SilentlyContinue
-                        }
+                    if (-not (Test-Path -LiteralPath $p)) { continue }
+                    $e = $null
+                    if ($item.DeleteSelf) {
+                        Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction SilentlyContinue -ErrorVariable e
+                    } else {
+                        Get-ChildItem -LiteralPath $p -Force -ErrorAction SilentlyContinue |
+                            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue -ErrorVariable e
                     }
+                    $errs += @($e)
                 }
+                # Classify by category/exception type, not (localized) message text
+                foreach ($er in $errs) {
+                    if ($er.CategoryInfo.Category -eq 'PermissionDenied' -or $er.Exception -is [System.UnauthorizedAccessException]) { $item.Denied = $true }
+                    else { $item.InUse++ }
+                }
+                $after = 0L
+                foreach ($p in $item.Paths) { $after += Get-DirSize $p }
+                $item.Freed = [Math]::Max(0L, [long]$item.SizeBytes - $after)
             }
             return $worklist
         } `

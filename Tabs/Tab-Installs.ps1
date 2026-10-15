@@ -998,10 +998,12 @@ function Install-StoreSingleApp {
                 Show-ThemedDialog ("Install error: " + $err.Exception.Message) "Error" "OK" "Error"
                 return
             }
-            if ($result.ExitCode -ne 0) {
-                Show-ThemedDialog ("winget exited with code " + [string]$result.ExitCode + " installing " + $ctx.Name) "Install failed" "OK" "Warning"
+            $w = Get-WingetResult $result.ExitCode
+            if (-not $w.Ok) {
+                Show-ThemedDialog ("Couldn't install " + $ctx.Name + ":`n" + $w.Text) "Install failed" "OK" "Warning"
                 return
             }
+            $footerStatus.Text = "Scy - " + $ctx.Name + ": " + $w.Text
             # Mark installed so buttons/pills flip instantly. A full reconcile
             # happens next time the user runs the Installed-apps scan.
             [void]$script:installedWingetIds.Add([string]$ctx.Id)
@@ -1055,8 +1057,9 @@ function Uninstall-StoreSingleApp {
                 Show-ThemedDialog ("Uninstall error: " + $err.Exception.Message) "Error" "OK" "Error"
                 return
             }
-            if ($result.ExitCode -ne 0) {
-                Show-ThemedDialog ("winget exited with code " + [string]$result.ExitCode + " uninstalling " + $ctx.Name) "Uninstall failed" "OK" "Warning"
+            $w = Get-WingetResult $result.ExitCode
+            if (-not $w.Ok) {
+                Show-ThemedDialog ("Couldn't uninstall " + $ctx.Name + ":`n" + $w.Text) "Uninstall failed" "OK" "Warning"
                 return
             }
             # Drop from the installed set so buttons/pills flip instantly. A full
@@ -2153,10 +2156,20 @@ $storeSearchBox.Add_LostFocus({
         $storeSearchPlaceholder.Visibility = "Visible"
     }
 })
+# Debounced: rebuilding the result cards on every keystroke made typing laggy,
+# so the search runs once typing pauses for 250 ms.
+$script:storeSearchTimer = New-Object System.Windows.Threading.DispatcherTimer
+$script:storeSearchTimer.Interval = [TimeSpan]::FromMilliseconds(250)
+$script:storeSearchTimer.Add_Tick({
+    $script:storeSearchTimer.Stop()
+    Show-StoreSearch -Query $storeSearchBox.Text
+})
 $storeSearchBox.Add_TextChanged({
     $q = $storeSearchBox.Text
     $storeSearchClear.Visibility = if ($q.Length -gt 0) { "Visible" } else { "Collapsed" }
-    Show-StoreSearch -Query $q
+    $script:storeSearchTimer.Stop()
+    if ($q.Length -eq 0) { Show-StoreSearch -Query $q; return }   # clearing returns to the landing at once
+    $script:storeSearchTimer.Start()
 })
 $storeSearchBox.Add_KeyDown({
     param($s, $e)

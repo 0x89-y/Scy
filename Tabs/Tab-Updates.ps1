@@ -156,8 +156,13 @@ $script:onUpdatesJobLine = {
             $updateProgressLabel.Text = "Installing $($m.Index) of $($m.Total): $($m.Id)"
         }
         'done' {
-            if ($m.Ok) { Add-UpdatesOutput ("$($script:_uCheck) $($m.Id) done.") }
-            else       { Add-UpdatesOutput ("$($script:_uCross) $($m.Id) failed (winget exit code " + ('0x{0:X8}' -f $m.Code) + ").") }
+            $w = Get-WingetResult $m.Code
+            if ($w.Ok) {
+                if ($ctx -and $ctx.Ok) { $ctx.Ok.Value++ }
+                Add-UpdatesOutput ("$($script:_uCheck) $($m.Id): $($w.Text)")
+            } else {
+                Add-UpdatesOutput ("$($script:_uCross) $($m.Id) failed: $($w.Text)")
+            }
             $updateProgressBar.Value = $m.Index
         }
     }
@@ -312,19 +317,20 @@ function Invoke-WingetStreamed {
 
     Start-ScyJob `
         -Variables @{ pkgIds = $pkgIds; barPat = $script:_uBarPat; streamFn = $script:wingetStreamFn } `
+        -Context   @{ Ok = [ref]0 } `
         -Work {
             param($emit)
             . ([scriptblock]::Create($streamFn))
-            $total = $pkgIds.Count; $i = 0; $failed = 0
+            $total = $pkgIds.Count; $i = 0
             foreach ($pkgId in $pkgIds) {
                 $i++
                 & $emit @{ Kind = 'start'; Id = $pkgId; Index = $i; Total = $total }
                 $code = Invoke-WingetStreamed -Emit $emit -BarPattern $barPat -WingetArgs @(
                     'upgrade', '--id', $pkgId, '--exact', '--accept-package-agreements', '--accept-source-agreements')
-                if ($code -ne 0) { $failed++ }
-                & $emit @{ Kind = 'done'; Id = $pkgId; Index = $i; Ok = ($code -eq 0); Code = $code }
+                # Success is judged on the UI side (Get-WingetResult): "already up to date" isn't a failure
+                & $emit @{ Kind = 'done'; Id = $pkgId; Index = $i; Code = $code }
             }
-            return @{ Total = $total; Failed = $failed }
+            return @{ Total = $total }
         } `
         -OnLine $script:onUpdatesJobLine `
         -OnComplete {
@@ -336,7 +342,7 @@ function Invoke-WingetStreamed {
                 Add-UpdatesOutput ("$($script:_uCross) " + $err.Exception.Message)
                 return
             }
-            $ok = $result.Total - $result.Failed
+            $ok = $ctx.Ok.Value
             Add-UpdatesOutput "`r`n$($script:_uCheck) All done: $ok of $($result.Total) updated."
             $updatePkgPanel.Children.Clear()
             Set-UpdateBadge "updated"
@@ -358,7 +364,8 @@ function Invoke-WingetStreamed {
             param($emit)
             . ([scriptblock]::Create($streamFn))
             $code = Invoke-WingetStreamed -Emit $emit -BarPattern $barPat -WingetArgs @(
-                'upgrade', '--all', '--include-unknown', '--accept-package-agreements', '--accept-source-agreements')
+                # Same scope as "Check for updates" (no --include-unknown), so it updates what the list showed
+                'upgrade', '--all', '--accept-package-agreements', '--accept-source-agreements')
             return @{ ExitCode = $code }
         } `
         -OnLine $script:onUpdatesJobLine `
