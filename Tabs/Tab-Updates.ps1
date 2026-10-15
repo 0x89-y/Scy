@@ -14,7 +14,7 @@ $updateProgressLabel  = Find "UpdateProgressLabel"
 
 
 function Set-UpdateBadge {
-    param([string]$State, [int]$Count = 0)
+    param([string]$State, [int]$Count = 0, [string]$Message = "")
     switch ($State) {
         "checking" {
             $updateStatusDot.Foreground  = $window.Resources["WarningBrush"]
@@ -47,6 +47,14 @@ function Set-UpdateBadge {
             $updateStatusBadge.Cursor    = $null
             $updatePkgList.Visibility    = "Collapsed"
         }
+        "error" {
+            $updateStatusDot.Foreground  = $window.Resources["DangerBrush"]
+            $updateStatusTitle.Text      = "Couldn't check for updates"
+            $updateStatusSub.Text        = $Message
+            $updateBadgeHint.Visibility  = "Collapsed"
+            $updateStatusBadge.Cursor    = $null
+            $updatePkgList.Visibility    = "Collapsed"
+        }
     }
 }
 
@@ -58,210 +66,219 @@ $updateStatusBadge.Add_MouseLeftButtonDown({
     }
 })
 
-# Unicode strings used inside runspace scripts - passed as variables to avoid encoding issues
-$script:_uDone     = "`r`n" + [char]0x2714 + " Done.`r`n"
-$script:_uCheck    = [string][char]0x2714
-$script:_uCross    = [string][char]0x2716
-$script:_uBullet   = [string][char]0x25CF
-$script:_uDot      = [string][char]0x2022
-$script:_uArrow    = [string][char]0x2192
-$script:_uUpArrow  = [string][char]0x25B2
-$script:_uSepPat   = '^[-' + [char]0x2500 + ']{5,}'
-$script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
+# Glyphs built from code points so this block stays ASCII-only.
+$script:_uCheck   = [string][char]0x2714
+$script:_uCross   = [string][char]0x2716
+$script:_uDot     = [string][char]0x2022
+$script:_uArrow   = [string][char]0x2192
+$script:_uUpArrow = [string][char]0x25B2
+$script:_uRun     = [string][char]0x25B6
+$script:_uRule    = ([string][char]0x2500) * 60
+$script:_uSepPat  = '^[-' + [char]0x2500 + ']{5,}'
+$script:_uBarPat  = '[' + [char]0x2588 + [char]0x2592 + ']'
+
+# One winget operation at a time; the buttons ignore clicks while one runs.
+$script:updatesBusy = $false
+
+function Start-UpdatesOutput([string]$Title) {
+    Write-Output-Box $outputUpdates ("`r`n" + $script:_uRun + " " + $Title + "`r`n" + $script:_uRule) -Clear
+}
+
+function Add-UpdatesOutput([string]$Text) {
+    $outputUpdates.AppendText($Text + "`r`n")
+    $outputUpdates.ScrollToEnd()
+}
+
+function Set-UpdatesStatus([string]$Text) {
+    $statusIndicator.Text       = $Text
+    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
+    $footerStatus.Text          = "Scy - " + $Text
+}
+
+# Fill the selectable package list and the status badge from a check result.
+function Show-UpdateResults {
+    param([object[]]$Packages, [int]$Summary)
+    $updatePkgPanel.Children.Clear()
+
+    foreach ($pkg in $Packages) {
+        $cb = New-Object System.Windows.Controls.CheckBox
+        $cb.IsChecked = $true
+        $cb.Tag       = $pkg.Id
+        $cb.Margin    = New-Object System.Windows.Thickness(0, 0, 0, 2)
+        $cb.Padding   = New-Object System.Windows.Thickness(6, 5, 0, 5)
+
+        $inner = New-Object System.Windows.Controls.StackPanel
+
+        $nameBlock = New-Object System.Windows.Controls.TextBlock
+        $nameBlock.Text       = $pkg.Name
+        $nameBlock.FontSize   = 12
+        $nameBlock.Foreground = $window.Resources["FgBrush"]
+
+        $verBlock = New-Object System.Windows.Controls.TextBlock
+        $verBlock.Text       = "$($pkg.Id)  $($script:_uDot)  $($pkg.Version) $($script:_uArrow) $($pkg.Available)"
+        $verBlock.FontSize   = 11
+        $verBlock.Foreground = $window.Resources["MutedText"]
+
+        $inner.Children.Add($nameBlock) | Out-Null
+        $inner.Children.Add($verBlock)  | Out-Null
+        $cb.Content = $inner
+        $updatePkgPanel.Children.Add($cb) | Out-Null
+    }
+
+    # winget's summary line can report updates the table parser couldn't read
+    $count = if ($Packages.Count -gt 0) { $Packages.Count } else { $Summary }
+    if ($count -eq 0) { Set-UpdateBadge "uptodate"; return }
+
+    Set-UpdateBadge "available" $count
+    $plural = if ($count -ne 1) { "s" } else { "" }
+    $updatePkgCount.Text = if ($Packages.Count -gt 0) { "$count update$plural" } else { "$count update$plural - enable Show Output for details" }
+    $updatePkgList.Visibility = "Visible"
+    $updateBadgeHint.Text     = "$($script:_uUpArrow)  hide list"
+}
+
+# Shared OnLine handler for the install/upgrade jobs. Messages are hashtables:
+#   Kind 'line'  - a cleaned output line; Replace overwrites the previous progress bar line
+#   Kind 'start' - package $Index of $Total is starting
+#   Kind 'done'  - package finished; Ok / Code
+$script:onUpdatesJobLine = {
+    param($m, $ctx)
+    switch ($m.Kind) {
+        'line' {
+            if ($m.Replace) {
+                $txt   = $outputUpdates.Text
+                $cutAt = $txt.LastIndexOf("`r`n", [Math]::Max(0, $txt.Length - 3))
+                if ($cutAt -ge 0) { $outputUpdates.Text = $txt.Substring(0, $cutAt + 2) }
+            }
+            Add-UpdatesOutput $m.Text
+        }
+        'start' {
+            Set-UpdatesStatus ("Installing " + $m.Id + "...")
+            $updateProgressLabel.Text = "Installing $($m.Index) of $($m.Total): $($m.Id)"
+        }
+        'done' {
+            if ($m.Ok) { Add-UpdatesOutput ("$($script:_uCheck) $($m.Id) done.") }
+            else       { Add-UpdatesOutput ("$($script:_uCross) $($m.Id) failed (winget exit code " + ('0x{0:X8}' -f $m.Code) + ").") }
+            $updateProgressBar.Value = $m.Index
+        }
+    }
+}
+
+# Streams one winget invocation's output through $emit. Defined as text so it
+# can be handed to the worker runspace (functions don't cross runspaces).
+$script:wingetStreamFn = @'
+function Invoke-WingetStreamed {
+    param([string[]]$WingetArgs, $Emit, [string]$BarPattern)
+    $hasProgress = $false
+    & winget @WingetArgs 2>&1 | ForEach-Object {
+        $line = (([string]$_) -replace '\x1b\[[0-9;]*[A-Za-z]', '') -replace '\r', ''
+        if ($line -match '^\s*[-\\|/]\s*$' -or $line.Trim() -eq '') { return }
+        $isBar = $line -match $BarPattern
+        $text  = if ($isBar) { "  " + $line.Trim() } else { $line }
+        & $Emit @{ Kind = 'line'; Text = $text; Replace = ($isBar -and $hasProgress) }
+        $hasProgress = $isBar
+    }
+    return $LASTEXITCODE
+}
+'@
 
 (Find "BtnCheckUpdates").Add_Click({
-    $statusIndicator.Text       = "● Checking for updates..."
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
-    $footerStatus.Text          = "Scy - Checking for updates..."
+    if ($script:updatesBusy) { return }
+    $script:updatesBusy = $true
+    Set-UpdatesStatus "Checking for updates..."
     Set-UpdateBadge "checking"
     $updatePkgPanel.Children.Clear()
     $updatePkgList.Visibility = "Collapsed"
+    Start-UpdatesOutput "Running: winget upgrade"
 
-    Write-Output-Box $outputUpdates "`r`n▶ Running: winget upgrade`r`n$('─' * 60)" -Clear
+    Start-ScyJob `
+        -Variables @{ sepPat = $script:_uSepPat } `
+        -Work {
+            param($emit)
+            $raw = @(winget upgrade --accept-source-agreements 2>&1 | ForEach-Object {
+                ([string]$_) -replace '\x1b\[[0-9;]*[A-Za-z]', ''
+            })
 
-    $rs = [runspacefactory]::CreateRunspace()
-    $rs.ApartmentState = "STA"
-    $rs.ThreadOptions  = "ReuseThread"
-    $rs.Open()
+            # Summary line ("3 upgrades available.") - the leading number is language-neutral
+            $summaryCount = 0
+            $summaryLine  = $raw | Where-Object { $_ -match '^\s*(\d+)\s' } | Select-Object -Last 1
+            if ($summaryLine -match '^\s*(\d+)\s') { $summaryCount = [int]$Matches[1] }
 
-    $rs.SessionStateProxy.SetVariable("_win",              $window)
-    $rs.SessionStateProxy.SetVariable("_box",              $outputUpdates)
-    $rs.SessionStateProxy.SetVariable("_si",               $statusIndicator)
-    $rs.SessionStateProxy.SetVariable("_fs",               $footerStatus)
-    $rs.SessionStateProxy.SetVariable("_pkgPanel",         $updatePkgPanel)
-    $rs.SessionStateProxy.SetVariable("_pkgList",          $updatePkgList)
-    $rs.SessionStateProxy.SetVariable("_pkgCount",         $updatePkgCount)
-    $rs.SessionStateProxy.SetVariable("_badgeHint",        $updateBadgeHint)
-    $rs.SessionStateProxy.SetVariable("_statusDot",        $updateStatusDot)
-    $rs.SessionStateProxy.SetVariable("_statusTitle",      $updateStatusTitle)
-    $rs.SessionStateProxy.SetVariable("_statusSub",        $updateStatusSub)
-    $rs.SessionStateProxy.SetVariable("_statusBadge",      $updateStatusBadge)
-    $rs.SessionStateProxy.SetVariable("_uDone",            $script:_uDone)
-    $rs.SessionStateProxy.SetVariable("_uCheck",           $script:_uCheck)
-    $rs.SessionStateProxy.SetVariable("_uBullet",          $script:_uBullet)
-    $rs.SessionStateProxy.SetVariable("_uDot",             $script:_uDot)
-    $rs.SessionStateProxy.SetVariable("_uArrow",           $script:_uArrow)
-    $rs.SessionStateProxy.SetVariable("_uUpArrow",         $script:_uUpArrow)
-    $rs.SessionStateProxy.SetVariable("_uSepPat",          $script:_uSepPat)
+            $sepIdx = $null
+            for ($i = 0; $i -lt $raw.Count; $i++) {
+                if ($raw[$i] -match $sepPat) { $sepIdx = $i; break }
+            }
 
-    $ps = [powershell]::Create()
-    $ps.Runspace = $rs
-
-    $ps.AddScript({
-        function Ui([scriptblock]$sb) {
-            $_win.Dispatcher.Invoke($sb, [System.Windows.Threading.DispatcherPriority]::Normal)
-        }
-
-        # Run winget upgrade in the background
-        $raw = @(winget upgrade --accept-source-agreements 2>&1 | ForEach-Object {
-            ([string]$_) -replace '\x1b\[[0-9;]*[A-Za-z]', ''
-        })
-
-        Ui {
-            $_box.AppendText(($raw -join "`r`n") + "`r`n")
-            $_box.AppendText($_uDone)
-            $_box.ScrollToEnd()
-        }
-
-        # Check summary line
-        $summaryCount = 0
-        $summaryLine  = $raw | Where-Object { $_ -match '^\s*(\d+)\s' } | Select-Object -Last 1
-        if ($summaryLine -match '^\s*(\d+)\s') { $summaryCount = [int]$Matches[1] }
-
-        # Find separator
-        $sepIdx = $null
-        for ($i = 0; $i -lt $raw.Count; $i++) {
-            if ($raw[$i] -match $_uSepPat) { $sepIdx = $i; break }
-        }
-
-        $packages = @()
-        if ($null -ne $sepIdx -and ($sepIdx + 1) -lt $raw.Count) {
-            $nameCol = 0; $idCol = -1; $verCol = -1; $availCol = -1
-            for ($hi = $sepIdx - 1; $hi -ge [Math]::Max(0, $sepIdx - 3); $hi--) {
-                $hdr = ($raw[$hi]) -replace '\r', ''
-                $m   = [regex]::Matches($hdr, '\b(Name|Id|Version|Available)\b', 'IgnoreCase')
-                if ($m.Count -ge 2) {
-                    foreach ($match in $m) {
-                        switch ($match.Value.ToLower()) {
-                            'name'      { $nameCol  = $match.Index }
-                            'id'        { $idCol    = $match.Index }
-                            'version'   { $verCol   = $match.Index }
-                            'available' { $availCol = $match.Index }
+            $packages = @()
+            if ($null -ne $sepIdx -and ($sepIdx + 1) -lt $raw.Count) {
+                $nameCol = 0; $idCol = -1; $verCol = -1; $availCol = -1
+                for ($hi = $sepIdx - 1; $hi -ge [Math]::Max(0, $sepIdx - 3); $hi--) {
+                    $hdr = ($raw[$hi]) -replace '\r', ''
+                    $m   = [regex]::Matches($hdr, '\b(Name|Id|Version|Available)\b', 'IgnoreCase')
+                    if ($m.Count -ge 2) {
+                        foreach ($match in $m) {
+                            switch ($match.Value.ToLower()) {
+                                'name'      { $nameCol  = $match.Index }
+                                'id'        { $idCol    = $match.Index }
+                                'version'   { $verCol   = $match.Index }
+                                'available' { $availCol = $match.Index }
+                            }
                         }
+                        if ($idCol    -le $nameCol)  { $idCol    = -1 }
+                        if ($verCol   -le $idCol)    { $verCol   = -1 }
+                        if ($availCol -le $verCol)   { $availCol = -1 }
+                        if ($availCol -eq -1 -and $verCol -gt 0 -and $hdr.Length -gt $verCol + 1) {
+                            $afterVer = [regex]::Match($hdr.Substring($verCol + 1), '\s{2,}\S')
+                            if ($afterVer.Success) { $availCol = $verCol + 1 + $afterVer.Index + $afterVer.Length - 1 }
+                        }
+                        break
                     }
-                    if ($idCol    -le $nameCol)  { $idCol    = -1 }
-                    if ($verCol   -le $idCol)    { $verCol   = -1 }
-                    if ($availCol -le $verCol)   { $availCol = -1 }
-                    if ($availCol -eq -1 -and $verCol -gt 0 -and $hdr.Length -gt $verCol + 1) {
-                        $afterVer = [regex]::Match($hdr.Substring($verCol + 1), '\s{2,}\S')
-                        if ($afterVer.Success) { $availCol = $verCol + 1 + $afterVer.Index + $afterVer.Length - 1 }
-                    }
-                    break
-                }
-            }
-
-            $raw[($sepIdx + 1)..($raw.Count - 1)] | Where-Object { $_.Trim() -ne '' } | ForEach-Object {
-                $line = ($_.TrimEnd()) -replace '\r', ''
-                if ($line -match '^\s*\d+\s')   { return }
-                if ($line -match $_uSepPat)     { return }
-
-                if ($idCol -gt 0 -and $line.Length -gt $idCol) {
-                    $name  = $line.Substring($nameCol, [Math]::Min($idCol, $line.Length) - $nameCol).Trim()
-                    $idEnd = if ($verCol  -gt 0) { [Math]::Min($verCol,   $line.Length) } else { $line.Length }
-                    $id    = $line.Substring($idCol, $idEnd - $idCol).Trim()
-                    $ver   = if ($verCol -gt 0 -and $line.Length -gt $verCol) {
-                        $vEnd = if ($availCol -gt 0) { [Math]::Min($availCol, $line.Length) } else { $line.Length }
-                        $line.Substring($verCol, $vEnd - $verCol).Trim()
-                    } else { '?' }
-                    $avail = if ($availCol -gt 0 -and $line.Length -gt $availCol) {
-                        $line.Substring($availCol).Trim() -replace '\s.*$', ''
-                    } else { '?' }
-                } else {
-                    $parts = @($line -split '\s{2,}' | Where-Object { $_ -ne '' })
-                    if ($parts.Count -lt 2) { return }
-                    $name = $parts[0]; $id = $parts[1]
-                    $ver   = if ($parts.Count -gt 2) { $parts[2] } else { '?' }
-                    $avail = if ($parts.Count -gt 3) { $parts[3] } else { '?' }
                 }
 
-                if ($name -ne '' -and $name -ne 'Name' -and $id -ne '' -and $id -notmatch '\s') {
-                    $packages += [PSCustomObject]@{
-                        Name      = $name
-                        Id        = $id
-                        Version   = $ver
-                        Available = $avail
+                $raw[($sepIdx + 1)..($raw.Count - 1)] | Where-Object { $_.Trim() -ne '' } | ForEach-Object {
+                    $line = ($_.TrimEnd()) -replace '\r', ''
+                    if ($line -match '^\s*\d+\s') { return }
+                    if ($line -match $sepPat)     { return }
+
+                    if ($idCol -gt 0 -and $line.Length -gt $idCol) {
+                        $name  = $line.Substring($nameCol, [Math]::Min($idCol, $line.Length) - $nameCol).Trim()
+                        $idEnd = if ($verCol  -gt 0) { [Math]::Min($verCol,   $line.Length) } else { $line.Length }
+                        $id    = $line.Substring($idCol, $idEnd - $idCol).Trim()
+                        $ver   = if ($verCol -gt 0 -and $line.Length -gt $verCol) {
+                            $vEnd = if ($availCol -gt 0) { [Math]::Min($availCol, $line.Length) } else { $line.Length }
+                            $line.Substring($verCol, $vEnd - $verCol).Trim()
+                        } else { '?' }
+                        $avail = if ($availCol -gt 0 -and $line.Length -gt $availCol) {
+                            $line.Substring($availCol).Trim() -replace '\s.*$', ''
+                        } else { '?' }
+                    } else {
+                        $parts = @($line -split '\s{2,}' | Where-Object { $_ -ne '' })
+                        if ($parts.Count -lt 2) { return }
+                        $name = $parts[0]; $id = $parts[1]
+                        $ver   = if ($parts.Count -gt 2) { $parts[2] } else { '?' }
+                        $avail = if ($parts.Count -gt 3) { $parts[3] } else { '?' }
+                    }
+
+                    if ($name -ne '' -and $name -ne 'Name' -and $id -ne '' -and $id -notmatch '\s') {
+                        $packages += [PSCustomObject]@{ Name = $name; Id = $id; Version = $ver; Available = $avail }
                     }
                 }
             }
-        }
 
-        # Marshal all UI updates back to the dispatcher thread
-        $capturedPkgs    = $packages
-        $capturedSummary = $summaryCount
-        Ui {
-
-            if ($capturedPkgs.Count -eq 0 -and $capturedSummary -gt 0) {
-                $_statusDot.Foreground  = $window.Resources["WarningBrush"]
-                $_statusTitle.Text      = if ($capturedSummary -eq 1) { "1 update available" } else { "$capturedSummary updates available" }
-                $_statusSub.Text        = "Click to view and select which updates to install"
-                $_badgeHint.Visibility  = "Visible"
-                $_statusBadge.Cursor    = [System.Windows.Input.Cursors]::Hand
-                $_pkgCount.Text         = "$capturedSummary update$(if($capturedSummary -ne 1){'s'}) - enable Show Output for details"
-                $_pkgList.Visibility    = "Visible"
-                $_badgeHint.Text        = "$_uUpArrow  hide list"
+            return @{ Raw = $raw; Packages = $packages; Summary = $summaryCount }
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $script:updatesBusy = $false
+            Set-ReadyStatus
+            if ($err) {
+                Add-UpdatesOutput ("$($script:_uCross) " + $err.Exception.Message)
+                Set-UpdateBadge "error" -Message "winget could not be run. Is App Installer installed?"
+                return
             }
-
-            if ($capturedPkgs.Count -gt 0) {
-                foreach ($pkg in $capturedPkgs) {
-                    $cb = New-Object System.Windows.Controls.CheckBox
-                    $cb.IsChecked = $true
-                    $cb.Tag       = $pkg.Id
-                    $cb.Margin    = New-Object System.Windows.Thickness(0, 0, 0, 2)
-                    $cb.Padding   = New-Object System.Windows.Thickness(6, 5, 0, 5)
-
-                    $inner = New-Object System.Windows.Controls.StackPanel
-
-                    $nameBlock = New-Object System.Windows.Controls.TextBlock
-                    $nameBlock.Text       = $pkg.Name
-                    $nameBlock.FontSize   = 12
-                    $nameBlock.Foreground = $window.Resources["FgBrush"]
-
-                    $verBlock = New-Object System.Windows.Controls.TextBlock
-                    $verBlock.Text       = "$($pkg.Id)  $_uDot  $($pkg.Version) $_uArrow $($pkg.Available)"
-                    $verBlock.FontSize   = 11
-                    $verBlock.Foreground = $window.Resources["MutedText"]
-
-                    $inner.Children.Add($nameBlock)
-                    $inner.Children.Add($verBlock)
-                    $cb.Content = $inner
-                    $_pkgPanel.Children.Add($cb)
-                }
-
-                $_pkgCount.Text       = "$($capturedPkgs.Count) update$(if($capturedPkgs.Count -ne 1){'s'})"
-                $_pkgList.Visibility  = "Visible"
-                $_badgeHint.Text      = "$_uUpArrow  hide list"
-
-                $_statusDot.Foreground  = $window.Resources["WarningBrush"]
-                $_statusTitle.Text      = if ($capturedPkgs.Count -eq 1) { "1 update available" } else { "$($capturedPkgs.Count) updates available" }
-                $_statusSub.Text        = "Click to view and select which updates to install"
-                $_badgeHint.Visibility  = "Visible"
-                $_statusBadge.Cursor    = [System.Windows.Input.Cursors]::Hand
-            } elseif ($capturedSummary -eq 0) {
-                $_statusDot.Foreground  = $window.Resources["SuccessBrush"]
-                $_statusTitle.Text      = "Up to date"
-                $_statusSub.Text        = "All apps are up to date"
-                $_badgeHint.Visibility  = "Collapsed"
-                $_statusBadge.Cursor    = $null
-                $_pkgList.Visibility    = "Collapsed"
-            }
-
-            $_si.Text       = "$_uBullet Ready"
-            $_si.Foreground = $window.Resources["SuccessBrush"]
-            $_fs.Text       = "Ready"
-        }
-    }) | Out-Null
-
-    $ps.BeginInvoke() | Out-Null
+            Add-UpdatesOutput ($result.Raw -join "`r`n")
+            Add-UpdatesOutput "`r`n$($script:_uCheck) Done."
+            Show-UpdateResults -Packages @($result.Packages) -Summary $result.Summary
+        } | Out-Null
 })
 
 (Find "BtnSelectAllUpdates").Add_Click({
@@ -277,6 +294,7 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
 })
 
 (Find "BtnInstallUpdates").Add_Click({
+    if ($script:updatesBusy) { return }
     $selected = @($updatePkgPanel.Children | Where-Object { $_ -is [System.Windows.Controls.CheckBox] -and $_.IsChecked })
     if ($selected.Count -eq 0) {
         Show-ThemedDialog "No updates selected." "Info" "OK" "Information"
@@ -285,197 +303,77 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
     $confirm = Show-ThemedDialog "Install $($selected.Count) update$(if($selected.Count -ne 1){'s'})? This may take a while." "Confirm" "YesNo" "Question"
     if ($confirm -ne "Yes") { return }
 
-    # Collect selected package IDs before entering the runspace
-    $pkgIds = @($selected | ForEach-Object { $_.Tag })
+    $pkgIds = @($selected | ForEach-Object { [string]$_.Tag })
+    $script:updatesBusy = $true
+    Start-UpdatesOutput "Installing $($pkgIds.Count) selected update(s)..."
+    Set-UpdatesStatus "Installing updates..."
+    Show-ScyProgress -Border $updateProgressBorder -Bar $updateProgressBar -Label $updateProgressLabel `
+                     -Text "Installing 1 of $($pkgIds.Count)..." -Value 0 -Max $pkgIds.Count
 
-
-    Write-Output-Box $outputUpdates "`r`n▶ Installing $($pkgIds.Count) selected update(s)...`r`n$('─' * 60)" -Clear
-
-    $statusIndicator.Text       = "● Installing updates..."
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
-    $footerStatus.Text          = "Scy - Installing updates..."
-
-    $rs = [runspacefactory]::CreateRunspace()
-    $rs.ApartmentState = "STA"
-    $rs.ThreadOptions  = "ReuseThread"
-    $rs.Open()
-
-    $rs.SessionStateProxy.SetVariable("_win",         $window)
-    $rs.SessionStateProxy.SetVariable("_box",         $outputUpdates)
-    $rs.SessionStateProxy.SetVariable("_si",          $statusIndicator)
-    $rs.SessionStateProxy.SetVariable("_fs",          $footerStatus)
-    $rs.SessionStateProxy.SetVariable("_pkgIds",      $pkgIds)
-    $rs.SessionStateProxy.SetVariable("_statusDot",   $updateStatusDot)
-    $rs.SessionStateProxy.SetVariable("_statusTitle", $updateStatusTitle)
-    $rs.SessionStateProxy.SetVariable("_statusSub",   $updateStatusSub)
-    $rs.SessionStateProxy.SetVariable("_badgeHint",   $updateBadgeHint)
-    $rs.SessionStateProxy.SetVariable("_statusBadge", $updateStatusBadge)
-    $rs.SessionStateProxy.SetVariable("_pkgList",     $updatePkgList)
-    $rs.SessionStateProxy.SetVariable("_pkgPanel",    $updatePkgPanel)
-    $rs.SessionStateProxy.SetVariable("_uCheck",          $script:_uCheck)
-    $rs.SessionStateProxy.SetVariable("_uCross",          $script:_uCross)
-    $rs.SessionStateProxy.SetVariable("_uBullet",         $script:_uBullet)
-    $rs.SessionStateProxy.SetVariable("_uBarPat",         $script:_uBarPat)
-    $rs.SessionStateProxy.SetVariable("_progressBorder",  $updateProgressBorder)
-    $rs.SessionStateProxy.SetVariable("_progressBar",     $updateProgressBar)
-    $rs.SessionStateProxy.SetVariable("_progressLabel",   $updateProgressLabel)
-
-    $ps = [powershell]::Create()
-    $ps.Runspace = $rs
-
-    $ps.AddScript({
-        function Ui([scriptblock]$sb) {
-            $_win.Dispatcher.Invoke($sb, [System.Windows.Threading.DispatcherPriority]::Normal)
-        }
-
-        $total = $_pkgIds.Count
-        $i = 0
-        Ui {
-            $_progressBar.IsIndeterminate = $false
-            $_progressBar.Maximum         = $total
-            $_progressBar.Value           = 0
-            $_progressLabel.Text          = "Installing 1 of $total..."
-            $_progressBorder.Visibility   = "Visible"
-        }
-
-        foreach ($pkgId in $_pkgIds) {
-            $i++
-            Ui {
-                $_si.Text             = "$_uBullet Installing $pkgId..."
-                $_si.Foreground       = $window.Resources["WarningBrush"]
-                $_fs.Text             = "Scy - Installing $pkgId..."
-                $_progressLabel.Text  = "Installing $i of ${total}: $pkgId"
+    Start-ScyJob `
+        -Variables @{ pkgIds = $pkgIds; barPat = $script:_uBarPat; streamFn = $script:wingetStreamFn } `
+        -Work {
+            param($emit)
+            . ([scriptblock]::Create($streamFn))
+            $total = $pkgIds.Count; $i = 0; $failed = 0
+            foreach ($pkgId in $pkgIds) {
+                $i++
+                & $emit @{ Kind = 'start'; Id = $pkgId; Index = $i; Total = $total }
+                $code = Invoke-WingetStreamed -Emit $emit -BarPattern $barPat -WingetArgs @(
+                    'upgrade', '--id', $pkgId, '--exact', '--accept-package-agreements', '--accept-source-agreements')
+                if ($code -ne 0) { $failed++ }
+                & $emit @{ Kind = 'done'; Id = $pkgId; Index = $i; Ok = ($code -eq 0); Code = $code }
             }
-
-            try {
-                $hasProgressLine = $false
-                & winget upgrade --id $pkgId --accept-package-agreements --accept-source-agreements 2>&1 | ForEach-Object {
-                    $line = ([string]$_) -replace '\x1b\[[0-9;]*[A-Za-z]', '' -replace '\r', ''
-                    if ($line -match '^\s*[-\\|/]\s*$') { return }
-                    if ($line.Trim() -eq '') { return }
-
-                    if ($line -match $_uBarPat) {
-                        Ui {
-                            if ($hasProgressLine) {
-                                $txt   = $_box.Text
-                                $cutAt = $txt.LastIndexOf("`r`n", $txt.Length - 3)
-                                if ($cutAt -ge 0) { $_box.Text = $txt.Substring(0, $cutAt + 2) }
-                            }
-                            $_box.AppendText("  $($line.Trim())`r`n")
-                            $_box.ScrollToEnd()
-                        }
-                        $hasProgressLine = $true
-                    } else {
-                        $hasProgressLine = $false
-                        Ui {
-                            $_box.AppendText("$line`r`n")
-                            $_box.ScrollToEnd()
-                        }
-                    }
-                }
-                Ui {
-                    $_box.AppendText("$_uCheck $pkgId done.`r`n")
-                    $_box.ScrollToEnd()
-                    $_progressBar.Value = $i
-                }
-            } catch {
-                $errMsg = $_.ToString()
-                Ui {
-                    $_box.AppendText("$_uCross ${pkgId}: $errMsg`r`n")
-                    $_box.ScrollToEnd()
-                    $_progressBar.Value = $i
-                }
+            return @{ Total = $total; Failed = $failed }
+        } `
+        -OnLine $script:onUpdatesJobLine `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $script:updatesBusy = $false
+            Hide-ScyProgress $updateProgressBorder $updateProgressBar
+            Set-ReadyStatus
+            if ($err) {
+                Add-UpdatesOutput ("$($script:_uCross) " + $err.Exception.Message)
+                return
             }
-        }
-
-        Ui {
-            $_box.AppendText("`r`n$_uCheck All done.`r`n")
-            $_box.ScrollToEnd()
-
-            $_progressBorder.Visibility = "Collapsed"
-
-            $_si.Text       = "$_uBullet Ready"
-            $_si.Foreground = $window.Resources["SuccessBrush"]
-            $_fs.Text       = "Ready"
-
-            $_statusDot.Foreground  = $window.Resources["SuccessBrush"]
-            $_statusTitle.Text      = "Updated"
-            $_statusSub.Text        = "Run 'Check for Updates' to verify all packages are current"
-            $_badgeHint.Visibility  = "Collapsed"
-            $_statusBadge.Cursor    = $null
-            $_pkgList.Visibility    = "Collapsed"
-        }
-    }) | Out-Null
-
-    $ps.BeginInvoke() | Out-Null
+            $ok = $result.Total - $result.Failed
+            Add-UpdatesOutput "`r`n$($script:_uCheck) All done: $ok of $($result.Total) updated."
+            $updatePkgPanel.Children.Clear()
+            Set-UpdateBadge "updated"
+            Show-ScyToast -Title "Scy" -Body "Updates finished: $ok of $($result.Total) installed."
+        } | Out-Null
 })
 
 (Find "BtnUpdateAll").Add_Click({
-    $statusIndicator.Text       = "● Updating all packages..."
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
-    $footerStatus.Text          = "Scy - Updating all packages..."
+    if ($script:updatesBusy) { return }
+    $script:updatesBusy = $true
+    Set-UpdatesStatus "Updating all packages..."
+    Start-UpdatesOutput "Running: winget upgrade --all"
+    Show-ScyProgress -Border $updateProgressBorder -Bar $updateProgressBar -Label $updateProgressLabel `
+                     -Text "Updating all packages..." -Value $null
 
-    Write-Output-Box $outputUpdates "`r`n▶ Running: winget upgrade --all`r`n$('─' * 60)" -Clear
-
-    $rs = [runspacefactory]::CreateRunspace()
-    $rs.ApartmentState = "STA"
-    $rs.ThreadOptions  = "ReuseThread"
-    $rs.Open()
-
-    $rs.SessionStateProxy.SetVariable("_win",         $window)
-    $rs.SessionStateProxy.SetVariable("_box",         $outputUpdates)
-    $rs.SessionStateProxy.SetVariable("_si",          $statusIndicator)
-    $rs.SessionStateProxy.SetVariable("_fs",          $footerStatus)
-    $rs.SessionStateProxy.SetVariable("_statusDot",   $updateStatusDot)
-    $rs.SessionStateProxy.SetVariable("_statusTitle", $updateStatusTitle)
-    $rs.SessionStateProxy.SetVariable("_statusSub",   $updateStatusSub)
-    $rs.SessionStateProxy.SetVariable("_badgeHint",   $updateBadgeHint)
-    $rs.SessionStateProxy.SetVariable("_statusBadge", $updateStatusBadge)
-    $rs.SessionStateProxy.SetVariable("_pkgList",     $updatePkgList)
-    $rs.SessionStateProxy.SetVariable("_pkgPanel",    $updatePkgPanel)
-    $rs.SessionStateProxy.SetVariable("_uDone",          $script:_uDone)
-    $rs.SessionStateProxy.SetVariable("_uBullet",        $script:_uBullet)
-    $rs.SessionStateProxy.SetVariable("_progressBorder", $updateProgressBorder)
-    $rs.SessionStateProxy.SetVariable("_progressBar",    $updateProgressBar)
-    $rs.SessionStateProxy.SetVariable("_progressLabel",  $updateProgressLabel)
-
-    $ps = [powershell]::Create()
-    $ps.Runspace = $rs
-
-    $ps.AddScript({
-        function Ui([scriptblock]$sb) {
-            $_win.Dispatcher.Invoke($sb, [System.Windows.Threading.DispatcherPriority]::Normal)
-        }
-
-        Ui {
-            $_progressBar.IsIndeterminate = $true
-            $_progressLabel.Text          = "Updating all packages..."
-            $_progressBorder.Visibility   = "Visible"
-        }
-
-        $result = & winget upgrade --all --include-unknown --accept-package-agreements --accept-source-agreements 2>&1 | Out-String
-
-        Ui {
-            $_box.AppendText($result + "`r`n")
-            $_box.AppendText($_uDone)
-            $_box.ScrollToEnd()
-
-            $_progressBorder.Visibility = "Collapsed"
-            $_progressBar.IsIndeterminate = $false
-
-            $_si.Text       = "$_uBullet Ready"
-            $_si.Foreground = $window.Resources["SuccessBrush"]
-            $_fs.Text       = "Ready"
-
-            $_pkgPanel.Children.Clear()
-            $_statusDot.Foreground  = $window.Resources["SuccessBrush"]
-            $_statusTitle.Text      = "Updated"
-            $_statusSub.Text        = "Run 'Check for Updates' to verify all packages are current"
-            $_badgeHint.Visibility  = "Collapsed"
-            $_statusBadge.Cursor    = $null
-            $_pkgList.Visibility    = "Collapsed"
-        }
-    }) | Out-Null
-
-    $ps.BeginInvoke() | Out-Null
+    Start-ScyJob `
+        -Variables @{ barPat = $script:_uBarPat; streamFn = $script:wingetStreamFn } `
+        -Work {
+            param($emit)
+            . ([scriptblock]::Create($streamFn))
+            $code = Invoke-WingetStreamed -Emit $emit -BarPattern $barPat -WingetArgs @(
+                'upgrade', '--all', '--include-unknown', '--accept-package-agreements', '--accept-source-agreements')
+            return @{ ExitCode = $code }
+        } `
+        -OnLine $script:onUpdatesJobLine `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $script:updatesBusy = $false
+            Hide-ScyProgress $updateProgressBorder $updateProgressBar
+            Set-ReadyStatus
+            if ($err) {
+                Add-UpdatesOutput ("$($script:_uCross) " + $err.Exception.Message)
+                return
+            }
+            Add-UpdatesOutput "`r`n$($script:_uCheck) Done."
+            $updatePkgPanel.Children.Clear()
+            Set-UpdateBadge "updated"
+            Show-ScyToast -Title "Scy" -Body "Update all finished."
+        } | Out-Null
 })

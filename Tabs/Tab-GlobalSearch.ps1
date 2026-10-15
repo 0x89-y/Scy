@@ -7,7 +7,6 @@ $globalSearchPlaceholder = Find "GlobalSearchPlaceholder"
 $globalSearchPopup       = Find "GlobalSearchPopup"
 $globalSearchResults     = Find "GlobalSearchResults"
 $globalSearchEmpty       = Find "GlobalSearchEmpty"
-$mainTabControl          = Find "MainTabControl"
 
 # ── Ctrl+K shortcut to focus global search ─────────────────────
 $window.Add_PreviewKeyDown({
@@ -26,59 +25,60 @@ $window.Add_PreviewKeyDown({
 })
 
 # ── Build the searchable index ─────────────────────────────────
-# Each entry: @{ Name; Description; Category; TabIndex; SubNavIndex; Action }
+# Each entry: @{ Name; Description; Category; Tab; SubNavIndex }
+# Tab is the top-level tab's header (see $script:scyTabs in Scy.ps1).
 # Action is an optional scriptblock for extra navigation steps
 
 function Build-GlobalSearchIndex {
     $items = [System.Collections.Generic.List[hashtable]]::new()
 
     # -- Tab-level navigation items --
-    $items.Add(@{ Name = "Apps";      Description = "Browse, install, update & uninstall apps";       Category = "Tabs"; TabIndex = 0; SubNavIndex = $null })
-    $items.Add(@{ Name = "Store";     Description = "Browse and install apps";                        Category = "Apps"; TabIndex = 0; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Installed"; Description = "List and uninstall installed apps";              Category = "Apps"; TabIndex = 0; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Updates";   Description = "Check for app updates";                          Category = "Apps"; TabIndex = 0; SubNavIndex = 2 })
+    $items.Add(@{ Name = "Apps";      Description = "Browse, install, update & uninstall apps";       Category = "Tabs"; Tab = "Apps"; SubNavIndex = $null })
+    $items.Add(@{ Name = "Store";     Description = "Browse and install apps";                        Category = "Apps"; Tab = "Apps"; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Installed"; Description = "List and uninstall installed apps";              Category = "Apps"; Tab = "Apps"; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Updates";   Description = "Check for app updates";                          Category = "Apps"; Tab = "Apps"; SubNavIndex = 2 })
 
-    $items.Add(@{ Name = "Tweaks";    Description = "Apply and manage system tweaks";                 Category = "Tabs"; TabIndex = 1; SubNavIndex = $null })
+    $items.Add(@{ Name = "Tweaks";    Description = "Apply and manage system tweaks";                 Category = "Tabs"; Tab = "Tweaks"; SubNavIndex = $null })
 
-    $items.Add(@{ Name = "System";    Description = "System info, cleanup, battery & firmware";       Category = "Tabs"; TabIndex = 2; SubNavIndex = $null })
-    $items.Add(@{ Name = "Info";            Description = "View hardware and OS information";         Category = "System"; TabIndex = 2; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Cleanup";         Description = "Clean temp files and free disk space";     Category = "System"; TabIndex = 2; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Battery";         Description = "Battery health and power report";          Category = "System"; TabIndex = 2; SubNavIndex = 2 })
-    $items.Add(@{ Name = "BIOS/UEFI";       Description = "BIOS, UEFI and firmware information";      Category = "System"; TabIndex = 2; SubNavIndex = 3 })
-    $items.Add(@{ Name = "SFC/DISM";        Description = "System file checker and DISM repair";      Category = "System"; TabIndex = 2; SubNavIndex = 4 })
+    $items.Add(@{ Name = "System";    Description = "System info, cleanup, battery & firmware";       Category = "Tabs"; Tab = "System"; SubNavIndex = $null })
+    $items.Add(@{ Name = "Info";            Description = "View hardware and OS information";         Category = "System"; Tab = "System"; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Cleanup";         Description = "Clean temp files and free disk space";     Category = "System"; Tab = "System"; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Battery";         Description = "Battery health and power report";          Category = "System"; Tab = "System"; SubNavIndex = 2 })
+    $items.Add(@{ Name = "BIOS/UEFI";       Description = "BIOS, UEFI and firmware information";      Category = "System"; Tab = "System"; SubNavIndex = 3 })
+    $items.Add(@{ Name = "SFC/DISM";        Description = "System file checker and DISM repair";      Category = "System"; Tab = "System"; SubNavIndex = 4 })
 
-    $items.Add(@{ Name = "Bookmarks"; Description = "Shortcuts and registry bookmarks";               Category = "Tabs"; TabIndex = 3; SubNavIndex = $null })
-    $items.Add(@{ Name = "Shortcuts";       Description = "Desktop and app shortcuts";                Category = "Bookmarks"; TabIndex = 3; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Registry";        Description = "Saved registry key bookmarks";             Category = "Bookmarks"; TabIndex = 3; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Bookmarks"; Description = "Shortcuts and registry bookmarks";               Category = "Tabs"; Tab = "Bookmarks"; SubNavIndex = $null })
+    $items.Add(@{ Name = "Shortcuts";       Description = "Desktop and app shortcuts";                Category = "Bookmarks"; Tab = "Bookmarks"; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Registry";        Description = "Saved registry key bookmarks";             Category = "Bookmarks"; Tab = "Bookmarks"; SubNavIndex = 1 })
 
-    $items.Add(@{ Name = "Network";   Description = "Diagnostics, Wi-Fi, hosts, DNS & SSH";           Category = "Tabs"; TabIndex = 4; SubNavIndex = $null })
-    $items.Add(@{ Name = "Diagnostics";     Description = "Ping, traceroute, speed test & NSLookup";  Category = "Network"; TabIndex = 4; SubNavIndex = 0 })
-    $items.Add(@{ Name = "NSLookup";        Description = "DNS record lookup for domains";            Category = "Network"; TabIndex = 4; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Wi-Fi";           Description = "Wi-Fi profiles and passwords";             Category = "Network"; TabIndex = 4; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Hosts";           Description = "Edit the system hosts file";               Category = "Network"; TabIndex = 4; SubNavIndex = 2 })
-    $items.Add(@{ Name = "DNS";             Description = "Change DNS servers";                       Category = "Network"; TabIndex = 4; SubNavIndex = 3 })
-    $items.Add(@{ Name = "SSH";             Description = "SSH key management";                       Category = "Network"; TabIndex = 4; SubNavIndex = 4 })
+    $items.Add(@{ Name = "Network";   Description = "Diagnostics, Wi-Fi, hosts, DNS & SSH";           Category = "Tabs"; Tab = "Network"; SubNavIndex = $null })
+    $items.Add(@{ Name = "Diagnostics";     Description = "Ping, traceroute, speed test & NSLookup";  Category = "Network"; Tab = "Network"; SubNavIndex = 0 })
+    $items.Add(@{ Name = "NSLookup";        Description = "DNS record lookup for domains";            Category = "Network"; Tab = "Network"; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Wi-Fi";           Description = "Wi-Fi profiles and passwords";             Category = "Network"; Tab = "Network"; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Hosts";           Description = "Edit the system hosts file";               Category = "Network"; Tab = "Network"; SubNavIndex = 2 })
+    $items.Add(@{ Name = "DNS";             Description = "Change DNS servers";                       Category = "Network"; Tab = "Network"; SubNavIndex = 3 })
+    $items.Add(@{ Name = "SSH";             Description = "SSH key management";                       Category = "Network"; Tab = "Network"; SubNavIndex = 4 })
 
-    $items.Add(@{ Name = "Active Directory"; Description = "AD users, groups, computers, OUs & domain";       Category = "Tabs"; TabIndex = 5; SubNavIndex = $null })
-    $items.Add(@{ Name = "Users";            Description = "Look up users by SAM, UPN, or display name";    Category = "Active Directory"; TabIndex = 5; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Groups";           Description = "Look up groups and list members";               Category = "Active Directory"; TabIndex = 5; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Computers";        Description = "Look up computer accounts";                     Category = "Active Directory"; TabIndex = 5; SubNavIndex = 2 })
-    $items.Add(@{ Name = "OUs";              Description = "Browse organizational units";                   Category = "Active Directory"; TabIndex = 5; SubNavIndex = 3 })
-    $items.Add(@{ Name = "Domain";           Description = "Domain, forest, DCs, FSMO, whoami";             Category = "Active Directory"; TabIndex = 5; SubNavIndex = 4 })
+    $items.Add(@{ Name = "Active Directory"; Description = "AD users, groups, computers, OUs & domain";       Category = "Tabs"; Tab = "Active Directory"; SubNavIndex = $null })
+    $items.Add(@{ Name = "Users";            Description = "Look up users by SAM, UPN, or display name";    Category = "Active Directory"; Tab = "Active Directory"; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Groups";           Description = "Look up groups and list members";               Category = "Active Directory"; Tab = "Active Directory"; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Computers";        Description = "Look up computer accounts";                     Category = "Active Directory"; Tab = "Active Directory"; SubNavIndex = 2 })
+    $items.Add(@{ Name = "OUs";              Description = "Browse organizational units";                   Category = "Active Directory"; Tab = "Active Directory"; SubNavIndex = 3 })
+    $items.Add(@{ Name = "Domain";           Description = "Domain, forest, DCs, FSMO, whoami";             Category = "Active Directory"; Tab = "Active Directory"; SubNavIndex = 4 })
 
-    $items.Add(@{ Name = "Tools";     Description = "QR code, notes, hashing & password generator";   Category = "Tabs"; TabIndex = 6; SubNavIndex = $null })
-    $items.Add(@{ Name = "QR Code";         Description = "Generate QR codes";                                Category = "Tools"; TabIndex = 6; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Notes";           Description = "Quick notes and scratchpad";                       Category = "Tools"; TabIndex = 6; SubNavIndex = 1 })
-    $items.Add(@{ Name = "File Hashing";    Description = "MD5/SHA1/SHA256 hashes, compare & verify";         Category = "Tools"; TabIndex = 6; SubNavIndex = 2 })
-    $items.Add(@{ Name = "Passwords";       Description = "Generate secure passwords with custom rules";      Category = "Tools"; TabIndex = 6; SubNavIndex = 3 })
-    $items.Add(@{ Name = "Export installed apps"; Description = "Scan winget + registry, export as JSON/CSV";   Category = "Apps"; TabIndex = 0; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Tools";     Description = "QR code, notes, hashing & password generator";   Category = "Tabs"; Tab = "Tools"; SubNavIndex = $null })
+    $items.Add(@{ Name = "QR Code";         Description = "Generate QR codes";                                Category = "Tools"; Tab = "Tools"; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Notes";           Description = "Quick notes and scratchpad";                       Category = "Tools"; Tab = "Tools"; SubNavIndex = 1 })
+    $items.Add(@{ Name = "File Hashing";    Description = "MD5/SHA1/SHA256 hashes, compare & verify";         Category = "Tools"; Tab = "Tools"; SubNavIndex = 2 })
+    $items.Add(@{ Name = "Passwords";       Description = "Generate secure passwords with custom rules";      Category = "Tools"; Tab = "Tools"; SubNavIndex = 3 })
+    $items.Add(@{ Name = "Export installed apps"; Description = "Scan winget + registry, export as JSON/CSV";   Category = "Apps"; Tab = "Apps"; SubNavIndex = 1 })
 
-    $items.Add(@{ Name = "Settings";  Description = "App settings, themes & backup";                  Category = "Tabs"; TabIndex = 7; SubNavIndex = $null })
-    $items.Add(@{ Name = "General";             Description = "General app preferences";              Category = "Settings"; TabIndex = 7; SubNavIndex = 0 })
-    $items.Add(@{ Name = "Appearance";          Description = "Theme and color settings";             Category = "Settings"; TabIndex = 7; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Apps & Groups";       Description = "Groups, app catalog, and icon cache";  Category = "Settings"; TabIndex = 7; SubNavIndex = 2 })
-    $items.Add(@{ Name = "Backup";              Description = "Backup and restore settings";          Category = "Settings"; TabIndex = 7; SubNavIndex = 3 })
-    $items.Add(@{ Name = "Sidebar Tabs";        Description = "Show tabs as a vertical left rail"; Category = "Settings"; TabIndex = 7; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Settings";  Description = "App settings, themes & backup";                  Category = "Tabs"; Tab = "Settings"; SubNavIndex = $null })
+    $items.Add(@{ Name = "General";             Description = "General app preferences";              Category = "Settings"; Tab = "Settings"; SubNavIndex = 0 })
+    $items.Add(@{ Name = "Appearance";          Description = "Theme and color settings";             Category = "Settings"; Tab = "Settings"; SubNavIndex = 1 })
+    $items.Add(@{ Name = "Apps & Groups";       Description = "Groups, app catalog, and icon cache";  Category = "Settings"; Tab = "Settings"; SubNavIndex = 2 })
+    $items.Add(@{ Name = "Backup";              Description = "Backup and restore settings";          Category = "Settings"; Tab = "Settings"; SubNavIndex = 3 })
+    $items.Add(@{ Name = "Sidebar Tabs";        Description = "Show tabs as a vertical left rail"; Category = "Settings"; Tab = "Settings"; SubNavIndex = 0 })
 
     # -- Curated Quick Install apps (visible only) --
     if ($script:curatedApps) {
@@ -89,7 +89,7 @@ function Build-GlobalSearchIndex {
                 Name        = $c.Name
                 Description = "Store - " + $c.Category
                 Category    = "Store"
-                TabIndex    = 0
+                Tab    = "Apps"
                 SubNavIndex = 0
             })
         }
@@ -115,21 +115,17 @@ function Build-GlobalSearchIndex {
                 Name        = $displayName
                 Description = if ($desc) { $desc } else { "Tweak" }
                 Category    = "Tweaks"
-                TabIndex    = 1
+                Tab    = "Tweaks"
                 SubNavIndex = $null
             })
         }
     }
 
     # Filter out entries that belong to hidden tabs
-    if ($script:hiddenTabs -and $script:hiddenTabs.Count -gt 0 -and $mainTabControl) {
+    if ($script:hiddenTabs -and $script:hiddenTabs.Count -gt 0) {
         $filtered = [System.Collections.Generic.List[hashtable]]::new()
         foreach ($it in $items) {
-            $idx = $it.TabIndex
-            if ($null -ne $idx -and $idx -ge 0 -and $idx -lt $mainTabControl.Items.Count) {
-                $tabHeader = [string]$mainTabControl.Items[$idx].Header
-                if ($tabHeader -ne "Settings" -and ($script:hiddenTabs -contains $tabHeader)) { continue }
-            }
+            if ($it.Tab -ne "Settings" -and ($script:hiddenTabs -contains $it.Tab)) { continue }
             $filtered.Add($it) | Out-Null
         }
         return $filtered
@@ -149,25 +145,10 @@ function Update-GlobalSearchIndex {
 function Navigate-ToResult {
     param([hashtable]$Item)
 
-    $mainTabControl.SelectedIndex = $Item.TabIndex
-
-    # Give the UI a moment to switch tabs, then set sub-nav
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-
-    if ($null -ne $Item.SubNavIndex) {
-        switch ($Item.TabIndex) {
-            0 { Set-PkgSubNav       $Item.SubNavIndex }
-            2 { Set-SystemSubNav    $Item.SubNavIndex }
-            3 { Set-BookmarksSubNav $Item.SubNavIndex }
-            4 { Set-NetSubNav       $Item.SubNavIndex }
-            5 { Set-AdSubNav        $Item.SubNavIndex }
-            6 { Set-ToolsSubNav     $Item.SubNavIndex }
-            7 { Set-SettingsSubNav  $Item.SubNavIndex }
-        }
-    }
+    Select-ScyTab $Item.Tab $Item.SubNavIndex
 
     # If it's a tweak, type the name into the tweak search box
-    if ($Item.Category -eq "Tweaks" -and $Item.TabIndex -eq 1) {
+    if ($Item.Category -eq "Tweaks" -and $Item.Tab -eq "Tweaks") {
         $tweakSearch = Find "TweakSearchBox"
         if ($tweakSearch) {
             $tweakSearch.Text = $Item.Name

@@ -59,7 +59,14 @@ function Populate-FirmwareInfo {
                     $tpmReady = if ($tpm.IsActivated_InitialValue) { "Ready" } else { "Not Ready" }
                     $tpmMfr   = if ($tpm.ManufacturerIdTxt) { $tpm.ManufacturerIdTxt } else { "Unknown" }
                 }
-            } catch { }
+            } catch {
+                # Win32_Tpm is only readable elevated; don't report that as "no TPM"
+                if ($_.CategoryInfo.Category -eq 'PermissionDenied') {
+                    $tpmVersion = "Requires administrator"
+                    $tpmReady   = "Requires administrator"
+                    $tpmMfr     = "Requires administrator"
+                }
+            }
 
             $cpu = Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
             $virtFirmware = if ($cpu.VirtualizationFirmwareEnabled) { "Enabled" } else { "Disabled" }
@@ -168,10 +175,10 @@ function Populate-FirmwareInfo {
             $sbBrush = if ($d.SecureBoot -eq "Enabled") { "SuccessBrush" } else { "WarningBrush" }
             $firmwareSecurityPanel.Children.Add((_MakeRow "Secure Boot" $d.SecureBoot $sbBrush $alt)) | Out-Null; $alt = -not $alt
 
-            $tpmBrush = if ($d.TpmVersion -ne "Not Detected") { "SuccessBrush" } else { "DangerBrush" }
+            $tpmBrush = switch ($d.TpmVersion) { "Not Detected" { "DangerBrush" } "Requires administrator" { "MutedText" } default { "SuccessBrush" } }
             $firmwareSecurityPanel.Children.Add((_MakeRow "TPM" $d.TpmVersion $tpmBrush $alt)) | Out-Null; $alt = -not $alt
 
-            $tpmReadyBrush = if ($d.TpmReady -eq "Ready") { "SuccessBrush" } else { "WarningBrush" }
+            $tpmReadyBrush = switch ($d.TpmReady) { "Ready" { "SuccessBrush" } "Requires administrator" { "MutedText" } default { "WarningBrush" } }
             $firmwareSecurityPanel.Children.Add((_MakeRow "TPM Status" $d.TpmReady $tpmReadyBrush $alt)) | Out-Null; $alt = -not $alt
             $firmwareSecurityPanel.Children.Add((_MakeRow "TPM Manufacturer" $d.TpmMfr "FgBrush" $alt)) | Out-Null; $alt = -not $alt
 

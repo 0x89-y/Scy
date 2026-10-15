@@ -2049,10 +2049,17 @@
                                 BorderThickness="0,1,0,0" Padding="24,14" Margin="0,0,0,12">
                             <StackPanel>
                                 <Grid Margin="0,0,0,10">
-                                    <TextBlock Text="Status"
-                                               FontSize="14" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource FgBrush}"
-                                               VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Status"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource FgBrush}"
+                                                   VerticalAlignment="Center"/>
+                                        <Border BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="7"
+                                                Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                ToolTip="SFC and DISM need Scy to be started with 'Run as administrator'">
+                                            <TextBlock Text="Admin" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource WarningBrush}"/>
+                                        </Border>
+                                    </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                                                 VerticalAlignment="Center">
                                         <Button x:Name="BtnSfcRun"  Content="Run SFC"
@@ -2733,6 +2740,12 @@
                                                            FontSize="14" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource FgBrush}"
                                                            VerticalAlignment="Center"/>
+                                                <!-- Static hint, not a check: saving fails without admin and says so -->
+                                                <Border BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="7"
+                                                        Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left"
+                                                        ToolTip="Saving needs Scy to be started with 'Run as administrator'">
+                                                    <TextBlock Text="Admin" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource WarningBrush}"/>
+                                                </Border>
                                             </DockPanel>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button x:Name="BtnHostsReload"   Content="Reload"       Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
@@ -2745,21 +2758,6 @@
                                         </Grid>
 
                                         <!-- Admin warning banner -->
-                                        <Border x:Name="HostsAdminBanner" Visibility="Collapsed" CornerRadius="0"
-                                                BorderBrush="{DynamicResource WarningBrush}" BorderThickness="0"
-                                                Padding="14,10" Margin="0,0,0,10">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="⚠" FontSize="13" Foreground="{DynamicResource WarningBrush}"
-                                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                <TextBlock FontSize="12" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource FgBrush}">
-                                                    <Run Text="Not running as Administrator: "/>
-                                                    <Run Text="changes cannot be saved." Foreground="{DynamicResource WarningBrush}"/>
-                                                    <Run Text=" Restart Scy as Administrator to edit the hosts file."/>
-                                                </TextBlock>
-                                            </StackPanel>
-                                        </Border>
-
                                         <!-- Add entry form: accent left-bar, matching the other creators -->
                                         <Border x:Name="HostsAddPanel" Visibility="Collapsed" CornerRadius="0"
                                                 BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2,0,0,0"
@@ -2883,6 +2881,11 @@
                                                            FontSize="14" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource FgBrush}"
                                                            VerticalAlignment="Center"/>
+                                                <Border BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="7"
+                                                        Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left"
+                                                        ToolTip="Changing DNS needs Scy to be started with 'Run as administrator'">
+                                                    <TextBlock Text="Admin" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource WarningBrush}"/>
+                                                </Border>
                                             </DockPanel>
                                             <TextBlock x:Name="DnsStatusText" Grid.Column="2" Text=""
                                                        FontSize="11" VerticalAlignment="Center"
@@ -2890,20 +2893,6 @@
                                         </Grid>
 
                                         <!-- Admin warning banner -->
-                                        <Border x:Name="DnsAdminBanner" Visibility="Collapsed" CornerRadius="0"
-                                                BorderBrush="{DynamicResource WarningBrush}" BorderThickness="0"
-                                                Padding="14,10" Margin="0,0,0,10">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="⚠" FontSize="13" Foreground="{DynamicResource WarningBrush}"
-                                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                <TextBlock FontSize="12" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource FgBrush}">
-                                                    <Run Text="Not running as Administrator: "/>
-                                                    <Run Text="DNS changes require elevation." Foreground="{DynamicResource WarningBrush}"/>
-                                                </TextBlock>
-                                            </StackPanel>
-                                        </Border>
-
                                         <TextBlock Text="Quick-swap DNS profiles per network adapter."
                                                    FontSize="11" Foreground="{DynamicResource MutedText}"
                                                    Margin="0,0,0,12" TextWrapping="Wrap"/>

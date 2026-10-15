@@ -209,7 +209,7 @@ function script:Set-Accent {
 # ── Load / Save settings ──────────────────────────────────────────
 function Save-Settings {
     try {
-        @{
+        $json = @{
             LocalInstallFolder = $script:localInstallFolder
             ThemeMode          = $script:themeMode
             Accent             = $script:accentName
@@ -246,7 +246,17 @@ function Save-Settings {
             RegBookmarks                   = $script:settings.RegBookmarks
             CustomRegBookmarkGroups        = @($script:customRegBookmarkGroups)
             NotesPreviewMode               = $script:notesPreviewMode
-        } | ConvertTo-Json -Depth 5 | Set-Content -Path $script:settingsFile -Encoding UTF8
+        } | ConvertTo-Json -Depth 5
+
+        # Write a temp file, then swap it in atomically and keep the previous
+        # version as .bak, so a crash mid-write can't leave a truncated settings.json.
+        $tmp = $script:settingsFile + ".tmp"
+        [System.IO.File]::WriteAllText($tmp, $json, (New-Object System.Text.UTF8Encoding($false)))
+        if (Test-Path $script:settingsFile) {
+            [System.IO.File]::Replace($tmp, $script:settingsFile, $script:settingsFile + ".bak")
+        } else {
+            [System.IO.File]::Move($tmp, $script:settingsFile)
+        }
     } catch {
         Write-ScyLog "Saving settings failed: $($_.Exception.Message)" "ERROR"
     }
@@ -400,11 +410,17 @@ function Import-ScySettingsObject {
     if ($null -ne $saved.NotesPreviewMode) { $script:notesPreviewMode = [bool]$saved.NotesPreviewMode }
 }
 
-if (Test-Path $script:settingsFile) {
+# Fall back to the .bak Save-Settings keeps if the main file is unreadable.
+foreach ($__settingsCandidate in @($script:settingsFile, ($script:settingsFile + ".bak"))) {
+    if (-not (Test-Path $__settingsCandidate)) { continue }
     try {
-        Import-ScySettingsObject (Get-Content $script:settingsFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+        Import-ScySettingsObject (Get-Content $__settingsCandidate -Raw -Encoding UTF8 | ConvertFrom-Json)
+        if ($__settingsCandidate -ne $script:settingsFile) {
+            Write-ScyLog "settings.json was unreadable; restored from settings.json.bak" "WARN"
+        }
+        break
     } catch {
-        Write-ScyLog "settings.json could not be read: $($_.Exception.Message)" "ERROR"
+        Write-ScyLog "$(Split-Path $__settingsCandidate -Leaf) could not be read: $($_.Exception.Message)" "ERROR"
     }
 }
 
@@ -770,10 +786,14 @@ $defaultAppsSubTabBox.Add_SelectionChanged({
 
 # ── Default top-level tab on launch ──────────────────────────────
 $defaultTabBox = Find "DefaultTabBox"
-$tabOrder = @("Apps", "Tweaks", "System", "Bookmarks", "Network", "Active Directory", "Tools", "Settings")
-$idx = $tabOrder.IndexOf($script:defaultTab)
-if ($idx -lt 0) { $idx = 0 }
-$defaultTabBox.SelectedIndex = $idx
+# Select the combo item whose text matches the saved tab name (first item if none does).
+function Sync-DefaultTabBox {
+    $defaultTabBox.SelectedIndex = 0
+    for ($i = 0; $i -lt $defaultTabBox.Items.Count; $i++) {
+        if ([string]$defaultTabBox.Items[$i].Content -eq $script:defaultTab) { $defaultTabBox.SelectedIndex = $i; break }
+    }
+}
+Sync-DefaultTabBox
 $defaultTabBox.Add_SelectionChanged({
     param($s, $e)
     $sel = if ($s.SelectedItem) { [string]$s.SelectedItem.Content } else { "Apps" }
@@ -1110,7 +1130,7 @@ function Render-Changelog {
             (Find "ToggleEnableLogging").IsChecked              = $script:enableLogging
             (Find "ToggleSkipSingleUninstallConfirm").IsChecked = $script:skipSingleUninstallConfirm
             $defaultAppsSubTabBox.SelectedIndex = switch ($script:defaultAppsSubTab) { "Installed" { 1 } "Updates" { 2 } default { 0 } }
-            $defaultTabBox.SelectedIndex = [Math]::Max(0, $tabOrder.IndexOf($script:defaultTab))
+            Sync-DefaultTabBox
 
             Apply-Theme
             Apply-TabVisibility
@@ -1258,7 +1278,7 @@ function Render-GroupSettings {
         $renameBtn.FontSize = 11; $renameBtn.Padding = [System.Windows.Thickness]::new(10, 4, 10, 4)
         $renameBtn.Margin = [System.Windows.Thickness]::new(0, 0, 6, 0)
         $renameBtn.Add_Click(({
-            Ensure-VisualBasic; $newName = [Microsoft.VisualBasic.Interaction]::InputBox("Rename '$capturedName' to:", "Rename Group", $capturedName)
+            $newName = Show-ThemedInput -Prompt "Rename '$capturedName' to:" -Title "Rename Group" -Default $capturedName
             if ([string]::IsNullOrWhiteSpace($newName) -or $newName.Trim() -eq $capturedName) { return }
             $newName = $newName.Trim()
             $allExisting = @($capturedDefaultGroups) + @($capturedShortcutGroups)
@@ -1414,7 +1434,7 @@ function Render-GroupSettings {
         $renameBtn.FontSize = 11; $renameBtn.Padding = [System.Windows.Thickness]::new(10, 4, 10, 4)
         $renameBtn.Margin = [System.Windows.Thickness]::new(0, 0, 6, 0)
         $renameBtn.Add_Click(({
-            Ensure-VisualBasic; $newName = [Microsoft.VisualBasic.Interaction]::InputBox("Rename '$capturedName' to:", "Rename Category", $capturedName)
+            $newName = Show-ThemedInput -Prompt "Rename '$capturedName' to:" -Title "Rename Category" -Default $capturedName
             if ([string]::IsNullOrWhiteSpace($newName) -or $newName.Trim() -eq $capturedName) { return }
             $newName = $newName.Trim()
             $allExisting = @($capturedDefaultCategories) + @($capturedInstallCategories)

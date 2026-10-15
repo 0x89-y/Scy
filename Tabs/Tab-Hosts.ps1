@@ -167,14 +167,6 @@ function Load-HostsEntries {
 
 # -- Write entries back to disk -----------------------------------
 function Save-HostsFile {
-    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-        [Security.Principal.WindowsBuiltInRole]::Administrator)
-
-    if (-not $isAdmin) {
-        Show-ThemedDialog "Administrator privileges are required to modify the hosts file.`nRestart Scy as Administrator." "Permission denied" "OK" "Warning" | Out-Null
-        return
-    }
-
     try {
         $out = foreach ($l in $script:hostsLines) {
             # Untouched lines go back byte-for-byte; only new or toggled entries are reformatted.
@@ -192,8 +184,13 @@ function Save-HostsFile {
         $hostsStatusText.Text = "Saved (backup: hosts.scy.bak)"
         $hostsStatusText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
     } catch {
-        $hostsStatusText.Text = "Save failed: $_"
         $hostsStatusText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "DangerBrush")
+        if (Test-ScyAccessDenied $_) {
+            $hostsStatusText.Text = "Not saved - administrator rights required"
+            Show-AdminRequiredError "Saving the hosts file"
+        } else {
+            $hostsStatusText.Text = "Save failed: $_"
+        }
     }
 }
 
@@ -249,14 +246,6 @@ $hostsNewComment.Add_LostFocus({ if (-not $hostsNewComment.Text) { (Find "HostsN
 })
 
 (Find "BtnHostsCancelAdd").Add_Click({ $hostsAddPanel.Visibility = "Collapsed" })
-
-# -- Show admin warning if not elevated ---------------------------
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-    [Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin) {
-    (Find "HostsAdminBanner").Visibility = "Visible"
-    (Find "BtnHostsSave").IsEnabled      = $false
-}
 
 # -- Initial load -------------------------------------------------
 # Deferred to first Network-tab visit (Invoke-ScyTabInit in Scy.ps1).

@@ -4,15 +4,6 @@
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 
-# ── Lazy-load Microsoft.VisualBasic (only needed for InputBox dialogs) ──
-$script:vbLoaded = $false
-function Ensure-VisualBasic {
-    if (-not $script:vbLoaded) {
-        Add-Type -AssemblyName Microsoft.VisualBasic
-        $script:vbLoaded = $true
-    }
-}
-
 # ── Splash Screen ─────────────────────────────────────────────
 $splashVersion = "Scy"
 $splashVersionPath = Join-Path $PSScriptRoot "version.json"
@@ -159,6 +150,72 @@ Pump-Splash
 # ── Helper: find named elements ─────────────────────────────────
 function Find($name) { $window.FindName($name) }
 
+# ── Missing admin rights ─────────────────────────────────────────
+# Scy never checks up front whether it is elevated (antivirus heuristics flag
+# that pattern). Admin-only actions simply try, and when Windows refuses we
+# recognise the failure here and tell the user.
+#
+# Language-independent: matches on exception types / error codes, never on the
+# (localized) message text.
+function Test-ScyAccessDenied {
+    param($ErrorRecord)
+    if ($ErrorRecord -is [System.Management.Automation.ErrorRecord]) {
+        if ($ErrorRecord.CategoryInfo.Category -eq 'PermissionDenied') { return $true }   # CIM cmdlets (DNS, TPM, ...)
+        $ex = $ErrorRecord.Exception
+    } else {
+        $ex = $ErrorRecord
+    }
+    while ($ex) {
+        if ($ex -is [System.UnauthorizedAccessException]) { return $true }
+        if ($ex.HResult -eq -2147024891) { return $true }                                # 0x80070005 E_ACCESSDENIED
+        if ($ex.PSObject.Properties['NativeErrorCode'] -and [string]$ex.NativeErrorCode -eq 'AccessDenied') { return $true }
+        $ex = $ex.InnerException
+    }
+    return $false
+}
+
+function Show-AdminRequiredError {
+    param([string]$Action)
+    Show-ThemedDialog ("$Action requires administrator rights.`n`nClose Scy, then right-click the Scy shortcut and choose 'Run as administrator'.") `
+        "Administrator rights required" "OK" "Error" | Out-Null
+}
+
+# ── Tab registry ─────────────────────────────────────────────────
+# The single place that knows the top-level tabs. Keys are the TabItem headers
+# in Scy.xaml; everything (default tab, Global Search, first-visit init) looks
+# tabs up by name, so reordering tabs in the XAML can't break anything.
+#   SubNav - function that opens a section of the tab by index
+#   Init   - functions run the first time the tab is shown (Invoke-ScyTabInit)
+$script:scyTabs = [ordered]@{
+    "Apps"             = @{ SubNav = "Set-PkgSubNav";       Init = @() }
+    "Tweaks"           = @{ SubNav = $null;                 Init = @("Rebuild-TweaksPanel") }
+    "System"           = @{ SubNav = "Set-SystemSubNav";    Init = @() }
+    "Bookmarks"        = @{ SubNav = "Set-BookmarksSubNav"; Init = @() }
+    "Network"          = @{ SubNav = "Set-NetSubNav";       Init = @("Initialize-DnsDohStatus", "Load-HostsEntries", "Populate-SSHKeys") }
+    "Active Directory" = @{ SubNav = "Set-AdSubNav";        Init = @("Test-AdEnvironment", "Update-AdBannerState") }
+    "Tools"            = @{ SubNav = "Set-ToolsSubNav";     Init = @() }
+    "Settings"         = @{ SubNav = "Set-SettingsSubNav";  Init = @("Build-TabVisibilityList", "Render-LocalExtensions", "Render-GroupSettings", "Render-Changelog") }
+}
+
+function Get-ScyTabItem {
+    param([string]$Name)
+    foreach ($item in (Find "MainTabControl").Items) {
+        if ([string]$item.Header -eq $Name) { return $item }
+    }
+}
+
+# Switch to a top-level tab by name and optionally open one of its sections.
+function Select-ScyTab {
+    param([string]$Name, $SubNavIndex = $null)
+    $item = Get-ScyTabItem $Name
+    if (-not $item) { return }
+    (Find "MainTabControl").SelectedItem = $item
+    $subNav = if ($script:scyTabs.Contains($Name)) { $script:scyTabs[$Name].SubNav } else { $null }
+    if ($null -ne $SubNavIndex -and $subNav -and (Get-Command $subNav -ErrorAction SilentlyContinue)) {
+        & $subNav $SubNavIndex
+    }
+}
+
 # ── Named controls ───────────────────────────────────────────────
 $statusIndicator = Find "StatusIndicator"
 $footerStatus    = Find "FooterStatus"
@@ -188,14 +245,32 @@ function Write-Output-Box {
 #
 # Inside Work, call `& $emit "line"` to push output to the UI.
 # Variables hashtable entries become variables in the worker runspace.
+#
+# Each job gets its own runspace. Finished jobs are disposed by a UI-thread sweep
+# (below) rather than from the worker itself, so cleanup never runs inside the
+# runspace being torn down.
+$script:scyJobs = [System.Collections.Generic.List[object]]::new()
+$script:scyJobSweeper = New-Object System.Windows.Threading.DispatcherTimer
+$script:scyJobSweeper.Interval = [TimeSpan]::FromSeconds(2)
+$script:scyJobSweeper.Add_Tick({
+    for ($i = $script:scyJobs.Count - 1; $i -ge 0; $i--) {
+        $j = $script:scyJobs[$i]
+        if ($j.PS.InvocationStateInfo.State -notin 'Completed', 'Failed', 'Stopped') { continue }
+        try { $j.PS.EndInvoke($j.Handle) | Out-Null } catch {}
+        try { $j.PS.Dispose() } catch {}
+        try { $j.RS.Dispose() } catch {}
+        $script:scyJobs.RemoveAt($i)
+    }
+    if ($script:scyJobs.Count -eq 0) { $script:scyJobSweeper.Stop() }
+})
+
 function Start-ScyJob {
     param(
         [Parameter(Mandatory)][scriptblock]$Work,
         [scriptblock]$OnLine,
         [scriptblock]$OnComplete,
         [hashtable]$Variables = @{},
-        [hashtable]$Context   = @{},
-        [switch]$ReturnHandle
+        [hashtable]$Context   = @{}
     )
 
     $rs = [runspacefactory]::CreateRunspace()
@@ -241,9 +316,8 @@ function Start-ScyJob {
     }) | Out-Null
 
     $handle = $ps.BeginInvoke()
-    if ($ReturnHandle) {
-        return [pscustomobject]@{ PS = $ps; RS = $rs; Handle = $handle }
-    }
+    $script:scyJobs.Add([pscustomobject]@{ PS = $ps; RS = $rs; Handle = $handle })
+    if (-not $script:scyJobSweeper.IsEnabled) { $script:scyJobSweeper.Start() }
 }
 
 # ── Progress bar helpers ──────────────────────────────────────────
@@ -454,6 +528,104 @@ function Show-ThemedDialog {
     return $dlg.Tag
 }
 
+# ── Helper: themed single-line input dialog ───────────────────────
+# Replaces the unthemed VisualBasic InputBox. Returns the entered text, or
+# $null when the user cancels (Esc, Cancel or the close button).
+function Show-ThemedInput {
+    param(
+        [string]$Prompt,
+        [string]$Title   = "Scy",
+        [string]$Default = ""
+    )
+
+    $dlg = New-Object System.Windows.Window
+    $dlg.Title                 = $Title
+    $dlg.WindowStyle           = "None"
+    $dlg.ResizeMode            = "NoResize"
+    $dlg.SizeToContent         = "Height"
+    $dlg.Width                 = 400
+    $dlg.WindowStartupLocation = "CenterOwner"
+    $dlg.Owner                 = $window
+    $dlg.Background            = $window.Resources["WindowBgBrush"]
+    $dlg.Foreground            = $window.Resources["FgBrush"]
+    $dlg.Tag                   = $null
+    $dlg.Add_MouseLeftButtonDown({ try { $this.DragMove() } catch {} })
+
+    $outer = New-Object System.Windows.Controls.Border
+    $outer.BorderBrush     = $window.Resources["BorderBrush"]
+    $outer.BorderThickness = [System.Windows.Thickness]::new(1)
+    $outer.Background      = $window.Resources["WindowBgBrush"]
+
+    $root = New-Object System.Windows.Controls.StackPanel
+
+    $titleBar = New-Object System.Windows.Controls.Border
+    $titleBar.Background = $window.Resources["SurfaceBrush"]
+    $titleBar.Padding    = [System.Windows.Thickness]::new(16, 10, 16, 10)
+    $titleText            = New-Object System.Windows.Controls.TextBlock
+    $titleText.Text       = $Title
+    $titleText.FontSize   = 13
+    $titleText.FontWeight = [System.Windows.FontWeights]::SemiBold
+    $titleText.Foreground = $window.Resources["FgBrush"]
+    $titleBar.Child = $titleText
+
+    $body = New-Object System.Windows.Controls.StackPanel
+    $body.Margin = [System.Windows.Thickness]::new(20, 16, 20, 12)
+
+    $promptText              = New-Object System.Windows.Controls.TextBlock
+    $promptText.Text         = $Prompt
+    $promptText.FontSize     = 12
+    $promptText.TextWrapping = [System.Windows.TextWrapping]::Wrap
+    $promptText.Foreground   = $window.Resources["FgBrush"]
+    $promptText.Margin       = [System.Windows.Thickness]::new(0, 0, 0, 8)
+
+    $box = New-Object System.Windows.Controls.TextBox
+    $box.Text            = $Default
+    $box.FontSize        = 12
+    $box.Padding         = [System.Windows.Thickness]::new(6, 5, 6, 5)
+    $box.Background      = $window.Resources["InputBgBrush"]
+    $box.Foreground      = $window.Resources["FgBrush"]
+    $box.CaretBrush      = $window.Resources["FgBrush"]
+    $box.BorderBrush     = $window.Resources["BorderStrongBrush"]
+    $box.BorderThickness = [System.Windows.Thickness]::new(1)
+
+    $body.Children.Add($promptText) | Out-Null
+    $body.Children.Add($box)        | Out-Null
+
+    $btnPanel = New-Object System.Windows.Controls.StackPanel
+    $btnPanel.Orientation         = [System.Windows.Controls.Orientation]::Horizontal
+    $btnPanel.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
+    $btnPanel.Margin              = [System.Windows.Thickness]::new(20, 0, 20, 16)
+
+    $okBtn           = New-Object System.Windows.Controls.Button
+    $okBtn.Content   = "OK"
+    $okBtn.Style     = $window.Resources["ActionButton"]
+    $okBtn.Padding   = [System.Windows.Thickness]::new(20, 7, 20, 7)
+    $okBtn.Margin    = [System.Windows.Thickness]::new(0, 0, 8, 0)
+    $okBtn.IsDefault = $true                          # Enter submits
+    $okBtn.Add_Click({ $dlg.Tag = [string]$box.Text; $dlg.Close() })
+
+    $cancelBtn            = New-Object System.Windows.Controls.Button
+    $cancelBtn.Content    = "Cancel"
+    $cancelBtn.Style      = $window.Resources["SecondaryButton"]
+    $cancelBtn.Padding    = [System.Windows.Thickness]::new(20, 7, 20, 7)
+    $cancelBtn.Foreground = $window.Resources["FgBrush"]
+    $cancelBtn.IsCancel   = $true                      # Esc cancels
+    $cancelBtn.Add_Click({ $dlg.Close() })
+
+    $btnPanel.Children.Add($okBtn)     | Out-Null
+    $btnPanel.Children.Add($cancelBtn) | Out-Null
+
+    $root.Children.Add($titleBar) | Out-Null
+    $root.Children.Add($body)     | Out-Null
+    $root.Children.Add($btnPanel) | Out-Null
+    $outer.Child = $root
+    $dlg.Content = $outer
+
+    $dlg.Add_ContentRendered({ $box.Focus() | Out-Null; $box.SelectAll() })
+    $dlg.ShowDialog() | Out-Null
+    return $dlg.Tag
+}
+
 # ══════════════════════════════════════════════════════════════════
 #  TAB HANDLERS
 # ══════════════════════════════════════════════════════════════════
@@ -550,28 +722,14 @@ $window.Add_Closing({
 })
 (Find "BtnClose").Add_Click({ $window.Close() })
 
-# Settings has no tab-strip header; the title-bar cog selects it (find by header
-# so it stays correct regardless of tab index/order).
-(Find "BtnSettingsCog").Add_Click({
-    $tc = Find "MainTabControl"
-    if (-not $tc) { return }
-    foreach ($item in $tc.Items) {
-        if ([string]$item.Header -eq "Settings") { $tc.SelectedItem = $item; break }
-    }
-})
+# Settings has no tab-strip header; the title-bar cog selects it.
+(Find "BtnSettingsCog").Add_Click({ Select-ScyTab "Settings" })
 
 # ── Startup ──────────────────────────────────────────────────────
 $psVersion.Text = "$($PSVersionTable.PSVersion)"
 
 # Reuse version already read for splash
 (Find "AppVersion").Text = $splashVersion
-
-# Single admin check, reused across tabs
-$script:isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-
-if ($script:isAdmin) {
-    $window.Title = "Scy [Administrator]"
-}
 
 # ── Update banner click handler (visible from every tab) ───────
 (Find "UpdateBanner").Add_MouseLeftButtonDown({
@@ -596,60 +754,40 @@ if ($script:isAdmin) {
 # ── Deferred per-tab initialization (lazy "first visit" work) ─────────
 # Heavy startup work (folder scans, key enumeration, domain/DoH probes) is
 # moved off the dot-source critical path and run the first time its owning
-# top-level tab is shown. The functions are all defined at script scope during
-# startup, so calling them from the SelectionChanged handler is safe (we are
-# calling existing functions, not dot-sourcing new ones into a handler scope).
-$global:scyTabInitDone = @{}
+# top-level tab is shown (the Init list in $script:scyTabs). Apps and System
+# load nothing on entry - their data is fetched on demand.
+$script:scyTabInitDone = @{}
 function Invoke-ScyTabInit {
-    param([int]$Index)
-    if ($global:scyTabInitDone[$Index]) { return }
-    $global:scyTabInitDone[$Index] = $true
-    try {
-        switch ($Index) {
-            # Apps (index 0) and System (index 2) intentionally load nothing on
-            # tab entry - their data is fetched on demand (Installed scan / the
-            # System refresh + Cleanup scan buttons) so opening a tab stays instant.
-            1 { if (Get-Command Rebuild-TweaksPanel   -EA SilentlyContinue) { Rebuild-TweaksPanel } }          # Tweaks
-            4 {                                                                                                  # Network (incl. Hosts + SSH sub-tabs)
-                if (Get-Command Initialize-DnsDohStatus -EA SilentlyContinue) { Initialize-DnsDohStatus }
-                if (Get-Command Load-HostsEntries       -EA SilentlyContinue) { Load-HostsEntries }
-                if (Get-Command Populate-SSHKeys        -EA SilentlyContinue) { Populate-SSHKeys }
-            }
-            5 {                                                                                                  # Active Directory
-                if (Get-Command Test-AdEnvironment   -EA SilentlyContinue) { Test-AdEnvironment }
-                if (Get-Command Update-AdBannerState -EA SilentlyContinue) { Update-AdBannerState }
-            }
-            7 {                                                                                                  # Settings (UI building only; data/theme already eager)
-                if (Get-Command Build-TabVisibilityList -EA SilentlyContinue) { Build-TabVisibilityList }
-                if (Get-Command Render-LocalExtensions  -EA SilentlyContinue) { Render-LocalExtensions }
-                if (Get-Command Render-GroupSettings    -EA SilentlyContinue) { Render-GroupSettings }
-                if (Get-Command Render-Changelog        -EA SilentlyContinue) { Render-Changelog }
-            }
+    param([string]$Name)
+    if (-not $Name -or $script:scyTabInitDone[$Name]) { return }
+    $script:scyTabInitDone[$Name] = $true
+    $entry = $script:scyTabs[$Name]
+    if (-not $entry) { return }
+    foreach ($fn in $entry.Init) {
+        # Each step is isolated so one failure doesn't skip the rest
+        try {
+            if (Get-Command $fn -ErrorAction SilentlyContinue) { & $fn }
+        } catch {
+            Write-ScyLog "First-visit init '$fn' for tab '$Name' failed: $($_.Exception.Message)" "ERROR"
         }
-    } catch {
-        Write-ScyLog "First-visit init for tab $Index failed: $($_.Exception.Message)" "ERROR"
     }
 }
 
 $script:mainTabControl = Find "MainTabControl"
 $script:mainTabControl.Add_SelectionChanged({
     param($s, $e)
-    # MainTabControl is the only TabControl; sub-navs are button rows, so no
-    # bubbling to guard against. Init the newly selected tab on first visit.
-    Invoke-ScyTabInit $s.SelectedIndex
+    # SelectionChanged bubbles up from ComboBoxes inside the tabs; only react to the tab control itself.
+    if ($e.OriginalSource -ne $s) { return }
+    if ($s.SelectedItem) { Invoke-ScyTabInit ([string]$s.SelectedItem.Header) }
 })
 
 # ── Apply default top-level tab on launch ────────────────────────────
-if ($script:defaultTab) {
-    $tabOrder = @("Apps", "Tweaks", "System", "Bookmarks", "Network", "Active Directory", "Tools", "Settings")
-    $idx = $tabOrder.IndexOf($script:defaultTab)
-    if ($idx -ge 0) {
-        try { $script:mainTabControl.SelectedIndex = $idx } catch {}
-    }
-}
+if ($script:defaultTab) { Select-ScyTab $script:defaultTab }
 
-# Initialize whatever tab we're actually landing on (default or Apps index 0).
-Invoke-ScyTabInit $script:mainTabControl.SelectedIndex
+# Initialize whatever tab we're actually landing on (the default, or the first).
+if ($script:mainTabControl.SelectedItem) {
+    Invoke-ScyTabInit ([string]$script:mainTabControl.SelectedItem.Header)
+}
 
 # Surface any modules that failed to load (crash isolation kept the app alive).
 if ($script:tabLoadErrors -and $script:tabLoadErrors.Count -gt 0) {

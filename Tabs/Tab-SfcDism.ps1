@@ -51,45 +51,14 @@ function Start-SfcDismRunner {
     Set-SfcDismBusy $StatusLabel
     $sfcDismOutput.Text = ""
 
-    $rs = [runspacefactory]::CreateRunspace()
-    $rs.ApartmentState = "STA"
-    $rs.ThreadOptions  = "ReuseThread"
-    $rs.Open()
-
-    $rs.SessionStateProxy.SetVariable("_commands",    $Commands)
-    $rs.SessionStateProxy.SetVariable("_box",         $sfcDismOutput)
-    $rs.SessionStateProxy.SetVariable("_statusTxt",   $sfcDismStatus)
-    $rs.SessionStateProxy.SetVariable("_progressBar", $sfcDismProgress)
-    $rs.SessionStateProxy.SetVariable("_resultCard",  $sfcDismResultCard)
-    $rs.SessionStateProxy.SetVariable("_resultPanel", $sfcDismResultPanel)
-    $rs.SessionStateProxy.SetVariable("_win",         $window)
-    $rs.SessionStateProxy.SetVariable("_si",          $statusIndicator)
-    $rs.SessionStateProxy.SetVariable("_fs",          $footerStatus)
-    $rs.SessionStateProxy.SetVariable("_btnSfc",      $btnSfcRun)
-    $rs.SessionStateProxy.SetVariable("_btnDism",     $btnDismRun)
-    $rs.SessionStateProxy.SetVariable("_btnBoth",     $btnSfcDismBoth)
-    $rs.SessionStateProxy.SetVariable("_btnStop",     $btnSfcDismStop)
-    $rs.SessionStateProxy.SetVariable("_procHolder",  $script:sfcDismProcHolder)
-
-    $ps = [powershell]::Create()
-    $ps.Runspace = $rs
-
-    $ps.AddScript({
-        function Ui([scriptblock]$sb) {
-            $_win.Dispatcher.Invoke($sb, [System.Windows.Threading.DispatcherPriority]::Normal)
-        }
-        function AppendLine([string]$t) {
-            Ui { $_box.AppendText("$t`r`n"); $_box.ScrollToEnd() }
-        }
-        function SetStatus([string]$t) {
-            Ui {
-                $_statusTxt.Text = $t
-                $_si.Text        = "* $t"
-            }
-        }
-        function SetProgress([int]$v) {
-            Ui { $_progressBar.Value = $v }
-        }
+    Start-ScyJob `
+        -Variables @{ _commands = $Commands; _procHolder = $script:sfcDismProcHolder } `
+        -Work {
+        param($emit)
+        # UI updates travel back as messages, applied by the OnLine handler below.
+        function AppendLine([string]$t) { & $emit @{ Kind = 'line';     Text  = $t } }
+        function SetStatus([string]$t)  { & $emit @{ Kind = 'status';   Text  = $t } }
+        function SetProgress([int]$v)   { & $emit @{ Kind = 'progress'; Value = $v } }
 
         # -- Helpers for parsing inside the runspace --
         function ParsePercent([string]$line) {
@@ -168,6 +137,7 @@ function Start-SfcDismRunner {
             $reader   = $p.StandardOutput
             $lineBuf  = [System.Text.StringBuilder]::new()
             $lastPct  = -1
+            $sawProgress = $false   # no progress at all = the tool refused to start
 
             while (-not $reader.EndOfStream) {
                 $ch = [char]$reader.Read()
@@ -186,6 +156,7 @@ function Start-SfcDismRunner {
                     $pct = ParsePercent $clean
                     if ($pct -ge 0 -and $pct -ne $lastPct) {
                         $lastPct = $pct
+                        $sawProgress = $true
                         SetProgress $pct
                         SetStatus "$label -- $pct% complete"
                         # Only append distinct progress lines to the log
@@ -225,51 +196,7 @@ function Start-SfcDismRunner {
             SetProgress 100
             AppendLine ""
 
-            return @{ Output = $output.ToString(); ExitCode = $p.ExitCode }
-        }
-
-        # -- Build result card helper --
-        function ShowResult([string]$tool, [string]$status, [string]$color, [string[]]$details) {
-            Ui {
-                $sp = New-Object System.Windows.Controls.StackPanel
-                $sp.Orientation = "Horizontal"
-                $sp.Margin = "0,3,0,3"
-
-                $icon = New-Object System.Windows.Controls.TextBlock
-                $icon.FontSize = 13
-                $icon.Margin   = "0,0,8,0"
-                if ($status -eq "Healthy") {
-                    $icon.Text = [string][char]0x2714
-                } elseif ($status -eq "Repaired") {
-                    $icon.Text = [string][char]0x26A0
-                } elseif ($status -eq "Finished") {
-                    $icon.Text = [string][char]0x2139
-                } else {
-                    $icon.Text = [string][char]0x2716
-                }
-                # $color is a theme resource key (SuccessBrush, ...), not a hex value
-                $icon.Foreground = $_win.Resources[$color]
-                $sp.Children.Add($icon) | Out-Null
-
-                $lbl = New-Object System.Windows.Controls.TextBlock
-                $lbl.Text       = "$tool  --  $status"
-                $lbl.FontSize   = 12
-                $lbl.FontWeight = "SemiBold"
-                $lbl.Foreground = $_win.Resources["FgBrush"]
-                $sp.Children.Add($lbl) | Out-Null
-
-                $_resultPanel.Children.Add($sp) | Out-Null
-
-                foreach ($d in $details) {
-                    $dt = New-Object System.Windows.Controls.TextBlock
-                    $dt.Text       = "   $d"
-                    $dt.FontSize   = 11
-                    $dt.Foreground = $_win.Resources["MutedText"]
-                    $dt.Margin     = "20,1,0,1"
-                    $dt.TextWrapping = "Wrap"
-                    $_resultPanel.Children.Add($dt) | Out-Null
-                }
-            }
+            return @{ Output = $output.ToString(); ExitCode = $p.ExitCode; SawProgress = $sawProgress }
         }
 
         # == Run the requested commands ==========================================
@@ -287,11 +214,18 @@ function Start-SfcDismRunner {
             # The text matches below are English-only. On other UI languages fall
             # back to the exit code so the card still says something useful.
             $codeNote = "Exit code $code. The result text wasn't recognised (non-English Windows?) - see the output log."
+            $adminNote = "Requires administrator rights - start Scy with 'Run as administrator'."
 
             # Parse results
             if ($cmd -eq "sfc") {
                 $parsed = @{ Tool = "SFC /scannow"; Status = "Unknown"; Color = "MutedText"; Details = @() }
-                if ($raw -match "did not find any integrity violations") {
+                if ($code -ne 0 -and -not $run.SawProgress) {
+                    # SFC refuses to start without elevation (exit 1, no scan progress)
+                    $parsed.Status = "Error"; $parsed.Color = "DangerBrush"; $parsed.NeedsAdmin = $true
+                    $parsed.Details += "SFC did not start (exit code $code)."
+                    $parsed.Details += $adminNote
+                }
+                elseif ($raw -match "did not find any integrity violations") {
                     $parsed.Status = "Healthy"; $parsed.Color = "SuccessBrush"
                     $parsed.Details += "No integrity violations found."
                 }
@@ -318,7 +252,12 @@ function Start-SfcDismRunner {
                 }
             } else {
                 $parsed = @{ Tool = "DISM RestoreHealth"; Status = "Unknown"; Color = "MutedText"; Details = @() }
-                if ($raw -match "The restore operation completed successfully") {
+                if ($code -eq 740) {
+                    # ERROR_ELEVATION_REQUIRED
+                    $parsed.Status = "Error"; $parsed.Color = "DangerBrush"; $parsed.NeedsAdmin = $true
+                    $parsed.Details += $adminNote
+                }
+                elseif ($raw -match "The restore operation completed successfully") {
                     $parsed.Status = "Healthy"; $parsed.Color = "SuccessBrush"
                     $parsed.Details += "Component store is healthy."
                 }
@@ -339,51 +278,92 @@ function Start-SfcDismRunner {
             $allResults += $parsed
         }
 
-        # -- Show results card --
-        Ui {
-            $_resultPanel.Children.Clear()
-            $_resultCard.Visibility = "Visible"
+        return $allResults
+    } `
+    -OnLine {
+        param($m, $ctx)
+        switch ($m.Kind) {
+            'line'     { $sfcDismOutput.AppendText($m.Text + "`r`n"); $sfcDismOutput.ScrollToEnd() }
+            'status'   { $sfcDismStatus.Text = $m.Text; $statusIndicator.Text = "* " + $m.Text }
+            'progress' { $sfcDismProgress.Value = $m.Value }
+        }
+    } `
+    -OnComplete {
+        param($results, $err, $ctx)
+        $script:sfcDismProcHolder.Clear()
+        $statusIndicator.Text       = "* Ready"
+        $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
+        $footerStatus.Text          = "Ready"
+        $btnSfcRun.IsEnabled        = $true
+        $btnDismRun.IsEnabled       = $true
+        $btnSfcDismBoth.IsEnabled   = $true
+        $btnSfcDismStop.IsEnabled   = $false
+        $sfcDismProgress.Value      = 100
+
+        if ($err) {
+            $sfcDismStatus.Text       = "Failed: " + $err.Exception.Message
+            $sfcDismStatus.Foreground = $window.Resources["DangerBrush"]
+            return
         }
 
-        foreach ($r in $allResults) {
-            ShowResult $r.Tool $r.Status $r.Color $r.Details
-        }
+        $results = @($results)
+        $sfcDismResultPanel.Children.Clear()
+        $sfcDismResultCard.Visibility = "Visible"
+        foreach ($r in $results) { Add-SfcDismResultRow $r }
 
-        # -- Determine final status line --
-        $anyFailed = $allResults | Where-Object { $_.Status -eq "Failed" -or $_.Status -eq "Error" }
-        $anyRepaired = $allResults | Where-Object { $_.Status -eq "Repaired" }
-
-        if ($anyFailed) {
-            $finalMsg   = "Completed with issues"
-            $finalColor = "DangerBrush"
-        } elseif ($anyRepaired) {
-            $finalMsg   = "Completed -- repairs were made"
-            $finalColor = "WarningBrush"
+        if ($results | Where-Object { $_.Status -in "Failed", "Error" }) {
+            $sfcDismStatus.Text = "Completed with issues"; $finalColor = "DangerBrush"
+        } elseif ($results | Where-Object { $_.Status -eq "Repaired" }) {
+            $sfcDismStatus.Text = "Completed -- repairs were made"; $finalColor = "WarningBrush"
+        } elseif ($results | Where-Object { $_.Status -eq "Finished" }) {
+            $sfcDismStatus.Text = "Completed -- see the result below"; $finalColor = "MutedText"
         } else {
-            $finalMsg   = "Completed -- system is healthy"
-            $finalColor = "SuccessBrush"
+            $sfcDismStatus.Text = "Completed -- system is healthy"; $finalColor = "SuccessBrush"
         }
+        $sfcDismStatus.Foreground = $window.Resources[$finalColor]
 
-        Ui {
-            $_statusTxt.Text       = $finalMsg
-            $_statusTxt.Foreground = $_win.Resources[$finalColor]
-            $_progressBar.Value    = 100
-        }
+        if ($results | Where-Object { $_.NeedsAdmin }) { Show-AdminRequiredError "Running SFC and DISM" }
+    } | Out-Null
+}
 
-        # -- Restore ready state --
-        Ui {
-            $_si.Text            = "* Ready"
-            $_si.Foreground      = $_win.Resources["SuccessBrush"]
-            $_fs.Text            = "Ready"
-            $_btnSfc.IsEnabled   = $true
-            $_btnDism.IsEnabled  = $true
-            $_btnBoth.IsEnabled  = $true
-            $_btnStop.IsEnabled  = $false
-            $_procHolder.Clear()
-        }
-    }) | Out-Null
+# -- Result card row (UI thread) ---------------------------------------------
+# $Result.Color is a theme resource key (SuccessBrush, ...), not a hex value.
+function Add-SfcDismResultRow {
+    param([hashtable]$Result)
 
-    $ps.BeginInvoke() | Out-Null
+    $sp = New-Object System.Windows.Controls.StackPanel
+    $sp.Orientation = "Horizontal"
+    $sp.Margin = "0,3,0,3"
+
+    $icon = New-Object System.Windows.Controls.TextBlock
+    $icon.FontSize = 13
+    $icon.Margin   = "0,0,8,0"
+    $icon.Text = switch ($Result.Status) {
+        "Healthy"  { [string][char]0x2714 }
+        "Repaired" { [string][char]0x26A0 }
+        "Finished" { [string][char]0x2139 }
+        default    { [string][char]0x2716 }
+    }
+    $icon.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $Result.Color)
+    $sp.Children.Add($icon) | Out-Null
+
+    $lbl = New-Object System.Windows.Controls.TextBlock
+    $lbl.Text       = "$($Result.Tool)  --  $($Result.Status)"
+    $lbl.FontSize   = 12
+    $lbl.FontWeight = "SemiBold"
+    $lbl.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+    $sp.Children.Add($lbl) | Out-Null
+    $sfcDismResultPanel.Children.Add($sp) | Out-Null
+
+    foreach ($d in $Result.Details) {
+        $dt = New-Object System.Windows.Controls.TextBlock
+        $dt.Text         = "   $d"
+        $dt.FontSize     = 11
+        $dt.Margin       = "20,1,0,1"
+        $dt.TextWrapping = "Wrap"
+        $dt.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+        $sfcDismResultPanel.Children.Add($dt) | Out-Null
+    }
 }
 
 # -- Button handlers ---------------------------------------------------------

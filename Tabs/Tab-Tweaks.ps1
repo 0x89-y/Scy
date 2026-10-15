@@ -78,6 +78,7 @@ function Build-TweakRow {
         $adminBadgeText.FontWeight    = [System.Windows.FontWeights]::SemiBold
         $adminBadgeText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
         $adminBadge.Child             = $adminBadgeText
+        $adminBadge.ToolTip           = "Needs Scy to be started with 'Run as administrator'"
         $nameRow.Children.Add($adminBadge) | Out-Null
     }
 
@@ -500,81 +501,57 @@ function Update-TweakFooterCounts {
     }
 })
 
-# ── Elevated execution helper ────────────────────────────────────
-function Invoke-TweakElevated {
-    param([string]$ScriptPath)
-    $proc = Start-Process powershell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`"" `
-        -Verb RunAs -WindowStyle Hidden -Wait -PassThru
-    if ($proc.ExitCode -ne 0) {
-        throw "Elevated script exited with code $($proc.ExitCode)"
+# ── Apply / Revert ───────────────────────────────────────────────
+# Tweak scripts run in-process. Scy never elevates or checks for admin itself:
+# a tweak that needs admin (badge "Admin") simply fails with access denied when
+# Scy wasn't started as administrator, and is listed separately so the user
+# knows to restart Scy with "Run as administrator".
+function Invoke-SelectedTweaks {
+    param([ValidateSet("Apply", "Revert")][string]$Mode)
+
+    $done      = 0
+    $failed    = @()
+    $needAdmin = @()
+    $noRevert  = @()
+    foreach ($key in $tweakCheckboxes.Keys) {
+        $row = $tweakCheckboxes[$key]
+        if (-not $row.CheckBox.IsChecked) { continue }
+
+        $script = if ($Mode -eq "Apply") { $row.ApplyScript } else { $row.RevertScript }
+        if (-not (Test-Path $script)) { $noRevert += $row.DisplayName; continue }
+
+        try {
+            # *>&1 turns non-terminating errors into records we can fail on
+            & $script *>&1 | ForEach-Object {
+                if ($_ -is [System.Management.Automation.ErrorRecord]) { throw $_ }
+            }
+            if ($Mode -eq "Revert") { $row.CheckBox.IsChecked = $false }
+            $done++
+        } catch {
+            if (Test-ScyAccessDenied $_) { $needAdmin += $row.DisplayName }
+            else                         { $failed    += "$($row.DisplayName): $_" }
+        }
     }
+
+    $verb = if ($Mode -eq "Apply") { "Applied" } else { "Reverted" }
+    if ($done -eq 0 -and $failed.Count -eq 0 -and $needAdmin.Count -eq 0 -and $noRevert.Count -eq 0) {
+        Show-ThemedDialog "No tweaks selected." "Info" "OK" "Information" | Out-Null
+        return
+    }
+
+    $parts = @()
+    if ($done -gt 0)           { $parts += "$verb $done tweak(s)." }
+    if ($needAdmin.Count -gt 0) {
+        $parts += "Needs administrator rights ($($needAdmin.Count)):`n" + (($needAdmin | ForEach-Object { "  - $_" }) -join "`n") +
+                  "`nClose Scy and start it again with 'Run as administrator', then try these again."
+    }
+    if ($failed.Count -gt 0)   { $parts += "Failed ($($failed.Count)):`n" + ($failed -join "`n") }
+    if ($noRevert.Count -gt 0) { $parts += "No Revert.ps1, skipped ($($noRevert.Count)):`n" + (($noRevert | ForEach-Object { "  - $_" }) -join "`n") }
+
+    $ok = ($needAdmin.Count -eq 0 -and $failed.Count -eq 0 -and $noRevert.Count -eq 0)
+    $title = if ($ok) { "Done" } elseif ($needAdmin.Count -gt 0 -and $failed.Count -eq 0) { "Administrator rights required" } else { "Tweak errors" }
+    Show-ThemedDialog ($parts -join "`n`n") $title "OK" $(if ($ok) { "Information" } else { "Warning" }) | Out-Null
 }
 
-# ── Apply button ─────────────────────────────────────────────────
-(Find "BtnApplyTweaks").Add_Click({
-    $applied = 0
-    $failed = @()
-    foreach ($key in $tweakCheckboxes.Keys) {
-        $row = $tweakCheckboxes[$key]
-        if ($row.CheckBox.IsChecked) {
-            try {
-                if ($row.RequiresAdmin) {
-                    Invoke-TweakElevated $row.ApplyScript
-                } else {
-                    & $row.ApplyScript -ErrorAction Stop *>&1 | ForEach-Object {
-                        if ($_ -is [System.Management.Automation.ErrorRecord]) { throw $_ }
-                    }
-                }
-                $applied++
-            } catch {
-                $failed += "$($row.DisplayName): $_"
-            }
-        }
-    }
-    if ($applied -eq 0 -and $failed.Count -eq 0) {
-        Show-ThemedDialog "No tweaks selected." "Info" "OK" "Information"
-    } elseif ($failed.Count -gt 0) {
-        $msg = if ($applied -gt 0) { "Applied $applied tweak(s).`n`n" } else { "" }
-        $msg += "Failed ($($failed.Count)):`n" + ($failed -join "`n")
-        Show-ThemedDialog $msg "Tweak errors" "OK" "Warning"
-    } else {
-        Show-ThemedDialog "Applied $applied tweak(s) successfully!" "Done" "OK" "Information"
-    }
-})
-
-# ── Revert button ────────────────────────────────────────────────
-(Find "BtnRevertTweaks").Add_Click({
-    $reverted = 0
-    $failed = @()
-    foreach ($key in $tweakCheckboxes.Keys) {
-        $row = $tweakCheckboxes[$key]
-        if ($row.CheckBox.IsChecked) {
-            if (Test-Path $row.RevertScript) {
-                try {
-                    if ($row.RequiresAdmin) {
-                        Invoke-TweakElevated $row.RevertScript
-                    } else {
-                        & $row.RevertScript -ErrorAction Stop *>&1 | ForEach-Object {
-                            if ($_ -is [System.Management.Automation.ErrorRecord]) { throw $_ }
-                        }
-                    }
-                    $row.CheckBox.IsChecked = $false
-                    $reverted++
-                } catch {
-                    $failed += "$($row.DisplayName): $_"
-                }
-            } else {
-                Show-ThemedDialog "'$($row.DisplayName)' has no Revert.ps1." "No revert available" "OK" "Warning"
-            }
-        }
-    }
-    if ($reverted -eq 0 -and $failed.Count -eq 0) {
-        Show-ThemedDialog "No tweaks selected to revert." "Info" "OK" "Information"
-    } elseif ($failed.Count -gt 0) {
-        $msg = if ($reverted -gt 0) { "Reverted $reverted tweak(s).`n`n" } else { "" }
-        $msg += "Failed ($($failed.Count)):`n" + ($failed -join "`n")
-        Show-ThemedDialog $msg "Revert errors" "OK" "Warning"
-    } else {
-        Show-ThemedDialog "Reverted $reverted tweak(s)." "Done" "OK" "Information"
-    }
-})
+(Find "BtnApplyTweaks").Add_Click({  Invoke-SelectedTweaks -Mode Apply })
+(Find "BtnRevertTweaks").Add_Click({ Invoke-SelectedTweaks -Mode Revert })

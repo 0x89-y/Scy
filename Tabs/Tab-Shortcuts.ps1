@@ -287,6 +287,7 @@
                   $adminBadgeText.FontWeight = [System.Windows.FontWeights]::SemiBold
                   $adminBadgeText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
                   $adminBadge.Child          = $adminBadgeText
+                  $adminBadge.ToolTip        = "Needs administrator rights. Windows may ask for permission when it opens."
                   $nameRow.Children.Add($adminBadge) | Out-Null
               }
 
@@ -313,8 +314,10 @@
                   $data = $this.Tag
                   if ($data.Command -eq "HostsFileSpecial") {
                       try {
-                          Start-Process "notepad.exe" -ArgumentList "$env:windir\System32\drivers\etc\hosts" -Verb RunAs
-                          $footerStatus.Text = "Scy - Opened Hosts File"
+                          # Opened without elevation: Notepad can view it, but saving needs Scy
+                          # started as administrator (or use Network > Hosts).
+                          Start-Process "notepad.exe" -ArgumentList "$env:windir\System32\drivers\etc\hosts"
+                          $footerStatus.Text = "Scy - Opened hosts file (saving changes requires running Scy as administrator)"
                       } catch {
                           Show-ThemedDialog "Could not open Hosts File:`n$_" "Error" "OK" "Error"
                       }
@@ -389,7 +392,7 @@
                   $newGroupItem = New-Object System.Windows.Controls.MenuItem
                   $newGroupItem.Header = "New group..."
                   $newGroupItem.Add_Click({
-                      Ensure-VisualBasic; $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Group name:", "New Group", "")
+                      $gName = Show-ThemedInput -Prompt "Group name:" -Title "New Group" -Default ""
                       if ([string]::IsNullOrWhiteSpace($gName)) { return }
                       $gName = $gName.Trim()
                       if ($gName -notin (Get-AllShortcutGroups)) {
@@ -478,7 +481,7 @@ Refresh-ShortcutGroupBox
 # Handle "New group..." selection in the group ComboBox
 (Find "ShortcutGroupBox").Add_SelectionChanged({
     if ($this.SelectedItem -eq "+ New group...") {
-        Ensure-VisualBasic; $gName = [Microsoft.VisualBasic.Interaction]::InputBox("Group name:", "New Group", "")
+        $gName = Show-ThemedInput -Prompt "Group name:" -Title "New Group" -Default ""
         if (-not [string]::IsNullOrWhiteSpace($gName)) {
             $gName = $gName.Trim()
             if ($gName -notin (Get-AllShortcutGroups)) {

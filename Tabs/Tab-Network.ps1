@@ -906,17 +906,9 @@ $btnDnsGoogle           = Find "BtnDnsGoogle"
 $btnDnsQuad9            = Find "BtnDnsQuad9"
 $btnDnsOpenDNS          = Find "BtnDnsOpenDNS"
 $btnDnsDHCP             = Find "BtnDnsDHCP"
-$dnsAdminBanner         = Find "DnsAdminBanner"
 $dnsDoHCheckbox         = Find "DnsDoHCheckbox"
 $dnsDoHStatus           = Find "DnsDoHStatus"
 $dnsDoHUnsupportedBanner = Find "DnsDoHUnsupportedBanner"
-
-# Check admin status
-$script:dnsIsAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
-    [Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $script:dnsIsAdmin) {
-    $dnsAdminBanner.Visibility = "Visible"
-}
 
 # Check DoH support (requires Windows 10 Build 19628+ or Windows 11).
 # Deferred to first Network-tab visit (Invoke-ScyTabInit in Scy.ps1): the first
@@ -1070,6 +1062,19 @@ function Register-DohServer {
     }
 }
 
+# Shared failure handling for DNS changes: missing admin rights get the standard
+# dialog; anything else is shown in the status line.
+function Show-DnsError {
+    param($ErrorRecord)
+    $dnsStatusText.Foreground = $window.Resources["DangerBrush"]
+    if (Test-ScyAccessDenied $ErrorRecord) {
+        $dnsStatusText.Text = "Not changed - administrator rights required"
+        Show-AdminRequiredError "Changing DNS servers"
+    } else {
+        $dnsStatusText.Text = "Error: $ErrorRecord"
+    }
+}
+
 function Set-DnsForAdapter {
     param(
         [string]$AdapterName,
@@ -1077,12 +1082,6 @@ function Set-DnsForAdapter {
         [string]$Secondary,
         [string]$DohTemplate
     )
-    if (-not $script:dnsIsAdmin) {
-        [System.Windows.MessageBox]::Show(
-            "DNS changes require running as Administrator.`nPlease restart Scy with elevated privileges.",
-            "Scy - DNS", "OK", "Warning") | Out-Null
-        return
-    }
     try {
         $useDoH = $dnsDoHCheckbox.IsChecked -and $script:dohSupported
         $statusLabel = if ($useDoH) { "Applying with DoH..." } else { "Applying..." }
@@ -1100,7 +1099,7 @@ function Set-DnsForAdapter {
             }
         }
 
-        Set-DnsClientServerAddress -InterfaceAlias $AdapterName -ServerAddresses $addresses
+        Set-DnsClientServerAddress -InterfaceAlias $AdapterName -ServerAddresses $addresses -ErrorAction Stop
 
         # Flush DNS cache so new settings take effect immediately
         Clear-DnsClientCache -ErrorAction SilentlyContinue
@@ -1110,32 +1109,24 @@ function Set-DnsForAdapter {
         $dnsStatusText.Foreground = $window.Resources["SuccessBrush"]
         Update-DnsCurrentDisplay
     } catch {
-        $dnsStatusText.Text       = "Error: $_"
-        $dnsStatusText.Foreground = $window.Resources["DangerBrush"]
+        Show-DnsError $_
     }
 }
 
 function Reset-DnsToDHCP {
     param([string]$AdapterName)
-    if (-not $script:dnsIsAdmin) {
-        [System.Windows.MessageBox]::Show(
-            "DNS changes require running as Administrator.`nPlease restart Scy with elevated privileges.",
-            "Scy - DNS", "OK", "Warning") | Out-Null
-        return
-    }
     try {
         $dnsStatusText.Text       = "Resetting..."
         $dnsStatusText.Foreground = $window.Resources["WarningBrush"]
 
-        Set-DnsClientServerAddress -InterfaceAlias $AdapterName -ResetServerAddresses
+        Set-DnsClientServerAddress -InterfaceAlias $AdapterName -ResetServerAddresses -ErrorAction Stop
         Clear-DnsClientCache -ErrorAction SilentlyContinue
 
         $dnsStatusText.Text       = "Reset to DHCP"
         $dnsStatusText.Foreground = $window.Resources["SuccessBrush"]
         Update-DnsCurrentDisplay
     } catch {
-        $dnsStatusText.Text       = "Error: $_"
-        $dnsStatusText.Foreground = $window.Resources["DangerBrush"]
+        Show-DnsError $_
     }
 }
 
