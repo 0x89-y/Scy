@@ -56,8 +56,14 @@ $hashFileBox.Add_Drop({
 })
 
 # ── Compute hashes ──────────────────────────────────────────────
+# Runs in a background job and reads the file once, feeding MD5/SHA1/SHA256 in
+# the same pass (it used to read it three times on the UI thread, freezing the
+# window on large files). $Then runs on the UI thread after a successful hash.
+$script:hashBusy = $false
+
 function Invoke-FileHash {
-    param([string]$FilePath)
+    param([string]$FilePath, [scriptblock]$Then)
+    if ($script:hashBusy) { return }
 
     if (-not (Test-Path $FilePath -PathType Leaf)) {
         $hashStatus.Text = "File not found: $FilePath"
@@ -67,35 +73,71 @@ function Invoke-FileHash {
         return
     }
 
+    $script:hashBusy = $true
     $hashStatus.Text = "Computing hashes..."
     $hashResultsPanel.Visibility = "Collapsed"
-    $window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Render)
+    $hashVerifyResult.Visibility = "Collapsed"
+    $hashCompareResult.Visibility = "Collapsed"
 
-    try {
-        $md5    = (Get-FileHash -Path $FilePath -Algorithm MD5).Hash
-        $sha1   = (Get-FileHash -Path $FilePath -Algorithm SHA1).Hash
-        $sha256 = (Get-FileHash -Path $FilePath -Algorithm SHA256).Hash
+    Start-ScyJob `
+        -Variables @{ path = $FilePath } `
+        -Context   @{ Then = $Then } `
+        -Work {
+            param($emit)
+            $algos = [ordered]@{
+                MD5    = [System.Security.Cryptography.MD5]::Create()
+                SHA1   = [System.Security.Cryptography.SHA1]::Create()
+                SHA256 = [System.Security.Cryptography.SHA256]::Create()
+            }
+            $fs = [System.IO.File]::OpenRead($path)
+            try {
+                $buf = New-Object byte[] (1MB)
+                $total = $fs.Length; $done = 0L; $lastPct = -1
+                while (($n = $fs.Read($buf, 0, $buf.Length)) -gt 0) {
+                    foreach ($h in $algos.Values) { [void]$h.TransformBlock($buf, 0, $n, $null, 0) }
+                    $done += $n
+                    $pct = [int](100 * $done / [Math]::Max(1, $total))
+                    if ($pct -ne $lastPct) { $lastPct = $pct; & $emit $pct }
+                }
+                foreach ($h in $algos.Values) { [void]$h.TransformFinalBlock($buf, 0, 0) }
+            } finally { $fs.Dispose() }
 
-        $hashMD5.Text    = $md5
-        $hashSHA1.Text   = $sha1
-        $hashSHA256.Text = $sha256
+            $file = Get-Item -LiteralPath $path
+            $out = @{ Name = $file.Name; Length = $file.Length; Modified = $file.LastWriteTime }
+            foreach ($k in $algos.Keys) {
+                $out[$k] = [System.BitConverter]::ToString($algos[$k].Hash).Replace('-', '')
+                $algos[$k].Dispose()
+            }
+            return $out
+        } `
+        -OnLine {
+            param($pct, $ctx)
+            $hashStatus.Text = "Computing hashes... $pct%"
+        } `
+        -OnComplete {
+            param($r, $err, $ctx)
+            $script:hashBusy = $false
+            if ($err) {
+                $hashStatus.Text = "Error: $($err.Exception.Message)"
+                $hashResultsPanel.Visibility = "Collapsed"
+                $btnHashCopy.IsEnabled = $false
+                $btnHashCopy.Opacity = 0.4
+                return
+            }
 
-        $file = Get-Item $FilePath
-        $sizeKB = [math]::Round($file.Length / 1KB, 1)
-        $sizeMB = [math]::Round($file.Length / 1MB, 2)
-        $sizeDisplay = if ($file.Length -ge 1MB) { "${sizeMB} MB" } else { "${sizeKB} KB" }
-        $hashFileInfo.Text = "$($file.Name)  |  $sizeDisplay  |  Modified: $($file.LastWriteTime.ToString('yyyy-MM-dd HH:mm'))"
+            $hashMD5.Text    = $r.MD5
+            $hashSHA1.Text   = $r.SHA1
+            $hashSHA256.Text = $r.SHA256
 
-        $hashResultsPanel.Visibility = "Visible"
-        $hashStatus.Text = ""
-        $btnHashCopy.IsEnabled = $true
-        $btnHashCopy.Opacity = 1.0
-    } catch {
-        $hashStatus.Text = "Error: $($_.Exception.Message)"
-        $hashResultsPanel.Visibility = "Collapsed"
-        $btnHashCopy.IsEnabled = $false
-        $btnHashCopy.Opacity = 0.4
-    }
+            $sizeDisplay = if ($r.Length -ge 1MB) { "$([math]::Round($r.Length / 1MB, 2)) MB" } else { "$([math]::Round($r.Length / 1KB, 1)) KB" }
+            $hashFileInfo.Text = "$($r.Name)  |  $sizeDisplay  |  Modified: $($r.Modified.ToString('yyyy-MM-dd HH:mm'))"
+
+            $hashResultsPanel.Visibility = "Visible"
+            $hashStatus.Text = ""
+            $btnHashCopy.IsEnabled = $true
+            $btnHashCopy.Opacity = 1.0
+            if ($ctx.Then) { & $ctx.Then }
+        } | Out-Null
 }
 
 # ── Browse button ────────────────────────────────────────────────
@@ -139,20 +181,16 @@ $btnHashCopy.Add_Click({
 })
 
 # ── Verify hash ──────────────────────────────────────────────────
-$btnHashVerify.Add_Click({
+function Test-ExpectedHash {
     $expected = $hashExpectedBox.Text.Trim()
     if ([string]::IsNullOrWhiteSpace($expected)) {
         $hashVerifyResult.Visibility = "Collapsed"
         return
     }
 
-    # Make sure we have hashes computed
-    if ($hashResultsPanel.Visibility -ne "Visible") {
-        $path = $hashFileBox.Text.Trim().Trim('"')
-        if ($path) { Invoke-FileHash $path }
-        if ($hashResultsPanel.Visibility -ne "Visible") { return }
-    }
-
+    # Accept pasted forms like "sha256: ABC..." / "SHA-256=abc..." - drop the
+    # label first, otherwise its letters (the A in SHA) leak into the hex.
+    $expected = $expected -replace '^\s*(md5|sha-?1|sha-?256)\s*[:=]?\s*', ''
     $expected = $expected.ToUpperInvariant() -replace '[^A-F0-9]', ''
     $match = $false
     $matchAlgo = ""
@@ -177,33 +215,51 @@ $btnHashVerify.Add_Click({
             [System.Windows.Media.Color]::FromArgb(30, 225, 112, 85))
     }
     $hashVerifyResult.Visibility = "Visible"
+}
+
+$btnHashVerify.Add_Click({
+    if ([string]::IsNullOrWhiteSpace($hashExpectedBox.Text)) {
+        $hashVerifyResult.Visibility = "Collapsed"
+        return
+    }
+    if ($hashResultsPanel.Visibility -eq "Visible") { Test-ExpectedHash; return }
+
+    # Nothing hashed yet: hash the file first, then verify once it's done
+    $path = $hashFileBox.Text.Trim().Trim('"')
+    if ($path) { Invoke-FileHash $path -Then { Test-ExpectedHash } }
 })
 
 # ── Compare two files ────────────────────────────────────────────
-$btnHashCompare.Add_Click({
-    # First file should already be loaded
-    if ($hashResultsPanel.Visibility -ne "Visible") {
-        $path = $hashFileBox.Text.Trim().Trim('"')
-        if ($path) { Invoke-FileHash $path }
-        if ($hashResultsPanel.Visibility -ne "Visible") {
-            $hashCompareResult.Visibility = "Collapsed"
-            return
-        }
-    }
-
+# Pick a second file and compare its SHA256 with the loaded one (hashed in a background job).
+function Compare-WithSecondFile {
     $firstSHA256 = $hashSHA256.Text
 
-    # Pick second file
     $dialog = New-Object Microsoft.Win32.OpenFileDialog
     $dialog.Title = "Select second file to compare"
     $dialog.Filter = "All files (*.*)|*.*"
     if (-not $dialog.ShowDialog()) { return }
 
+    $script:hashBusy = $true
     $hashStatus.Text = "Computing hash for second file..."
-    $window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Render)
+    Start-ScyJob `
+        -Variables @{ path = $dialog.FileName } `
+        -Context   @{ First = $firstSHA256 } `
+        -Work {
+            param($emit)
+            return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+        } `
+        -OnComplete {
+            param($secondSHA256, $err, $ctx)
+            $script:hashBusy = $false
+            Show-HashComparison -First $ctx.First -Second $secondSHA256 -ErrorRecord $err
+        } | Out-Null
+}
 
+function Show-HashComparison {
+    param([string]$First, [string]$Second, $ErrorRecord)
+    $firstSHA256 = $First; $secondSHA256 = $Second
     try {
-        $secondSHA256 = (Get-FileHash -Path $dialog.FileName -Algorithm SHA256).Hash
+        if ($ErrorRecord) { throw $ErrorRecord }
 
         if ($firstSHA256 -eq $secondSHA256) {
             $hashCompareText.Text = "Identical  -  Both files have the same SHA256 hash"
@@ -222,4 +278,14 @@ $btnHashCompare.Add_Click({
         $hashStatus.Text = "Error: $($_.Exception.Message)"
         $hashCompareResult.Visibility = "Collapsed"
     }
+}
+
+$btnHashCompare.Add_Click({
+    if ($script:hashBusy) { return }
+    if ($hashResultsPanel.Visibility -eq "Visible") { Compare-WithSecondFile; return }
+
+    # First file not hashed yet: hash it, then ask for the second one
+    $path = $hashFileBox.Text.Trim().Trim('"')
+    if ($path) { Invoke-FileHash $path -Then { Compare-WithSecondFile } }
+    else { $hashCompareResult.Visibility = "Collapsed" }
 })

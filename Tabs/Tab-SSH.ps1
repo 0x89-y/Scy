@@ -4,6 +4,7 @@ $sshKeyPanel       = Find "SSHKeyPanel"
 $sshGenerateStatus = Find "SSHGenerateStatus"
 
 $sshDir = Join-Path $env:USERPROFILE ".ssh"
+$script:sshPreviewBlocks = @{}   # pub key path -> its preview TextBlock
 
 # ── Build a row for one key pair ─────────────────────────────────
 function New-SSHKeyRow {
@@ -45,17 +46,10 @@ function New-SSHKeyRow {
     $previewTb.Margin    = [System.Windows.Thickness]::new(0, 2, 0, 0)
     $previewTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
 
-    # Try to get fingerprint; fall back to truncated pub key
-    try {
-        if (Get-Command ssh-keygen -ErrorAction SilentlyContinue) {
-            $fp = & ssh-keygen -lf $PubKeyPath 2>$null
-            $previewTb.Text = if ($fp) { $fp } else { $pubText.Substring(0, [Math]::Min(80, $pubText.Length)) + "..." }
-        } else {
-            $previewTb.Text = $pubText.Substring(0, [Math]::Min(80, $pubText.Length)) + "..."
-        }
-    } catch {
-        $previewTb.Text = "(could not read key)"
-    }
+    # Truncated pub key for now; Populate-SSHKeys swaps in the fingerprint once
+    # its background ssh-keygen job finishes.
+    $previewTb.Text = if ($pubText) { $pubText.Substring(0, [Math]::Min(80, $pubText.Length)) + "..." } else { "(could not read key)" }
+    $script:sshPreviewBlocks[$PubKeyPath] = $previewTb
 
     $left.Children.Add($nameTb)    | Out-Null
     $left.Children.Add($previewTb) | Out-Null
@@ -116,12 +110,35 @@ function Populate-SSHKeys {
         return
     }
 
+    $script:sshPreviewBlocks = @{}
     $alt = $false
     foreach ($pub in $pubKeys) {
         $row = New-SSHKeyRow $pub.FullName $alt
         $sshKeyPanel.Children.Add($row) | Out-Null
         $alt = -not $alt
     }
+
+    # Fingerprints: one ssh-keygen per key, all in a single background job
+    $keygen = Get-Command ssh-keygen -ErrorAction SilentlyContinue
+    if (-not $keygen) { return }
+    Start-ScyJob `
+        -Variables @{ paths = @($pubKeys | ForEach-Object { $_.FullName }); exe = $keygen.Source } `
+        -Work {
+            param($emit)
+            $out = @{}
+            foreach ($p in $paths) {
+                $fp = & $exe -lf $p 2>$null
+                if ($LASTEXITCODE -eq 0 -and $fp) { $out[$p] = [string]$fp }
+            }
+            return $out
+        } `
+        -OnComplete {
+            param($fingerprints, $err, $ctx)
+            if ($err -or -not $fingerprints) { return }
+            foreach ($p in $fingerprints.Keys) {
+                if ($script:sshPreviewBlocks.ContainsKey($p)) { $script:sshPreviewBlocks[$p].Text = $fingerprints[$p] }
+            }
+        } | Out-Null
 }
 
 # ── Generate panel defaults ───────────────────────────────────────

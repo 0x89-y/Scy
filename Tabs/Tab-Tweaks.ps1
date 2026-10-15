@@ -502,42 +502,90 @@ function Update-TweakFooterCounts {
 })
 
 # ── Apply / Revert ───────────────────────────────────────────────
-# Tweak scripts run in-process. Scy never elevates or checks for admin itself:
-# a tweak that needs admin (badge "Admin") simply fails with access denied when
-# Scy wasn't started as administrator, and is listed separately so the user
-# knows to restart Scy with "Run as administrator".
+# Tweak scripts run in a background job so slow ones (package removal, Explorer
+# restarts) don't freeze the window. Scy never elevates or checks for admin
+# itself: a tweak that needs admin (badge "Admin") simply fails with access
+# denied when Scy wasn't started as administrator, and is listed separately so
+# the user knows to restart Scy with "Run as administrator".
+$script:tweaksBusy = $false
+
 function Invoke-SelectedTweaks {
     param([ValidateSet("Apply", "Revert")][string]$Mode)
+    if ($script:tweaksBusy) { return }
 
-    $done      = 0
-    $failed    = @()
-    $needAdmin = @()
-    $noRevert  = @()
+    $work     = @()
+    $noRevert = @()
     foreach ($key in $tweakCheckboxes.Keys) {
         $row = $tweakCheckboxes[$key]
         if (-not $row.CheckBox.IsChecked) { continue }
-
         $script = if ($Mode -eq "Apply") { $row.ApplyScript } else { $row.RevertScript }
         if (-not (Test-Path $script)) { $noRevert += $row.DisplayName; continue }
-
-        try {
-            # *>&1 turns non-terminating errors into records we can fail on
-            & $script *>&1 | ForEach-Object {
-                if ($_ -is [System.Management.Automation.ErrorRecord]) { throw $_ }
-            }
-            if ($Mode -eq "Revert") { $row.CheckBox.IsChecked = $false }
-            $done++
-        } catch {
-            if (Test-ScyAccessDenied $_) { $needAdmin += $row.DisplayName }
-            else                         { $failed    += "$($row.DisplayName): $_" }
-        }
+        $work += @{ Key = $key; Name = $row.DisplayName; Script = $script }
     }
 
-    $verb = if ($Mode -eq "Apply") { "Applied" } else { "Reverted" }
-    if ($done -eq 0 -and $failed.Count -eq 0 -and $needAdmin.Count -eq 0 -and $noRevert.Count -eq 0) {
+    if ($work.Count -eq 0 -and $noRevert.Count -eq 0) {
         Show-ThemedDialog "No tweaks selected." "Info" "OK" "Information" | Out-Null
         return
     }
+
+    $script:tweaksBusy = $true
+    (Find "BtnApplyTweaks").IsEnabled  = $false
+    (Find "BtnRevertTweaks").IsEnabled = $false
+    $verbIng = if ($Mode -eq "Apply") { "Applying" } else { "Reverting" }
+    Set-BusyStatus "$verbIng tweaks..."
+
+    Start-ScyJob `
+        -Variables @{ items = $work } `
+        -Context   @{ Mode = $Mode; NoRevert = $noRevert; VerbIng = $verbIng } `
+        -Work {
+            param($emit)
+            $results = foreach ($it in $items) {
+                & $emit $it.Name
+                $err = $null
+                try {
+                    # *>&1 turns non-terminating errors into records we can fail on
+                    & $it.Script *>&1 | ForEach-Object {
+                        if ($_ -is [System.Management.Automation.ErrorRecord]) { throw $_ }
+                    }
+                } catch { $err = $_ }
+                @{ Key = $it.Key; Name = $it.Name; Error = $err }
+            }
+            return ,@($results)
+        } `
+        -OnLine {
+            param($name, $ctx)
+            $statusIndicator.Text = "$($ctx.VerbIng) $name..."
+            $footerStatus.Text    = "Scy - $($ctx.VerbIng) $name..."
+        } `
+        -OnComplete {
+            param($results, $err, $ctx)
+            $script:tweaksBusy = $false
+            Set-ReadyStatus
+            if ($err) {
+                Update-TweakFooterCounts
+                Show-ThemedDialog "Running the tweaks failed:`n$($err.Exception.Message)" "Tweak errors" "OK" "Error" | Out-Null
+                return
+            }
+            $done = 0; $failed = @(); $needAdmin = @()
+            foreach ($r in @($results)) {
+                if (-not $r.Error) {
+                    $done++
+                    if ($ctx.Mode -eq "Revert" -and $tweakCheckboxes.Contains($r.Key)) { $tweakCheckboxes[$r.Key].CheckBox.IsChecked = $false }
+                } elseif (Test-ScyAccessDenied $r.Error) {
+                    $needAdmin += $r.Name
+                } else {
+                    $failed += "$($r.Name): $($r.Error)"
+                }
+            }
+            Update-TweakFooterCounts
+            Show-TweakSummary -Mode $ctx.Mode -Done $done -Failed $failed -NeedAdmin $needAdmin -NoRevert $ctx.NoRevert
+        } | Out-Null
+}
+
+function Show-TweakSummary {
+    param([string]$Mode, [int]$Done, [string[]]$Failed = @(), [string[]]$NeedAdmin = @(), [string[]]$NoRevert = @())
+    $failed = @($Failed); $needAdmin = @($NeedAdmin); $noRevert = @($NoRevert); $done = $Done
+    $verb = if ($Mode -eq "Apply") { "Applied" } else { "Reverted" }
 
     $parts = @()
     if ($done -gt 0)           { $parts += "$verb $done tweak(s)." }

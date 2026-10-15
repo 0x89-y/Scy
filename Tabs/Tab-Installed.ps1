@@ -531,45 +531,63 @@ function New-ResultRow {
         if ($confirm -ne "Yes") { return }
     }
 
+    # Shares the store's guard so two winget operations never run at once
+    if ($script:installInProgress) {
+        Show-ThemedDialog "Another install or uninstall is still running. Try again when it finishes." "Busy" "OK" "Information" | Out-Null
+        return
+    }
+    $script:installInProgress = $true
+    (Find "BtnUninstallSelected").IsEnabled = $false
     Set-BusyStatus "Uninstalling..."
 
     $uninstallResultsPanel.Children.Clear()
     $uninstallResultsCount.Text  = ""
     $uninstallResultsStatus.Text = "Working..."
     $uninstallResultsCard.Visibility = "Visible"
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 
-    $succeeded = 0
-    $failed    = 0
-    $i         = 0
-    foreach ($item in $selected) {
-        $uninstallResultsStatus.Text = "Removing " + $item.Name + " (" + ($i + 1) + " of " + $selected.Count + ")..."
-        $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+    # winget runs in a background job; each finished app streams back as a result row
+    $work = @($selected | ForEach-Object { @{ Name = [string]$_.Name; Id = [string]$_.Id } })
+    Start-ScyJob `
+        -Variables @{ items = $work } `
+        -Context   @{ Total = $work.Count; Succeeded = [ref]0; Failed = [ref]0 } `
+        -Work {
+            param($emit)
+            $i = 0
+            foreach ($item in $items) {
+                $i++
+                & $emit @{ Kind = 'start'; Name = $item.Name; Index = $i }
+                & winget uninstall --id $item.Id --exact --silent --accept-source-agreements 2>&1 | Out-Null
+                & $emit @{ Kind = 'done'; Name = $item.Name; Id = $item.Id; Index = $i; Ok = ($LASTEXITCODE -eq 0); Code = $LASTEXITCODE }
+            }
+        } `
+        -OnLine {
+            param($m, $ctx)
+            if ($m.Kind -eq 'start') {
+                $uninstallResultsStatus.Text = "Removing " + $m.Name + " (" + $m.Index + " of " + $ctx.Total + ")..."
+                return
+            }
+            if ($m.Ok) { $ctx.Succeeded.Value++ } else { $ctx.Failed.Value++ }
+            Write-ScyLog ("Uninstall " + $(if ($m.Ok) { "ok" } else { "FAILED (" + ('0x{0:X8}' -f $m.Code) + ")" }) + ": $($m.Name) ($($m.Id))") $(if ($m.Ok) { "INFO" } else { "ERROR" })
+            $uninstallResultsPanel.Children.Add((New-ResultRow $m.Name $m.Id $m.Ok $false)) | Out-Null
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $script:installInProgress = $false
+            Update-UninstallSelectionCount
+            Set-ReadyStatus
+            $succeeded = $ctx.Succeeded.Value; $failed = $ctx.Failed.Value
+            if ($err) { $failed = $ctx.Total - $succeeded }
 
-        & winget uninstall --id $item.Id --silent --accept-source-agreements 2>&1 | Out-Null
-        $success = ($LASTEXITCODE -eq 0)
-
-        if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) {
-            Write-ScyLog ("Uninstall " + $(if ($success) { "ok" } else { "FAILED" }) + ": $($item.Name) ($($item.Id))") $(if ($success) { "INFO" } else { "ERROR" })
-        }
-        if ($success) { $succeeded++ } else { $failed++ }
-
-        $uninstallResultsPanel.Children.Add((New-ResultRow $item.Name $item.Id $success ($i % 2 -eq 0))) | Out-Null
-        $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-        $i++
-    }
-
-    $uninstallResultsCount.Text = [string]$succeeded
-    if ($failed -gt 0) {
-        $uninstallResultsCount.Foreground = $window.Resources["WarningBrush"]
-        $uninstallResultsStatus.Text = "$succeeded removed, $failed failed - re-scan to refresh the list"
-    } else {
-        $uninstallResultsCount.Foreground = $window.Resources["SuccessBrush"]
-        $uninstallResultsStatus.Text = "$succeeded removed - re-scan to refresh the list"
-    }
-
-    Set-ReadyStatus
-    if ($selected.Count -gt 1) {
-        Show-ScyToast -Title "Scy" -Body ("Uninstall complete: " + [string]$succeeded + " removed, " + [string]$failed + " failed.")
-    }
+            $uninstallResultsCount.Text = [string]$succeeded
+            if ($failed -gt 0) {
+                $uninstallResultsCount.Foreground = $window.Resources["WarningBrush"]
+                $uninstallResultsStatus.Text = "$succeeded removed, $failed failed - re-scan to refresh the list"
+            } else {
+                $uninstallResultsCount.Foreground = $window.Resources["SuccessBrush"]
+                $uninstallResultsStatus.Text = "$succeeded removed - re-scan to refresh the list"
+            }
+            if ($ctx.Total -gt 1) {
+                Show-ScyToast -Title "Scy" -Body ("Uninstall complete: " + [string]$succeeded + " removed, " + [string]$failed + " failed.")
+            }
+        } | Out-Null
 })

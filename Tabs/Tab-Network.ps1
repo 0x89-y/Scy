@@ -757,42 +757,61 @@ $btnNetWifi.Add_Click({
     $netWifiPanel.Children.Clear()
     $statusIndicator.Text       = "* Reading Wi-Fi profiles..."
     $statusIndicator.Foreground = $window.Resources["WarningBrush"]
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+    $btnNetWifi.IsEnabled       = $false
 
-    try {
-        # Use XML export to avoid locale-dependent text parsing (netsh text
-        # output is translated on non-English Windows, but XML element names
-        # like <name>, <keyMaterial>, <authentication> are always English).
-        $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "scy_wifi_$([guid]::NewGuid().ToString('N').Substring(0,8))"
-        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-        try { netsh wlan export profile folder="$tempDir" key=clear 2>&1 | Out-Null } catch {}
-
-        $xmlFiles = Get-ChildItem -Path $tempDir -Filter "*.xml" -ErrorAction SilentlyContinue
-        $profiles = @()
-        foreach ($xf in $xmlFiles) {
+    # netsh export + parsing run in a background job; rows are built on completion
+    Start-ScyJob `
+        -Work {
+            param($emit)
+            # Use XML export to avoid locale-dependent text parsing (netsh text
+            # output is translated on non-English Windows, but XML element names
+            # like <name>, <keyMaterial>, <authentication> are always English).
+            $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "scy_wifi_$([guid]::NewGuid().ToString('N').Substring(0,8))"
+            New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+            $profiles = @()
             try {
-                $xml  = [xml](Get-Content $xf.FullName -Raw)
-                $key  = $xml.WLANProfile.MSM.security.sharedKey
-                # Without elevation netsh ignores key=clear and exports the key
-                # encrypted (<protected>true</protected>); that blob is not the password.
-                $isProtected = $key -and [string]$key.protected -eq 'true'
-                $profiles += [PSCustomObject]@{
-                    Name      = $xml.WLANProfile.name
-                    Protected = $isProtected
-                    Password  = if ($isProtected) { "(hidden - run Scy as administrator)" }
-                                elseif ($key.keyMaterial) { $key.keyMaterial }
-                                else { "(open / no password)" }
-                    AuthType = switch -Wildcard ($xml.WLANProfile.MSM.security.authEncryption.authentication) {
-                                   "*SAE*"  { "SAE" }
-                                   "*WPA2*" { "WPA" }
-                                   "*WPA*"  { "WPA" }
-                                   "open"   { "nopass" }
-                                   default  { "WPA" }
-                               }
+                try { netsh wlan export profile folder="$tempDir" key=clear 2>&1 | Out-Null } catch {}
+                foreach ($xf in (Get-ChildItem -Path $tempDir -Filter "*.xml" -ErrorAction SilentlyContinue)) {
+                    try {
+                        $xml  = [xml](Get-Content $xf.FullName -Raw)
+                        $key  = $xml.WLANProfile.MSM.security.sharedKey
+                        # Without elevation netsh ignores key=clear and exports the key
+                        # encrypted (<protected>true</protected>); that blob is not the password.
+                        $isProtected = $key -and [string]$key.protected -eq 'true'
+                        $profiles += [PSCustomObject]@{
+                            Name      = $xml.WLANProfile.name
+                            Protected = $isProtected
+                            Password  = if ($isProtected) { "(hidden - run Scy as administrator)" }
+                                        elseif ($key.keyMaterial) { $key.keyMaterial }
+                                        else { "(open / no password)" }
+                            AuthType = switch -Wildcard ($xml.WLANProfile.MSM.security.authEncryption.authentication) {
+                                           "*SAE*"  { "SAE" }
+                                           "*WPA2*" { "WPA" }
+                                           "*WPA*"  { "WPA" }
+                                           "open"   { "nopass" }
+                                           default  { "WPA" }
+                                       }
+                        }
+                    } catch {}
                 }
-            } catch {}
-        }
-        Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+            } finally {
+                # The export holds cleartext keys - never leave it behind
+                Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            return ,@($profiles)
+        } `
+        -OnComplete {
+            param($profiles, $err, $ctx)
+            $btnNetWifi.IsEnabled = $true
+            Show-WifiProfiles -Profiles @($profiles) -ErrorRecord $err
+        } | Out-Null
+})
+
+function Show-WifiProfiles {
+    param([object[]]$Profiles, $ErrorRecord)
+    $profiles = @($Profiles | Where-Object { $_ })
+    try {
+        if ($ErrorRecord) { throw $ErrorRecord }
 
         if (-not $profiles) {
             $tb          = [System.Windows.Controls.TextBlock]::new()
@@ -889,7 +908,7 @@ $btnNetWifi.Add_Click({
     $statusIndicator.Text       = "* Ready"
     $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
     $footerStatus.Text          = "Ready"
-})
+}
 
 # -- DNS Switcher ---------------------------------------------------------------
 $dnsAdapterBox          = Find "DnsAdapterBox"

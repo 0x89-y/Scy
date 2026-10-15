@@ -627,36 +627,6 @@ if ($script:autoCheckUpdates) {
     }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 }
 
-# Trigger Scy self-update check on launch if enabled
-if ($script:autoCheckSelfUpdate) {
-    $window.Dispatcher.BeginInvoke([action]{
-        try {
-            $branch = if ($script:useDevBranch) { "dev" } else { "main" }
-            $remoteJson = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/0x89-y/Scy/$branch/version.json" `
-                                            -Headers @{ "User-Agent" = "Scy-Updater" } `
-                                            -TimeoutSec 5
-            $script:latestVersion = $remoteJson.version
-
-            $selfUpdateStatusText   = Find "SelfUpdateStatusText"
-            $btnInstallSelfUpdate   = Find "BtnInstallSelfUpdate"
-            $updateBanner           = Find "UpdateBanner"
-
-            if ([version]$script:latestVersion -gt [version]$script:localVersion.version) {
-                $selfUpdateStatusText.Text       = "Update available  (v$($script:latestVersion))"
-                $selfUpdateStatusText.Foreground = $window.Resources["WarningBrush"]
-                $btnInstallSelfUpdate.Visibility = "Visible"
-                $updateBanner.Text       = "Update available (v$($script:latestVersion))"
-                $updateBanner.Visibility = "Visible"
-            } else {
-                $selfUpdateStatusText.Text       = "Up to date"
-                $selfUpdateStatusText.Foreground = $window.Resources["SuccessBrush"]
-            }
-        } catch {
-            # Silently ignore - network may be unavailable
-        }
-    }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
-}
-
 # ── Theme mode + accent handlers ──────────────────────────────────
 Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
 Add-Type -AssemblyName System.Drawing       -ErrorAction SilentlyContinue
@@ -885,115 +855,145 @@ $btnInstallSelfUpdate   = Find "BtnInstallSelfUpdate"
 $selfUpdateVersionLabel.Text = "Version: $($script:localVersion.version)"
 $script:latestVersion = $null
 
-$btnCheckSelfUpdate.Add_Click({
-    $selfUpdateStatusText.Text       = "Checking..."
-    $selfUpdateStatusText.Foreground = $window.Resources["WarningBrush"]
-    $btnInstallSelfUpdate.Visibility = "Collapsed"
-    $btnCheckSelfUpdate.IsEnabled    = $false
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+function Set-SelfUpdateStatus([string]$Text, [string]$BrushKey) {
+    $selfUpdateStatusText.Text       = $Text
+    $selfUpdateStatusText.Foreground = $window.Resources[$BrushKey]
+}
 
-    try {
-        $branch = if ($script:useDevBranch) { "dev" } else { "main" }
-        $remoteJson = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/0x89-y/Scy/$branch/version.json" `
-                                        -Headers @{ "User-Agent" = "Scy-Updater" } `
-                                        -TimeoutSec 15
-        $script:latestVersion = $remoteJson.version
-
-        if ([version]$script:latestVersion -le [version]$script:localVersion.version) {
-            $selfUpdateStatusText.Text       = "Up to date"
-            $selfUpdateStatusText.Foreground = $window.Resources["SuccessBrush"]
-        } else {
-            $selfUpdateStatusText.Text       = "Update available  (v$($script:latestVersion))"
-            $selfUpdateStatusText.Foreground = $window.Resources["WarningBrush"]
-            $btnInstallSelfUpdate.Visibility = "Visible"
-        }
-    } catch {
-        $selfUpdateStatusText.Text       = "Could not check for updates"
-        $selfUpdateStatusText.Foreground = $window.Resources["DangerBrush"]
+# Fetch the published version.json in a background job (a slow or offline
+# network used to freeze the window here). -Quiet is the launch-time check:
+# failures stay silent, but a newer version still lights up the banner.
+function Start-SelfUpdateCheck {
+    param([switch]$Quiet)
+    $branch = if ($script:useDevBranch) { "dev" } else { "main" }
+    if (-not $Quiet) {
+        Set-SelfUpdateStatus "Checking..." "WarningBrush"
+        $btnInstallSelfUpdate.Visibility = "Collapsed"
+        $btnCheckSelfUpdate.IsEnabled    = $false
     }
 
-    $btnCheckSelfUpdate.IsEnabled = $true
-})
+    Start-ScyJob `
+        -Variables @{ url = "https://raw.githubusercontent.com/0x89-y/Scy/$branch/version.json"; timeout = $(if ($Quiet) { 10 } else { 15 }) } `
+        -Context   @{ Quiet = [bool]$Quiet } `
+        -Work {
+            param($emit)
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+            $remote = Invoke-RestMethod -Uri $url -Headers @{ "User-Agent" = "Scy-Updater" } -TimeoutSec $timeout
+            return [string]$remote.version
+        } `
+        -OnComplete {
+            param($remote, $err, $ctx)
+            $btnCheckSelfUpdate.IsEnabled = $true
+            if ($err -or -not $remote) {
+                if (-not $ctx.Quiet) { Set-SelfUpdateStatus "Could not check for updates" "DangerBrush" }
+                return
+            }
+            $script:latestVersion = $remote
+            $newer = $false
+            try { $newer = [version]$remote -gt [version]$script:localVersion.version } catch {}
+            if ($newer) {
+                Set-SelfUpdateStatus "Update available  (v$remote)" "WarningBrush"
+                $btnInstallSelfUpdate.Visibility = "Visible"
+                $updateBanner = Find "UpdateBanner"
+                $updateBanner.Text       = "Update available (v$remote)"
+                $updateBanner.Visibility = "Visible"
+            } else {
+                Set-SelfUpdateStatus "Up to date" "SuccessBrush"
+            }
+        } | Out-Null
+}
+
+$btnCheckSelfUpdate.Add_Click({ Start-SelfUpdateCheck })
+
+if ($script:autoCheckSelfUpdate) {
+    $window.Dispatcher.BeginInvoke([action]{ Start-SelfUpdateCheck -Quiet },
+        [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
+}
 
 $btnInstallSelfUpdate.Add_Click({
     $confirm = Show-ThemedDialog "Download and install the latest version of Scy?`nYour settings will be preserved." "Update Scy" "YesNo" "Question"
     if ($confirm -ne "Yes") { return }
 
-    if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Self-update started (target v$($script:latestVersion))" }
+    Write-ScyLog "Self-update started (target v$($script:latestVersion))"
     $btnInstallSelfUpdate.IsEnabled = $false
     $btnCheckSelfUpdate.IsEnabled   = $false
-    $selfUpdateStatusText.Text       = "Downloading update..."
-    $selfUpdateStatusText.Foreground = $window.Resources["WarningBrush"]
-    $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+    Set-SelfUpdateStatus "Downloading update..." "WarningBrush"
 
-    try {
-        $branch  = if ($script:useDevBranch) { "dev" } else { "main" }
-        $zipUrl  = "https://github.com/0x89-y/Scy/archive/refs/heads/$branch.zip"
-        $zipPath = Join-Path $env:TEMP "Scy-update.zip"
-        $extPath = Join-Path $env:TEMP "Scy-update"
+    # Download, extract and copy run in a background job; the copy overwrites
+    # the scripts on disk, which is safe because this session already loaded them.
+    Start-ScyJob `
+        -Variables @{
+            branch    = $(if ($script:useDevBranch) { "dev" } else { "main" })
+            targetDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+        } `
+        -Work {
+            param($emit)
+            $zipUrl  = "https://github.com/0x89-y/Scy/archive/refs/heads/$branch.zip"
+            $zipPath = Join-Path $env:TEMP "Scy-update.zip"
+            $extPath = Join-Path $env:TEMP "Scy-update"
 
-        # Clean up any previous update artifacts
-        if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-        if (Test-Path $extPath) { Remove-Item $extPath -Recurse -Force }
+            # Clean up any previous update artifacts
+            if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+            if (Test-Path $extPath) { Remove-Item $extPath -Recurse -Force }
 
-        # Download (no progress bar: on Windows PowerShell it slows the download dramatically)
-        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 60
+            # Download (no progress bar: on Windows PowerShell it slows the download dramatically)
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+            $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 60
 
-        $selfUpdateStatusText.Text = "Installing update..."
-        $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
+            & $emit "Installing update..."
+            Expand-Archive -Path $zipPath -DestinationPath $extPath -Force
 
-        # Extract
-        Expand-Archive -Path $zipPath -DestinationPath $extPath -Force
+            # The ZIP extracts to a Scy-<branch>/ subfolder
+            $sourceDir = Join-Path $extPath "Scy-$branch"
 
-        # The ZIP extracts to a Scy-<branch>/ subfolder
-        $sourceDir = Join-Path $extPath "Scy-$branch"
-        $targetDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+            # Copy files, preserving user data
+            Get-ChildItem -Path $sourceDir -Recurse -File | ForEach-Object {
+                $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
+                if ($relativePath -eq "settings.json") { return }
+                if ($relativePath -eq "notes.txt") { return }
+                $destFile = Join-Path $targetDir $relativePath
+                $destDir  = Split-Path $destFile -Parent
+                if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+                Copy-Item $_.FullName -Destination $destFile -Force
+            }
 
-        # Copy files, preserving settings.json
-        Get-ChildItem -Path $sourceDir -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
-            # Skip settings.json and notes.txt to preserve user data
-            if ($relativePath -eq "settings.json") { return }
-            if ($relativePath -eq "notes.txt") { return }
-            $destFile = Join-Path $targetDir $relativePath
-            $destDir  = Split-Path $destFile -Parent
-            if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
-            Copy-Item $_.FullName -Destination $destFile -Force
-        }
+            # Remove unnecessary files (LICENSE, README, install script)
+            Get-ChildItem -Path $targetDir -File | Where-Object { $_.Name -match '^(LICENSE|README|install\.ps1)' } | ForEach-Object {
+                Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+            }
 
-        # Remove unnecessary files (LICENSE, README, install script)
-        Get-ChildItem -Path $targetDir -File | Where-Object { $_.Name -match '^(LICENSE|README|install\.ps1)' } | ForEach-Object {
-            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
-        }
+            # Clean up temp files
+            Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+            Remove-Item $extPath -Recurse -Force -ErrorAction SilentlyContinue
+        } `
+        -OnLine {
+            param($line, $ctx)
+            $selfUpdateStatusText.Text = [string]$line
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $btnInstallSelfUpdate.IsEnabled = $true
+            $btnCheckSelfUpdate.IsEnabled   = $true
+            if ($err) {
+                Set-SelfUpdateStatus "Update failed: $($err.Exception.Message)" "DangerBrush"
+                Write-ScyLog "Self-update FAILED: $($err.Exception.Message)" "ERROR"
+                return
+            }
 
-        # Clean up temp files
-        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-        Remove-Item $extPath -Recurse -Force -ErrorAction SilentlyContinue
+            # Re-read the new version.json
+            if (Test-Path $script:versionFile) {
+                try {
+                    $script:localVersion = Get-Content $script:versionFile -Raw -Encoding UTF8 | ConvertFrom-Json
+                    $selfUpdateVersionLabel.Text = "Version: $($script:localVersion.version)"
+                } catch {}
+            }
 
-        # Re-read the new version.json
-        if (Test-Path $script:versionFile) {
-            try {
-                $script:localVersion = Get-Content $script:versionFile -Raw -Encoding UTF8 | ConvertFrom-Json
-                $selfUpdateVersionLabel.Text = "Version: $($script:localVersion.version)"
-            } catch {}
-        }
-
-        $selfUpdateStatusText.Text       = "Updated successfully"
-        $selfUpdateStatusText.Foreground = $window.Resources["SuccessBrush"]
-        $btnInstallSelfUpdate.Visibility = "Collapsed"
-        if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Self-update completed (now v$($script:localVersion.version))" }
-
-        Show-ThemedDialog "Scy has been updated to the latest version.`nPlease restart Scy to apply changes." "Update complete" "OK" "Information"
-    } catch {
-        $selfUpdateStatusText.Text       = "Update failed: $_"
-        $selfUpdateStatusText.Foreground = $window.Resources["DangerBrush"]
-        if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog "Self-update FAILED: $($_.Exception.Message)" "ERROR" }
-    }
-
-    $btnInstallSelfUpdate.IsEnabled = $true
-    $btnCheckSelfUpdate.IsEnabled   = $true
+            Set-SelfUpdateStatus "Updated successfully" "SuccessBrush"
+            $btnInstallSelfUpdate.Visibility = "Collapsed"
+            Write-ScyLog "Self-update completed (now v$($script:localVersion.version))"
+            Show-ThemedDialog "Scy has been updated to the latest version.`nPlease restart Scy to apply changes." "Update complete" "OK" "Information" | Out-Null
+        } | Out-Null
 })
 
 # ── Changelog ────────────────────────────────────────────────────

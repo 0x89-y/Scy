@@ -88,31 +88,60 @@ foreach ($pair in @(
 }
 
 # -- Environment detection -----------------------------------------------------
+# Probes the module / domain in a background job (module discovery plus a domain
+# query can stall for seconds, e.g. off VPN) and refreshes the banner when done.
+$script:adCheckRunning = $false
 function Test-AdEnvironment {
+    if ($script:adCheckRunning) { return }
+    $script:adCheckRunning = $true
     $script:adModuleAvailable = $false
     $script:adDomainReachable = $false
-    $script:adIsDomainJoined  = $false
-    $script:adDomainName      = $null
+    Update-AdBannerState -Checking
 
-    try {
-        $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
-        $script:adIsDomainJoined = [bool]$cs.PartOfDomain
-        if ($script:adIsDomainJoined) { $script:adDomainName = $cs.Domain }
-    } catch {}
-
-    if (Get-Module -ListAvailable -Name ActiveDirectory -ErrorAction SilentlyContinue) {
-        $script:adModuleAvailable = $true
-        if ($script:adIsDomainJoined) {
+    Start-ScyJob `
+        -Work {
+            param($emit)
+            $r = @{ ModuleAvailable = $false; DomainJoined = $false; DomainName = $null; DomainReachable = $false }
             try {
-                Import-Module ActiveDirectory -ErrorAction Stop -WarningAction SilentlyContinue
-                Get-ADDomain -ErrorAction Stop | Out-Null
-                $script:adDomainReachable = $true
+                $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+                $r.DomainJoined = [bool]$cs.PartOfDomain
+                if ($r.DomainJoined) { $r.DomainName = $cs.Domain }
             } catch {}
-        }
-    }
+
+            if (Get-Module -ListAvailable -Name ActiveDirectory -ErrorAction SilentlyContinue) {
+                $r.ModuleAvailable = $true
+                if ($r.DomainJoined) {
+                    try {
+                        Import-Module ActiveDirectory -ErrorAction Stop -WarningAction SilentlyContinue
+                        Get-ADDomain -ErrorAction Stop | Out-Null
+                        $r.DomainReachable = $true
+                    } catch {}
+                }
+            }
+            return $r
+        } `
+        -OnComplete {
+            param($r, $err, $ctx)
+            $script:adCheckRunning = $false
+            if (-not $err -and $r) {
+                $script:adModuleAvailable = $r.ModuleAvailable
+                $script:adIsDomainJoined  = $r.DomainJoined
+                $script:adDomainName      = $r.DomainName
+                $script:adDomainReachable = $r.DomainReachable
+            }
+            Update-AdBannerState
+        } | Out-Null
 }
 
 function Update-AdBannerState {
+    param([switch]$Checking)
+    if ($Checking) {
+        foreach ($b in $script:adGatedButtons) { $b.IsEnabled = $false; $b.Opacity = 0.4 }
+        $adStatusBannerText.Text     = "Checking the Active Directory environment..."
+        $btnAdInstallRsat.Visibility = "Collapsed"
+        $adStatusBanner.Visibility   = "Visible"
+        return
+    }
     $ready = $script:adModuleAvailable -and $script:adDomainReachable
 
     foreach ($b in $script:adGatedButtons) {
@@ -141,7 +170,6 @@ function Update-AdBannerState {
 # Deferred to first Active Directory-tab visit (Invoke-ScyTabInit in Scy.ps1);
 # the environment probe can query the domain and is slow.
 # Test-AdEnvironment
-# Update-AdBannerState
 
 # -- Job helpers ---------------------------------------------------------------
 # All AD-cmdlet work runs in a worker runspace via Start-ScyJob. The runspace
@@ -343,7 +371,6 @@ function Invoke-AdShellJob {
 # -- Banner buttons ------------------------------------------------------------
 $btnAdRecheck.Add_Click({
     Test-AdEnvironment
-    Update-AdBannerState
 })
 
 $btnAdInstallRsat.Add_Click({
@@ -384,7 +411,6 @@ $btnAdInstallRsat.Add_Click({
             $ctx.Install.IsEnabled = $true; $ctx.Install.Opacity = 1.0
             $ctx.Recheck.IsEnabled = $true; $ctx.Recheck.Opacity = 1.0
             Test-AdEnvironment
-            Update-AdBannerState
             if ($err) {
                 Show-ThemedDialog "RSAT install failed: $err`r`n`r`nMake sure Scy is running as administrator." "Install RSAT" "OK" "Error"
             } else {

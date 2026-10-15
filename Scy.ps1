@@ -192,7 +192,7 @@ $script:scyTabs = [ordered]@{
     "System"           = @{ SubNav = "Set-SystemSubNav";    Init = @() }
     "Bookmarks"        = @{ SubNav = "Set-BookmarksSubNav"; Init = @() }
     "Network"          = @{ SubNav = "Set-NetSubNav";       Init = @("Initialize-DnsDohStatus", "Load-HostsEntries", "Populate-SSHKeys") }
-    "Active Directory" = @{ SubNav = "Set-AdSubNav";        Init = @("Test-AdEnvironment", "Update-AdBannerState") }
+    "Active Directory" = @{ SubNav = "Set-AdSubNav";        Init = @("Test-AdEnvironment") }
     "Tools"            = @{ SubNav = "Set-ToolsSubNav";     Init = @() }
     "Settings"         = @{ SubNav = "Set-SettingsSubNav";  Init = @("Build-TabVisibilityList", "Render-LocalExtensions", "Render-GroupSettings", "Render-Changelog") }
 }
