@@ -164,8 +164,29 @@ function Populate-SSHKeys {
     $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 
     try {
-        $sshArgs = @("-t", $keyType, "-C", $comment, "-f", $outPath, "-N", "")
-        $result = & ssh-keygen @sshArgs 2>&1 | Out-String
+        # Windows PowerShell 5.1 silently drops empty-string arguments to native
+        # commands, so `-N ""` reached ssh-keygen as a bare -N and it bailed out.
+        # Build the command line ourselves (MSVCRT quoting) so it works on 5.1 and 7.
+        $quote = {
+            param([string]$s)
+            if ($s -eq '') { return '""' }
+            if ($s -notmatch '[\s"]') { return $s }
+            '"' + (($s -replace '(\\*)"', '$1$1\"') -replace '(\\+)$', '$1$1') + '"'
+        }
+        $psi = [System.Diagnostics.ProcessStartInfo]::new()
+        $psi.FileName  = (Get-Command ssh-keygen).Source
+        $psi.Arguments = (@("-t", $keyType, "-C", $comment, "-f", $outPath, "-N", "") |
+                          ForEach-Object { & $quote $_ }) -join ' '
+        $psi.UseShellExecute        = $false
+        $psi.CreateNoWindow         = $true
+        $psi.RedirectStandardInput  = $true   # never block on an interactive prompt
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError  = $true
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        $proc.StandardInput.Close()
+        $stderrTask = $proc.StandardError.ReadToEndAsync()
+        $result = $proc.StandardOutput.ReadToEnd() + $stderrTask.Result
+        $proc.WaitForExit()
 
         if (Test-Path "$outPath.pub") {
             $sshGenerateStatus.Text = "Key created: $outPath"

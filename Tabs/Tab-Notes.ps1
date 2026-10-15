@@ -62,9 +62,7 @@ function Update-NotesCharCount {
 Update-NotesCharCount
 
 # ── Auto-save with debounce ──────────────────────────────────────
-$script:notesSaveTimer = New-Object System.Windows.Threading.DispatcherTimer
-$script:notesSaveTimer.Interval = [TimeSpan]::FromMilliseconds(800)
-$script:notesSaveTimer.Add_Tick({
+function Save-NotesFile {
     $script:notesSaveTimer.Stop()
     try {
         $dir = Split-Path $script:notesFilePath
@@ -84,7 +82,14 @@ $script:notesSaveTimer.Add_Tick({
     } catch {
         $notesSaveStatus.Text = "Save failed"
     }
-})
+}
+
+$script:notesSaveTimer = New-Object System.Windows.Threading.DispatcherTimer
+$script:notesSaveTimer.Interval = [TimeSpan]::FromMilliseconds(800)
+$script:notesSaveTimer.Add_Tick({ Save-NotesFile })
+
+# Flush a pending debounced save so edits made just before closing aren't lost.
+$window.Add_Closing({ if ($script:notesSaveTimer.IsEnabled) { Save-NotesFile } })
 
 $notesTextBox.Add_TextChanged({
     Update-NotesCharCount
@@ -196,7 +201,8 @@ function ConvertTo-NotesFlowDocument {
         # Inline formatting: bold, italic, inline code
         $remaining = $line
         while ($remaining.Length -gt 0) {
-            if ($remaining -match '^``(.+?)``') {
+            # Single-quoted: each backtick here is a literal Markdown backtick.
+            if ($remaining -match '^`(.+?)`') {
                 $run = New-Object System.Windows.Documents.Run($Matches[1])
                 $run.FontFamily = $monoFont
                 $run.FontSize = 11

@@ -291,116 +291,125 @@ $script:cleanTargetSelection   = @{}
 $script:windowGeometry     = $null
 $script:speedTestServer    = "Hetzner FSN1 (DE)"
 
+# Maps a parsed settings object onto script state. Shared by the startup load
+# and Settings > Backup > Import, so both always restore the same set of fields.
+function Import-ScySettingsObject {
+    param($saved)
+    if ($null -eq $saved) { return }
+    if ($saved.LocalInstallFolder) { $script:localInstallFolder = $saved.LocalInstallFolder }
+    # Theme: new schema (ThemeMode + Accent + CustomAccent) with back-compat
+    # migration from the old named-theme model.
+    if ($saved.ThemeMode)   { $script:themeMode  = [string]$saved.ThemeMode }
+    elseif ($saved.Theme)   { $script:themeMode  = if ([string]$saved.Theme -in @("Blossom","Frost")) { "Light" } else { "Dark" } }
+    if ($saved.Accent)      { $script:accentName = [string]$saved.Accent }
+    elseif ($null -ne $saved.UseWindowsAccent -and [bool]$saved.UseWindowsAccent) { $script:accentName = "windows" }
+    if ($saved.CustomAccent -and [string]$saved.CustomAccent -match '^#[0-9a-fA-F]{6}$') { $script:customAccent = [string]$saved.CustomAccent }
+    elseif ($saved.CustomTheme -and $saved.CustomTheme.Accent -match '^#[0-9a-fA-F]{6}$') { $script:customAccent = [string]$saved.CustomTheme.Accent }
+    if ($null -ne $saved.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$saved.AutoCheckUpdates }
+    if ($null -ne $saved.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$saved.AutoCheckSelfUpdate }
+    if ($null -ne $saved.UseDevBranch)         { $script:useDevBranch        = [bool]$saved.UseDevBranch }
+    if ($null -ne $saved.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$saved.RememberWindowPosition }
+    if ($null -ne $saved.DisableAutoIconFetch)    { $script:disableAutoIconFetch    = [bool]$saved.DisableAutoIconFetch }
+    if ($null -ne $saved.SkipSplash)                  { $script:skipSplash                  = [bool]$saved.SkipSplash }
+    if ($null -ne $saved.EnableNotifications)         { $script:enableNotifications         = [bool]$saved.EnableNotifications }
+    if ($null -ne $saved.SkipSingleUninstallConfirm)  { $script:skipSingleUninstallConfirm  = [bool]$saved.SkipSingleUninstallConfirm }
+    if ($null -ne $saved.EnableLogging)               { $script:enableLogging              = [bool]$saved.EnableLogging }
+    if ($saved.DefaultAppsSubTab)                     { $script:defaultAppsSubTab           = [string]$saved.DefaultAppsSubTab }
+    if ($saved.DefaultTab)                            { $script:defaultTab                  = [string]$saved.DefaultTab }
+    if ($null -ne $saved.CollapsedTweakGroups) {
+        $script:collapsedTweakGroups.Clear()
+        foreach ($g in $saved.CollapsedTweakGroups) { $script:collapsedTweakGroups.Add([string]$g) | Out-Null }
+    }
+    if ($saved.SpeedTestServer)              { $script:speedTestServer    = [string]$saved.SpeedTestServer }
+    if ($saved.WindowGeometry) {
+        $wg = $saved.WindowGeometry
+        $script:windowGeometry = @{
+            Left   = [double]$wg.Left
+            Top    = [double]$wg.Top
+            Width  = [double]$wg.Width
+            Height = [double]$wg.Height
+            State  = [string]$wg.State
+        }
+    }
+    if ($null -ne $saved.QuickInstalls) {
+        $script:quickInstalls.Clear()
+        foreach ($qi in $saved.QuickInstalls) {
+            $cat = if ($qi.Category) { [string]$qi.Category } else { "" }
+            $script:quickInstalls.Add(@{Name=$qi.Name; Id=$qi.Id; Category=$cat})
+        }
+    }
+    if ($null -ne $saved.QuickBundles) {
+        $script:quickBundles.Clear()
+        foreach ($b in $saved.QuickBundles) {
+            $apps = [System.Collections.Generic.List[hashtable]]::new()
+            if ($b.Apps) {
+                foreach ($a in $b.Apps) {
+                    $apps.Add(@{Name=[string]$a.Name; Id=[string]$a.Id})
+                }
+            }
+            $desc = if ($b.Description) { [string]$b.Description } else { "" }
+            $script:quickBundles.Add(@{Name=[string]$b.Name; Description=$desc; Apps=$apps})
+        }
+    }
+    if ($null -ne $saved.Shortcuts) {
+        $script:settings.Shortcuts = $saved.Shortcuts
+    }
+    if ($null -ne $saved.CustomShortcutGroups) {
+        $script:customShortcutGroups.Clear()
+        foreach ($g in $saved.CustomShortcutGroups) { $script:customShortcutGroups.Add([string]$g) }
+    }
+    if ($null -ne $saved.CustomInstallCategories) {
+        $script:customInstallCategories.Clear()
+        foreach ($g in $saved.CustomInstallCategories) { $script:customInstallCategories.Add([string]$g) }
+    }
+    if ($null -ne $saved.HiddenDefaultShortcutGroups) {
+        $script:hiddenDefaultShortcutGroups.Clear()
+        foreach ($g in $saved.HiddenDefaultShortcutGroups) { $script:hiddenDefaultShortcutGroups.Add([string]$g) }
+    }
+    if ($null -ne $saved.HiddenDefaultInstallCategories) {
+        $script:hiddenDefaultInstallCategories.Clear()
+        foreach ($g in $saved.HiddenDefaultInstallCategories) { $script:hiddenDefaultInstallCategories.Add([string]$g) }
+    }
+    if ($null -ne $saved.HiddenCuratedApps) {
+        $script:hiddenCuratedApps.Clear()
+        foreach ($h in $saved.HiddenCuratedApps) { $script:hiddenCuratedApps.Add([string]$h) }
+    }
+    if ($null -ne $saved.HiddenTabs) {
+        $script:hiddenTabs.Clear()
+        foreach ($h in $saved.HiddenTabs) { $script:hiddenTabs.Add([string]$h) }
+    }
+    if ($null -ne $saved.RememberCleanTargets) { $script:rememberCleanTargets = [bool]$saved.RememberCleanTargets }
+    if ($null -ne $saved.AutoScanLocalInstallers) { $script:autoScanLocalInstallers = [bool]$saved.AutoScanLocalInstallers }
+    if ($null -ne $saved.RememberLocalInstallers) { $script:rememberLocalInstallers = [bool]$saved.RememberLocalInstallers }
+    if ($null -ne $saved.LocalInstallerExtensions) {
+        $script:localInstallerExtensions.Clear()
+        foreach ($ext in $saved.LocalInstallerExtensions) { $script:localInstallerExtensions.Add([string]$ext) }
+    }
+    if ($null -ne $saved.CachedLocalInstallers) {
+        $script:cachedLocalInstallers = @($saved.CachedLocalInstallers | ForEach-Object { @{Name=[string]$_.Name; FullName=[string]$_.FullName} })
+    }
+    if ($null -ne $saved.CleanTargetSelection) {
+        $script:cleanTargetSelection = @{}
+        foreach ($prop in $saved.CleanTargetSelection.PSObject.Properties) {
+            $script:cleanTargetSelection[$prop.Name] = [bool]$prop.Value
+        }
+    }
+    if ($null -ne $saved.RegBookmarks) {
+        $script:settings.RegBookmarks = $saved.RegBookmarks
+    }
+    if ($null -ne $saved.CustomRegBookmarkGroups) {
+        $script:customRegBookmarkGroups.Clear()
+        foreach ($g in $saved.CustomRegBookmarkGroups) { $script:customRegBookmarkGroups.Add([string]$g) }
+    }
+    if ($null -ne $saved.NotesPreviewMode) { $script:notesPreviewMode = [bool]$saved.NotesPreviewMode }
+}
+
 if (Test-Path $script:settingsFile) {
     try {
-        $saved = Get-Content $script:settingsFile -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($saved.LocalInstallFolder) { $script:localInstallFolder = $saved.LocalInstallFolder }
-        # Theme: new schema (ThemeMode + Accent + CustomAccent) with back-compat
-        # migration from the old named-theme model.
-        if ($saved.ThemeMode)   { $script:themeMode  = [string]$saved.ThemeMode }
-        elseif ($saved.Theme)   { $script:themeMode  = if ([string]$saved.Theme -in @("Blossom","Frost")) { "Light" } else { "Dark" } }
-        if ($saved.Accent)      { $script:accentName = [string]$saved.Accent }
-        elseif ($null -ne $saved.UseWindowsAccent -and [bool]$saved.UseWindowsAccent) { $script:accentName = "windows" }
-        if ($saved.CustomAccent -and [string]$saved.CustomAccent -match '^#[0-9a-fA-F]{6}$') { $script:customAccent = [string]$saved.CustomAccent }
-        elseif ($saved.CustomTheme -and $saved.CustomTheme.Accent -match '^#[0-9a-fA-F]{6}$') { $script:customAccent = [string]$saved.CustomTheme.Accent }
-        if ($null -ne $saved.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$saved.AutoCheckUpdates }
-        if ($null -ne $saved.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$saved.AutoCheckSelfUpdate }
-        if ($null -ne $saved.UseDevBranch)         { $script:useDevBranch        = [bool]$saved.UseDevBranch }
-        if ($null -ne $saved.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$saved.RememberWindowPosition }
-        if ($null -ne $saved.DisableAutoIconFetch)    { $script:disableAutoIconFetch    = [bool]$saved.DisableAutoIconFetch }
-        if ($null -ne $saved.SkipSplash)                  { $script:skipSplash                  = [bool]$saved.SkipSplash }
-        if ($null -ne $saved.EnableNotifications)         { $script:enableNotifications         = [bool]$saved.EnableNotifications }
-        if ($null -ne $saved.SkipSingleUninstallConfirm)  { $script:skipSingleUninstallConfirm  = [bool]$saved.SkipSingleUninstallConfirm }
-        if ($null -ne $saved.EnableLogging)               { $script:enableLogging              = [bool]$saved.EnableLogging }
-        if ($saved.DefaultAppsSubTab)                     { $script:defaultAppsSubTab           = [string]$saved.DefaultAppsSubTab }
-        if ($saved.DefaultTab)                            { $script:defaultTab                  = [string]$saved.DefaultTab }
-        if ($null -ne $saved.CollapsedTweakGroups) {
-            $script:collapsedTweakGroups.Clear()
-            foreach ($g in $saved.CollapsedTweakGroups) { $script:collapsedTweakGroups.Add([string]$g) | Out-Null }
-        }
-        if ($saved.SpeedTestServer)              { $script:speedTestServer    = [string]$saved.SpeedTestServer }
-        if ($saved.WindowGeometry) {
-            $wg = $saved.WindowGeometry
-            $script:windowGeometry = @{
-                Left   = [double]$wg.Left
-                Top    = [double]$wg.Top
-                Width  = [double]$wg.Width
-                Height = [double]$wg.Height
-                State  = [string]$wg.State
-            }
-        }
-        if ($null -ne $saved.QuickInstalls) {
-            $script:quickInstalls.Clear()
-            foreach ($qi in $saved.QuickInstalls) {
-                $cat = if ($qi.Category) { [string]$qi.Category } else { "" }
-                $script:quickInstalls.Add(@{Name=$qi.Name; Id=$qi.Id; Category=$cat})
-            }
-        }
-        if ($null -ne $saved.QuickBundles) {
-            $script:quickBundles.Clear()
-            foreach ($b in $saved.QuickBundles) {
-                $apps = [System.Collections.Generic.List[hashtable]]::new()
-                if ($b.Apps) {
-                    foreach ($a in $b.Apps) {
-                        $apps.Add(@{Name=[string]$a.Name; Id=[string]$a.Id})
-                    }
-                }
-                $desc = if ($b.Description) { [string]$b.Description } else { "" }
-                $script:quickBundles.Add(@{Name=[string]$b.Name; Description=$desc; Apps=$apps})
-            }
-        }
-        if ($null -ne $saved.Shortcuts) {
-            $script:settings.Shortcuts = $saved.Shortcuts
-        }
-        if ($null -ne $saved.CustomShortcutGroups) {
-            $script:customShortcutGroups.Clear()
-            foreach ($g in $saved.CustomShortcutGroups) { $script:customShortcutGroups.Add([string]$g) }
-        }
-        if ($null -ne $saved.CustomInstallCategories) {
-            $script:customInstallCategories.Clear()
-            foreach ($g in $saved.CustomInstallCategories) { $script:customInstallCategories.Add([string]$g) }
-        }
-        if ($null -ne $saved.HiddenDefaultShortcutGroups) {
-            $script:hiddenDefaultShortcutGroups.Clear()
-            foreach ($g in $saved.HiddenDefaultShortcutGroups) { $script:hiddenDefaultShortcutGroups.Add([string]$g) }
-        }
-        if ($null -ne $saved.HiddenDefaultInstallCategories) {
-            $script:hiddenDefaultInstallCategories.Clear()
-            foreach ($g in $saved.HiddenDefaultInstallCategories) { $script:hiddenDefaultInstallCategories.Add([string]$g) }
-        }
-        if ($null -ne $saved.HiddenCuratedApps) {
-            $script:hiddenCuratedApps.Clear()
-            foreach ($h in $saved.HiddenCuratedApps) { $script:hiddenCuratedApps.Add([string]$h) }
-        }
-        if ($null -ne $saved.HiddenTabs) {
-            $script:hiddenTabs.Clear()
-            foreach ($h in $saved.HiddenTabs) { $script:hiddenTabs.Add([string]$h) }
-        }
-        if ($null -ne $saved.RememberCleanTargets) { $script:rememberCleanTargets = [bool]$saved.RememberCleanTargets }
-        if ($null -ne $saved.AutoScanLocalInstallers) { $script:autoScanLocalInstallers = [bool]$saved.AutoScanLocalInstallers }
-        if ($null -ne $saved.RememberLocalInstallers) { $script:rememberLocalInstallers = [bool]$saved.RememberLocalInstallers }
-        if ($null -ne $saved.LocalInstallerExtensions) {
-            $script:localInstallerExtensions.Clear()
-            foreach ($ext in $saved.LocalInstallerExtensions) { $script:localInstallerExtensions.Add([string]$ext) }
-        }
-        if ($null -ne $saved.CachedLocalInstallers) {
-            $script:cachedLocalInstallers = @($saved.CachedLocalInstallers | ForEach-Object { @{Name=[string]$_.Name; FullName=[string]$_.FullName} })
-        }
-        if ($null -ne $saved.CleanTargetSelection) {
-            $script:cleanTargetSelection = @{}
-            foreach ($prop in $saved.CleanTargetSelection.PSObject.Properties) {
-                $script:cleanTargetSelection[$prop.Name] = [bool]$prop.Value
-            }
-        }
-        if ($null -ne $saved.RegBookmarks) {
-            $script:settings.RegBookmarks = $saved.RegBookmarks
-        }
-        if ($null -ne $saved.CustomRegBookmarkGroups) {
-            $script:customRegBookmarkGroups.Clear()
-            foreach ($g in $saved.CustomRegBookmarkGroups) { $script:customRegBookmarkGroups.Add([string]$g) }
-        }
-        if ($null -ne $saved.NotesPreviewMode) { $script:notesPreviewMode = [bool]$saved.NotesPreviewMode }
-    } catch {}
+        Import-ScySettingsObject (Get-Content $script:settingsFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+    } catch {
+        Write-ScyLog "settings.json could not be read: $($_.Exception.Message)" "ERROR"
+    }
 }
 
 # ── Top nav strip layout ──────────────────────────────────────────
@@ -1086,83 +1095,36 @@ function Render-Changelog {
                 return
             }
 
-            if ($imported.LocalInstallFolder) { $script:localInstallFolder = $imported.LocalInstallFolder }
-            if ($imported.ThemeMode)  { $script:themeMode  = [string]$imported.ThemeMode }
-            elseif ($imported.Theme)  { $script:themeMode  = if ([string]$imported.Theme -in @("Blossom","Frost")) { "Light" } else { "Dark" } }
-            if ($imported.Accent)     { $script:accentName = [string]$imported.Accent }
-            elseif ($null -ne $imported.UseWindowsAccent -and [bool]$imported.UseWindowsAccent) { $script:accentName = "windows" }
-            if ($imported.CustomAccent -and [string]$imported.CustomAccent -match '^#[0-9a-fA-F]{6}$') { $script:customAccent = [string]$imported.CustomAccent }
-            elseif ($imported.CustomTheme -and $imported.CustomTheme.Accent -match '^#[0-9a-fA-F]{6}$') { $script:customAccent = [string]$imported.CustomTheme.Accent }
-            if ($null -ne $imported.AutoCheckUpdates)   { $script:autoCheckUpdates   = [bool]$imported.AutoCheckUpdates }
-            if ($null -ne $imported.AutoCheckSelfUpdate)  { $script:autoCheckSelfUpdate = [bool]$imported.AutoCheckSelfUpdate }
-            if ($null -ne $imported.UseDevBranch)         { $script:useDevBranch        = [bool]$imported.UseDevBranch }
-            if ($null -ne $imported.RememberWindowPosition) { $script:rememberWindowPosition = [bool]$imported.RememberWindowPosition }
-            if ($imported.SpeedTestServer)              { $script:speedTestServer    = [string]$imported.SpeedTestServer }
-            if ($null -ne $imported.QuickInstalls) {
-                $script:quickInstalls.Clear()
-                foreach ($qi in $imported.QuickInstalls) {
-                    $cat = if ($qi.Category) { [string]$qi.Category } else { "" }
-                    $script:quickInstalls.Add(@{Name=$qi.Name; Id=$qi.Id; Category=$cat})
-                }
-            }
-            if ($null -ne $imported.QuickBundles) {
-                $script:quickBundles.Clear()
-                foreach ($b in $imported.QuickBundles) {
-                    $apps = [System.Collections.Generic.List[hashtable]]::new()
-                    if ($b.Apps) {
-                        foreach ($a in $b.Apps) { $apps.Add(@{Name=[string]$a.Name; Id=[string]$a.Id}) }
-                    }
-                    $desc = if ($b.Description) { [string]$b.Description } else { "" }
-                    $script:quickBundles.Add(@{Name=[string]$b.Name; Description=$desc; Apps=$apps})
-                }
-            }
+            Import-ScySettingsObject $imported
 
-            if ($null -ne $imported.CustomShortcutGroups) {
-                $script:customShortcutGroups.Clear()
-                foreach ($g in $imported.CustomShortcutGroups) { $script:customShortcutGroups.Add([string]$g) }
-            }
-            if ($null -ne $imported.CustomInstallCategories) {
-                $script:customInstallCategories.Clear()
-                foreach ($g in $imported.CustomInstallCategories) { $script:customInstallCategories.Add([string]$g) }
-            }
-            if ($null -ne $imported.HiddenDefaultShortcutGroups) {
-                $script:hiddenDefaultShortcutGroups.Clear()
-                foreach ($g in $imported.HiddenDefaultShortcutGroups) { $script:hiddenDefaultShortcutGroups.Add([string]$g) }
-            }
-            if ($null -ne $imported.HiddenDefaultInstallCategories) {
-                $script:hiddenDefaultInstallCategories.Clear()
-                foreach ($g in $imported.HiddenDefaultInstallCategories) { $script:hiddenDefaultInstallCategories.Add([string]$g) }
-            }
-            if ($null -ne $imported.HiddenCuratedApps) {
-                $script:hiddenCuratedApps.Clear()
-                foreach ($h in $imported.HiddenCuratedApps) { $script:hiddenCuratedApps.Add([string]$h) }
-            }
-            if ($null -ne $imported.RememberCleanTargets) { $script:rememberCleanTargets = [bool]$imported.RememberCleanTargets }
-            if ($null -ne $imported.AutoScanLocalInstallers) { $script:autoScanLocalInstallers = [bool]$imported.AutoScanLocalInstallers }
-            if ($null -ne $imported.RememberLocalInstallers) { $script:rememberLocalInstallers = [bool]$imported.RememberLocalInstallers }
-            if ($null -ne $imported.LocalInstallerExtensions) {
-                $script:localInstallerExtensions.Clear()
-                foreach ($ext in $imported.LocalInstallerExtensions) { $script:localInstallerExtensions.Add([string]$ext) }
-            }
-            if ($null -ne $imported.CleanTargetSelection) {
-                $script:cleanTargetSelection = @{}
-                foreach ($prop in $imported.CleanTargetSelection.PSObject.Properties) {
-                    $script:cleanTargetSelection[$prop.Name] = [bool]$prop.Value
-                }
-            }
-
+            # Reflect the imported state in every control that mirrors it. Setting
+            # IsChecked fires the toggles' handlers, which just re-save the same values.
             (Find "SettingsLocalFolder").Text = $script:localInstallFolder
-            (Find "ToggleAutoCheckUpdates").IsChecked = $script:autoCheckUpdates
-            (Find "ToggleAutoCheckSelfUpdate").IsChecked = $script:autoCheckSelfUpdate
-            (Find "ToggleUseDevBranch").IsChecked = $script:useDevBranch
-            (Find "ToggleRememberPosition").IsChecked = $script:rememberWindowPosition
+            (Find "ToggleAutoCheckUpdates").IsChecked     = $script:autoCheckUpdates
+            (Find "ToggleAutoCheckSelfUpdate").IsChecked  = $script:autoCheckSelfUpdate
+            (Find "ToggleUseDevBranch").IsChecked         = $script:useDevBranch
+            (Find "ToggleRememberPosition").IsChecked     = $script:rememberWindowPosition
             (Find "ToggleRememberCleanTargets").IsChecked = $script:rememberCleanTargets
-            (Find "ToggleScanLocalInstallers").IsChecked = $script:autoScanLocalInstallers
-            (Find "ToggleRememberLocalInstallers").IsChecked = $script:rememberLocalInstallers
+            (Find "ToggleScanLocalInstallers").IsChecked  = $script:autoScanLocalInstallers
+            (Find "ToggleRememberLocalInstallers").IsChecked    = $script:rememberLocalInstallers
+            (Find "ToggleDisableAutoIconFetch").IsChecked       = (-not $script:disableAutoIconFetch)
+            (Find "ToggleSkipSplash").IsChecked                 = $script:skipSplash
+            (Find "ToggleEnableNotifications").IsChecked        = $script:enableNotifications
+            (Find "ToggleEnableLogging").IsChecked              = $script:enableLogging
+            (Find "ToggleSkipSingleUninstallConfirm").IsChecked = $script:skipSingleUninstallConfirm
+            $defaultAppsSubTabBox.SelectedIndex = switch ($script:defaultAppsSubTab) { "Installed" { 1 } "Updates" { 2 } default { 0 } }
+            $defaultTabBox.SelectedIndex = [Math]::Max(0, $tabOrder.IndexOf($script:defaultTab))
+
             Apply-Theme
+            Apply-TabVisibility
+            Build-TabVisibilityList
+            Render-LocalExtensions
             Update-LocalInstallers
             Update-QuickInstalls
             Render-GroupSettings
+            Initialize-Shortcuts
+            Initialize-RegBookmarks
+            if (Get-Command Update-GlobalSearchIndex -ErrorAction SilentlyContinue) { Update-GlobalSearchIndex }
             Save-Settings
             Show-ThemedDialog "Settings imported successfully." "Import complete" "OK" "Information"
         } catch {

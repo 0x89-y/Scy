@@ -93,7 +93,7 @@ function script:Build-QRPayload {
         1 {  # Wi-Fi
             $ssid = $script:qrc["QRWifiSsid"].Text
             if ([string]::IsNullOrWhiteSpace($ssid)) { return "" }
-            $pwd  = $script:qrc["QRWifiPassword"].Text
+            $wifiPwd = $script:qrc["QRWifiPassword"].Text
             $auth = switch ([int]$script:qrc["QRWifiAuth"].SelectedIndex) {
                 1 { "WEP" }
                 2 { "nopass" }
@@ -101,7 +101,7 @@ function script:Build-QRPayload {
             }
             $hidden = if ($script:qrc["QRWifiHidden"].IsChecked) { "true" } else { "false" }
             $sEsc = script:Format-WifiValue $ssid
-            $pEsc = script:Format-WifiValue $pwd
+            $pEsc = script:Format-WifiValue $wifiPwd
             if ($auth -eq "nopass") { $pEsc = "" }
             return "WIFI:T:$auth;S:$sEsc;P:$pEsc;H:$hidden;;"
         }
@@ -307,7 +307,8 @@ $btnQRCopy.Add_Click({
         $timer.Add_Tick({ $btnQRCopy.Content = $orig; $timer.Stop() }.GetNewClosure())
         $timer.Start()
     } catch {
-        Show-ScyToast "QR code" "Could not copy image: $_"
+        # Errors use a dialog: toasts are suppressed when notifications are off.
+        Show-ThemedDialog "Could not copy image:`n$_" "QR code" "OK" "Error" | Out-Null
     }
 })
 
@@ -346,8 +347,9 @@ $btnQRSave.Add_Click({
             $stream = [System.IO.File]::Create($path)
             try { $encoder.Save($stream) } finally { $stream.Close() }
         }
+        $footerStatus.Text = "Scy - QR code saved to $path"
         Show-ScyToast "QR code" "Saved to $([System.IO.Path]::GetFileName($path))"
     } catch {
-        Show-ScyToast "QR code" "Save failed: $_"
+        Show-ThemedDialog "Save failed:`n$_" "QR code" "OK" "Error" | Out-Null
     }
 })

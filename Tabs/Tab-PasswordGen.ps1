@@ -73,7 +73,8 @@ function Invoke-GeneratePasswords {
     if ($pwdDigits.IsChecked)    { $charset += "0123456789" }
     if ($pwdSymbols.IsChecked)   { $charset += "!@#$%^&*()_+-=[]{}|;:,.<>?" }
 
-    if ($pwdAmbiguous.IsChecked) { $charset = $charset -replace '[0OlI1]', '' }
+    # -creplace: plain -replace is case-insensitive and would also strip o, i and L
+    if ($pwdAmbiguous.IsChecked) { $charset = $charset -creplace '[0OlI1]', '' }
 
     if ($charset.Length -eq 0) {
         $pwdStatus.Text       = "Select at least one character type."
@@ -84,12 +85,24 @@ function Invoke-GeneratePasswords {
     $rng       = [System.Security.Cryptography.RandomNumberGenerator]::Create()
     $passwords = @()
     $csLen     = $charset.Length
+    # Rejection sampling: only accept bytes below the largest multiple of the
+    # charset size, so every character is equally likely (plain modulo favours
+    # the first 256 % csLen characters).
+    $limit = 256 - (256 % $csLen)
+    $buf   = New-Object byte[] 64
 
     for ($p = 0; $p -lt $count; $p++) {
-        $bytes = New-Object byte[] $length
-        $rng.GetBytes($bytes)
-        $password = -join ($bytes | ForEach-Object { $charset[$_ % $csLen] })
-        $passwords += $password
+        $sb = [System.Text.StringBuilder]::new($length)
+        while ($sb.Length -lt $length) {
+            $rng.GetBytes($buf)
+            foreach ($b in $buf) {
+                if ($b -lt $limit) {
+                    [void]$sb.Append($charset[$b % $csLen])
+                    if ($sb.Length -ge $length) { break }
+                }
+            }
+        }
+        $passwords += $sb.ToString()
     }
     $rng.Dispose()
 

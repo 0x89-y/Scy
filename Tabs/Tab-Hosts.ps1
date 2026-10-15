@@ -7,7 +7,7 @@
 #  - Save requires Administrator privileges
 # ==================================================================
 
-$hostsPath         = "C:\Windows\System32\drivers\etc\hosts"
+$hostsPath         = Join-Path $env:SystemRoot "System32\drivers\etc\hosts"
 $hostsEntriesPanel = Find "HostsEntriesPanel"
 $hostsStatusText   = Find "HostsStatusText"
 $hostsAddPanel     = Find "HostsAddPanel"
@@ -15,44 +15,48 @@ $hostsNewIP        = Find "HostsNewIP"
 $hostsNewHost      = Find "HostsNewHost"
 $hostsNewComment   = Find "HostsNewComment"
 
+# Every line of the file in order (comments, blanks and entries alike), plus the
+# subset that are entries and get a row in the UI. Entries are the same
+# hashtables in both lists, so a toggle or remove applies to both.
+$script:hostsLines   = [System.Collections.Generic.List[hashtable]]::new()
 $script:hostsEntries = [System.Collections.Generic.List[hashtable]]::new()
 
+function Test-HostsIp {
+    param([string]$Value)
+    $ip = $null
+    # Require a dotted quad or an IPv6-looking token: TryParse alone accepts "1".
+    return (($Value -match '^\d{1,3}(\.\d{1,3}){3}$' -or $Value.Contains(':')) -and
+            [System.Net.IPAddress]::TryParse($Value, [ref]$ip))
+}
+
 # -- Parse the hosts file -----------------------------------------
+# Each line keeps its Raw text so saving only rewrites entries the user changed;
+# comments, blank lines and anything unparseable are written back untouched.
 function Read-HostsFile {
-    $entries = [System.Collections.Generic.List[hashtable]]::new()
-    if (-not (Test-Path $hostsPath)) { return $entries }
+    $lines = [System.Collections.Generic.List[hashtable]]::new()
+    if (-not (Test-Path $hostsPath)) { return ,$lines }
 
-    $lines = Get-Content -Path $hostsPath -Encoding UTF8 -ErrorAction Stop
-    foreach ($line in $lines) {
-        $trimmed = $line.Trim()
-        if ($trimmed -eq "") { continue }
-
+    foreach ($line in [System.IO.File]::ReadAllLines($hostsPath)) {
+        $item     = @{ Raw = $line; IsEntry = $false }
+        $content  = $line.Trim()
         $disabled = $false
-        $content  = $trimmed
-
         if ($content.StartsWith("#")) {
             # Could be a disabled entry: # 0.0.0.0 hostname
-            $inner = $content.Substring(1).Trim()
-            if ($inner -match '^(\S+)\s+(\S+)') {
-                $ip = $Matches[1]
-                if ($ip -match '^\d{1,3}(?:\.\d{1,3}){3}$' -or $ip -match '^::') {
-                    $disabled = $true
-                    $content  = $inner
-                } else { continue }
-            } else { continue }
+            $content  = $content.Substring(1).Trim()
+            $disabled = $true
         }
-
-        # Match: IP  hostname  [# comment]
-        if ($content -match '^(\S+)\s+(\S+)(?:\s+#\s*(.*))?$') {
-            $entries.Add(@{
-                IP      = $Matches[1]
-                Host    = $Matches[2]
-                Comment = if ($Matches[3]) { $Matches[3].Trim() } else { "" }
-                Enabled = !$disabled
-            }) | Out-Null
+        # IP, one or more hostnames, optional trailing comment
+        if ($content -match '^(\S+)\s+([^#]+?)\s*(?:#\s*(.*))?$' -and (Test-HostsIp $Matches[1])) {
+            $item.IsEntry     = $true
+            $item.IP          = $Matches[1]
+            $item.Host        = ($Matches[2].Trim() -split '\s+') -join ' '
+            $item.Comment     = if ($Matches[3]) { $Matches[3].Trim() } else { "" }
+            $item.Enabled     = -not $disabled
+            $item.OrigEnabled = -not $disabled
         }
+        $lines.Add($item)
     }
-    return $entries
+    return ,$lines
 }
 
 # -- Build a single row for an entry ------------------------------
@@ -120,6 +124,7 @@ function New-HostsRow {
         param($mi, $e)
         $t = $mi.Tag
         $script:hostsEntries.Remove($t.Entry) | Out-Null
+        $script:hostsLines.Remove($t.Entry)   | Out-Null
         $hostsEntriesPanel.Children.Remove($t.Border)
         $hostsStatusText.Text = "$($script:hostsEntries.Count) entries  (unsaved)"
         $hostsStatusText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
@@ -150,7 +155,9 @@ function Refresh-HostsPanel {
 # -- Load from disk -----------------------------------------------
 function Load-HostsEntries {
     try {
-        $script:hostsEntries = [System.Collections.Generic.List[hashtable]](Read-HostsFile)
+        $script:hostsLines   = Read-HostsFile
+        $script:hostsEntries = [System.Collections.Generic.List[hashtable]]::new()
+        foreach ($l in $script:hostsLines) { if ($l.IsEntry) { $script:hostsEntries.Add($l) } }
         Refresh-HostsPanel
     } catch {
         $hostsStatusText.Text = "Error loading: $_"
@@ -169,17 +176,20 @@ function Save-HostsFile {
     }
 
     try {
-        $lines = [System.Collections.Generic.List[string]]::new()
-        $lines.Add("# Hosts file - managed by Scy")
-        $lines.Add("")
-        foreach ($entry in $script:hostsEntries) {
-            $line = "{0,-20}{1}" -f $entry.IP, $entry.Host
-            if ($entry.Comment) { $line += "  # $($entry.Comment)" }
-            if (-not $entry.Enabled) { $line = "# $line" }
-            $lines.Add($line)
+        $out = foreach ($l in $script:hostsLines) {
+            # Untouched lines go back byte-for-byte; only new or toggled entries are reformatted.
+            if (-not $l.IsEntry -or ($null -ne $l.Raw -and $l.Enabled -eq $l.OrigEnabled)) { $l.Raw; continue }
+            $line = "{0,-20}{1}" -f $l.IP, $l.Host
+            if ($l.Comment) { $line += "  # $($l.Comment)" }
+            if (-not $l.Enabled) { $line = "# $line" }
+            $line
         }
-        Set-Content -Path $hostsPath -Value $lines -Encoding UTF8 -Force
-        $hostsStatusText.Text = "Saved"
+        if (Test-Path $hostsPath) { Copy-Item $hostsPath "$hostsPath.scy.bak" -Force }
+        # No BOM: some tools misread a BOM'd first line of the hosts file.
+        [System.IO.File]::WriteAllLines($hostsPath, [string[]]@($out), (New-Object System.Text.UTF8Encoding($false)))
+        Clear-DnsClientCache -ErrorAction SilentlyContinue
+        Load-HostsEntries
+        $hostsStatusText.Text = "Saved (backup: hosts.scy.bak)"
         $hostsStatusText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
     } catch {
         $hostsStatusText.Text = "Save failed: $_"
@@ -213,8 +223,17 @@ $hostsNewComment.Add_LostFocus({ if (-not $hostsNewComment.Text) { (Find "HostsN
         $hostsStatusText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "DangerBrush")
         return
     }
+    if (-not (Test-HostsIp $ip) -or $hostname.Contains('#')) {
+        $hostsStatusText.Text = "Enter a valid IPv4/IPv6 address and hostname"
+        $hostsStatusText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "DangerBrush")
+        return
+    }
 
-    $script:hostsEntries.Add(@{ IP=$ip; Host=$hostname; Comment=$comment; Enabled=$true }) | Out-Null
+    # Raw = $null marks it as new, so Save formats it instead of copying a line.
+    $newEntry = @{ Raw = $null; IsEntry = $true; IP = $ip; Host = (($hostname -split '\s+') -join ' ')
+                   Comment = $comment; Enabled = $true; OrigEnabled = $true }
+    $script:hostsEntries.Add($newEntry) | Out-Null
+    $script:hostsLines.Add($newEntry)   | Out-Null
 
     $hostsNewIP.Text      = ""
     $hostsNewHost.Text    = ""

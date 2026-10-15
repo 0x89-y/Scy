@@ -772,11 +772,16 @@ $btnNetWifi.Add_Click({
         foreach ($xf in $xmlFiles) {
             try {
                 $xml  = [xml](Get-Content $xf.FullName -Raw)
+                $key  = $xml.WLANProfile.MSM.security.sharedKey
+                # Without elevation netsh ignores key=clear and exports the key
+                # encrypted (<protected>true</protected>); that blob is not the password.
+                $isProtected = $key -and [string]$key.protected -eq 'true'
                 $profiles += [PSCustomObject]@{
-                    Name     = $xml.WLANProfile.name
-                    Password = if ($xml.WLANProfile.MSM.security.sharedKey.keyMaterial) {
-                                   $xml.WLANProfile.MSM.security.sharedKey.keyMaterial
-                               } else { "(open / no password)" }
+                    Name      = $xml.WLANProfile.name
+                    Protected = $isProtected
+                    Password  = if ($isProtected) { "(hidden - run Scy as administrator)" }
+                                elseif ($key.keyMaterial) { $key.keyMaterial }
+                                else { "(open / no password)" }
                     AuthType = switch -Wildcard ($xml.WLANProfile.MSM.security.authEncryption.authentication) {
                                    "*SAE*"  { "SAE" }
                                    "*WPA2*" { "WPA" }
@@ -838,7 +843,8 @@ $btnNetWifi.Add_Click({
                 $pwBlock.HorizontalAlignment = "Right"
                 $pwBlock.VerticalAlignment   = "Center"
                 $pwBlock.SetResourceReference(
-                    [System.Windows.Controls.TextBlock]::ForegroundProperty, "AccentBrush")
+                    [System.Windows.Controls.TextBlock]::ForegroundProperty,
+                    $(if ($prof.Protected) { "MutedText" } else { "AccentBrush" }))
                 [System.Windows.Controls.Grid]::SetColumn($pwBlock, 1)
 
                 # QR code button
@@ -850,6 +856,10 @@ $btnNetWifi.Add_Click({
                 $qrBtn.FontSize   = 11
                 $qrBtn.Cursor     = [System.Windows.Input.Cursors]::Hand
                 $qrBtn.VerticalAlignment = "Center"
+                if ($prof.Protected) {
+                    $qrBtn.IsEnabled = $false
+                    $qrBtn.ToolTip   = "Run Scy as administrator to read this password"
+                }
                 [System.Windows.Controls.Grid]::SetColumn($qrBtn, 2)
 
                 $capturedName     = $name

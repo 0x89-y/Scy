@@ -223,13 +223,13 @@ function Start-SfcDismRunner {
         function RunTool([string]$tool) {
             $isSfc = ($tool -eq "sfc")
             if ($isSfc) {
-                $exe  = "sfc.exe"
-                $args = "/scannow"
-                $label = "SFC /scannow"
+                $exe     = "sfc.exe"
+                $exeArgs = "/scannow"
+                $label   = "SFC /scannow"
             } else {
-                $exe  = "DISM.exe"
-                $args = "/Online /Cleanup-Image /RestoreHealth"
-                $label = "DISM /RestoreHealth"
+                $exe     = "DISM.exe"
+                $exeArgs = "/Online /Cleanup-Image /RestoreHealth"
+                $label   = "DISM /RestoreHealth"
             }
 
             AppendLine "> $label"
@@ -239,7 +239,7 @@ function Start-SfcDismRunner {
 
             $psi = [System.Diagnostics.ProcessStartInfo]::new()
             $psi.FileName               = $exe
-            $psi.Arguments              = $args
+            $psi.Arguments              = $exeArgs
             $psi.UseShellExecute        = $false
             $psi.RedirectStandardOutput = $true
             $psi.RedirectStandardError  = $true
@@ -258,7 +258,7 @@ function Start-SfcDismRunner {
             } catch {
                 AppendLine "ERROR: Failed to start $exe -- $_"
                 AppendLine "Make sure you are running Scy as Administrator."
-                return ""
+                return $null
             }
 
             $_procHolder.Clear()
@@ -329,7 +329,7 @@ function Start-SfcDismRunner {
             SetProgress 100
             AppendLine ""
 
-            return $output.ToString()
+            return @{ Output = $output.ToString(); ExitCode = $p.ExitCode }
         }
 
         # -- Build result card helper --
@@ -346,10 +346,13 @@ function Start-SfcDismRunner {
                     $icon.Text = [string][char]0x2714
                 } elseif ($status -eq "Repaired") {
                     $icon.Text = [string][char]0x26A0
+                } elseif ($status -eq "Finished") {
+                    $icon.Text = [string][char]0x2139
                 } else {
                     $icon.Text = [string][char]0x2716
                 }
-                $icon.Foreground = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($color))
+                # $color is a theme resource key (SuccessBrush, ...), not a hex value
+                $icon.Foreground = $_win.Resources[$color]
                 $sp.Children.Add($icon) | Out-Null
 
                 $lbl = New-Object System.Windows.Controls.TextBlock
@@ -377,12 +380,17 @@ function Start-SfcDismRunner {
         $allResults = @()
 
         foreach ($cmd in $_commands) {
-            $raw = RunTool $cmd
+            $run = RunTool $cmd
 
-            if ([string]::IsNullOrWhiteSpace($raw)) {
+            if ($null -eq $run -or [string]::IsNullOrWhiteSpace($run.Output)) {
                 $allResults += @{ Tool = $cmd.ToUpper(); Status = "Error"; Color = "DangerBrush"; Details = @("Failed to start. Run as Administrator.") }
                 continue
             }
+            $raw  = $run.Output
+            $code = $run.ExitCode
+            # The text matches below are English-only. On other UI languages fall
+            # back to the exit code so the card still says something useful.
+            $codeNote = "Exit code $code. The result text wasn't recognised (non-English Windows?) - see the output log."
 
             # Parse results
             if ($cmd -eq "sfc") {
@@ -404,8 +412,13 @@ function Start-SfcDismRunner {
                     $parsed.Status = "Error"; $parsed.Color = "DangerBrush"
                     $parsed.Details += "SFC could not run. Try booting into Safe Mode."
                 }
+                elseif ($code -ne 0) {
+                    $parsed.Status = "Error"; $parsed.Color = "DangerBrush"
+                    $parsed.Details += $codeNote
+                }
                 else {
-                    $parsed.Details += "Could not determine result -- check the output log."
+                    $parsed.Status = "Finished"
+                    $parsed.Details += $codeNote
                 }
             } else {
                 $parsed = @{ Tool = "DISM RestoreHealth"; Status = "Unknown"; Color = "MutedText"; Details = @() }
@@ -417,12 +430,14 @@ function Start-SfcDismRunner {
                     $parsed.Status = "Repaired"; $parsed.Color = "WarningBrush"
                     $parsed.Details += "Corruption was found and repaired."
                 }
-                elseif ($raw -match "Error:") {
+                elseif ($code -ne 0) {
+                    # DISM returns 0 on success and a non-zero code on failure in every language
                     $parsed.Status = "Failed"; $parsed.Color = "DangerBrush"
-                    $parsed.Details += "DISM encountered an error. Check the output log."
+                    $parsed.Details += "DISM exited with code $code. Check the output log."
                 }
                 else {
-                    $parsed.Details += "Could not determine result -- check the output log."
+                    $parsed.Status = "Healthy"; $parsed.Color = "SuccessBrush"
+                    $parsed.Details += "DISM completed successfully (exit code 0)."
                 }
             }
             $allResults += $parsed
@@ -444,7 +459,7 @@ function Start-SfcDismRunner {
 
         if ($anyFailed) {
             $finalMsg   = "Completed with issues"
-            $finalColor = "ErrorBrush"
+            $finalColor = "DangerBrush"
         } elseif ($anyRepaired) {
             $finalMsg   = "Completed -- repairs were made"
             $finalColor = "WarningBrush"
