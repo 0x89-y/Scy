@@ -368,7 +368,7 @@ function Get-ExportData {
     }
 }
 
-# ── Export JSON ──────────────────────────────────────────────────
+# ── Export (JSON or CSV) ─────────────────────────────────────────
 # One Export button: the format comes from the save dialog's file-type picker
 # (the standard Windows pattern) rather than one button per format.
 $btnExport.Add_Click({
@@ -399,8 +399,6 @@ $btnExport.Add_Click({
         }
     }
 })
-
-# ── Export CSV ───────────────────────────────────────────────────
 
 # ── Copy to clipboard ───────────────────────────────────────────
 $capturedCopyBtn = $btnExportCopy

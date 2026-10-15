@@ -2,6 +2,8 @@
 # Usage: irm https://raw.githubusercontent.com/0x89-y/Scy/main/install.ps1 | iex
 
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+# Windows PowerShell's Invoke-WebRequest progress bar slows downloads dramatically
+$ProgressPreference = 'SilentlyContinue'
 
 $installDir = Join-Path $env:LOCALAPPDATA "Scy"
 $zipUrl     = "https://github.com/0x89-y/Scy/archive/refs/heads/main.zip"
@@ -171,4 +173,4 @@ Write-Host ""
 
 # Launch Scy
 $scyScript = Join-Path $installDir "Scy.ps1"
-Start-Process powershell -ArgumentList @("-ExecutionPolicy", "Bypass", "-File", $scyScript)
+Start-Process powershell -ArgumentList @("-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", "`"$scyScript`"")

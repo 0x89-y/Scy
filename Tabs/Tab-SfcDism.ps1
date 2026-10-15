@@ -41,110 +41,6 @@ function Set-SfcDismBusy([string]$msg) {
     $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 }
 
-function Set-SfcDismReady {
-    $statusIndicator.Text       = "* Ready"
-    $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
-    $footerStatus.Text          = "Ready"
-    $btnSfcRun.IsEnabled        = $true
-    $btnDismRun.IsEnabled       = $true
-    $btnSfcDismBoth.IsEnabled   = $true
-    $btnSfcDismStop.IsEnabled   = $false
-    $script:sfcDismProcHolder.Clear()
-}
-
-# -- Result row builder ------------------------------------------------------
-function New-SfcDismResultRow([string]$Label, [string]$Value, [string]$Color) {
-    $sp = New-Object System.Windows.Controls.StackPanel
-    $sp.Orientation = "Horizontal"
-    $sp.Margin = "0,2,0,2"
-
-    $lbl = New-Object System.Windows.Controls.TextBlock
-    $lbl.Text       = $Label
-    $lbl.FontSize   = 12
-    $lbl.FontWeight = "SemiBold"
-    $lbl.Foreground = $window.Resources["FgBrush"]
-    $lbl.Margin     = "0,0,8,0"
-    $sp.Children.Add($lbl) | Out-Null
-
-    $val = New-Object System.Windows.Controls.TextBlock
-    $val.Text       = $Value
-    $val.FontSize   = 12
-    $val.Foreground = if ($Color) {
-        if ($window.Resources.Contains($Color)) { $window.Resources[$Color] }
-        else { New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($Color)) }
-    } else { $window.Resources["MutedText"] }
-    $sp.Children.Add($val) | Out-Null
-
-    return $sp
-}
-
-# -- Parse SFC output -------------------------------------------------------
-function Parse-SfcOutput([string]$RawText) {
-    $result = @{ Tool = "SFC /scannow"; Status = "Unknown"; Details = @() }
-
-    if ($RawText -match "did not find any integrity violations") {
-        $result.Status = "Healthy"
-        $result.Color  = "SuccessBrush"
-        $result.Details += "No integrity violations found."
-    }
-    elseif ($RawText -match "found corrupt files and successfully repaired") {
-        $result.Status = "Repaired"
-        $result.Color  = "WarningBrush"
-        $result.Details += "Corrupt files were found and repaired."
-    }
-    elseif ($RawText -match "found corrupt files but was unable to fix") {
-        $result.Status = "Failed"
-        $result.Color  = "DangerBrush"
-        $result.Details += "Corrupt files found but could not be repaired."
-        $result.Details += "Try running DISM first, then SFC again."
-    }
-    elseif ($RawText -match "could not perform the requested operation") {
-        $result.Status = "Error"
-        $result.Color  = "DangerBrush"
-        $result.Details += "SFC could not run. Try booting into Safe Mode."
-    }
-    else {
-        $result.Color = "MutedText"
-        $result.Details += "Could not determine result -- check the output log."
-    }
-
-    # Extract verification percentage if present
-    if ($RawText -match "Verification\s+(\d+)%\s+complete") {
-        $result.LastPercent = [int]$Matches[1]
-    }
-
-    return $result
-}
-
-# -- Parse DISM output -------------------------------------------------------
-function Parse-DismOutput([string]$RawText) {
-    $result = @{ Tool = "DISM RestoreHealth"; Status = "Unknown"; Details = @() }
-
-    if ($RawText -match "The restore operation completed successfully") {
-        $result.Status = "Healthy"
-        $result.Color  = "SuccessBrush"
-        $result.Details += "Component store is healthy. No repairs needed."
-    }
-    elseif ($RawText -match "The component store corruption was repaired") {
-        $result.Status = "Repaired"
-        $result.Color  = "WarningBrush"
-        $result.Details += "Corruption was found and successfully repaired."
-    }
-    elseif ($RawText -match "Error:") {
-        $result.Status = "Failed"
-        $result.Color  = "DangerBrush"
-        $errs = [regex]::Matches($RawText, "Error:\s*(.+)")
-        foreach ($m in $errs) { $result.Details += $m.Groups[1].Value.Trim() }
-        if ($result.Details.Count -eq 0) { $result.Details += "DISM encountered an error." }
-    }
-    else {
-        $result.Color = "MutedText"
-        $result.Details += "Could not determine result -- check the output log."
-    }
-
-    return $result
-}
-
 # -- Core runner (background runspace) ---------------------------------------
 function Start-SfcDismRunner {
     param(
@@ -483,7 +379,6 @@ function Start-SfcDismRunner {
             $_btnDism.IsEnabled  = $true
             $_btnBoth.IsEnabled  = $true
             $_btnStop.IsEnabled  = $false
-            $_btnStop.Opacity    = 0.4
             $_procHolder.Clear()
         }
     }) | Out-Null

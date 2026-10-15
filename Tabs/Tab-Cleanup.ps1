@@ -22,18 +22,6 @@ function Format-Size {
     return "$Bytes B"
 }
 
-function Get-RecycleBinSize {
-    $size = 0L
-    foreach ($drive in (Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue)) {
-        $path = Join-Path $drive.Root '$Recycle.Bin'
-        if (Test-Path $path) {
-            $sum = (Get-ChildItem $path -Recurse -Force -ErrorAction SilentlyContinue |
-                     Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-            if ($null -ne $sum) { $size += [long]$sum }
-        }
-    }
-    return $size
-}
 
 # Async so the recycle-bin walk (which can be slow) never blocks the UI thread.
 # Triggered on demand by the Cleanup scan, not on tab entry.
@@ -64,14 +52,6 @@ function Update-RecycleBinSize {
         } | Out-Null
 }
 
-function Get-DirSize {
-    param([string]$Path)
-    if (-not (Test-Path $Path)) { return 0L }
-    $sum = (Get-ChildItem $Path -Recurse -Force -ErrorAction SilentlyContinue |
-             Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-    if ($null -eq $sum) { return 0L }
-    return [long]$sum
-}
 
 function Get-CleanTargets {
     $ffPaths = @()

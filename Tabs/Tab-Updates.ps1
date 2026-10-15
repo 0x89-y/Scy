@@ -12,9 +12,6 @@ $updateProgressBorder = Find "UpdateProgressBorder"
 $updateProgressBar    = Find "UpdateProgressBar"
 $updateProgressLabel  = Find "UpdateProgressLabel"
 
-function New-ColorBrush([string]$hex) {
-    New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($hex))
-}
 
 function Set-UpdateBadge {
     param([string]$State, [int]$Count = 0)
@@ -202,9 +199,6 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
         $capturedPkgs    = $packages
         $capturedSummary = $summaryCount
         Ui {
-            function _NewColorBrush([string]$hex) {
-                New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($hex))
-            }
 
             if ($capturedPkgs.Count -eq 0 -and $capturedSummary -gt 0) {
                 $_statusDot.Foreground  = $window.Resources["WarningBrush"]
@@ -333,9 +327,6 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
         function Ui([scriptblock]$sb) {
             $_win.Dispatcher.Invoke($sb, [System.Windows.Threading.DispatcherPriority]::Normal)
         }
-        function _NewColorBrush([string]$hex) {
-            New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($hex))
-        }
 
         $total = $_pkgIds.Count
         $i = 0
@@ -454,9 +445,6 @@ $script:_uBarPat   = '[' + [char]0x2588 + [char]0x2592 + ']'
     $ps.AddScript({
         function Ui([scriptblock]$sb) {
             $_win.Dispatcher.Invoke($sb, [System.Windows.Threading.DispatcherPriority]::Normal)
-        }
-        function _NewColorBrush([string]$hex) {
-            New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($hex))
         }
 
         Ui {

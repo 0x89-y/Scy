@@ -1,2 +1,2 @@
 @echo off
-powershell -ExecutionPolicy Bypass -File "%~dp0Scy.ps1"
+powershell -NoProfile -STA -ExecutionPolicy Bypass -File "%~dp0Scy.ps1"

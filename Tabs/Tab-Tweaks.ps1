@@ -171,22 +171,6 @@ function Build-TweakRow {
 
 # ── Grouping logic ────────────────────────────────────────────────
 
-function Get-TweakGroup {
-    param($Dir)
-
-    # Explicit tweak.json group takes priority
-    $jsonFile = Join-Path $Dir.FullName "tweak.json"
-    if (Test-Path $jsonFile) {
-        $meta = Get-Content $jsonFile -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($meta.group) { return $meta.group }
-    }
-
-    # Auto-detect from folder name prefix
-    # Match multi-word prefixes like "Dark_Mode" or single-word like "Disable"
-    $name = $Dir.Name
-    return $null  # will be resolved after scanning all dirs
-}
-
 function Resolve-TweakGroups {
     param($Dirs)
 
@@ -366,8 +350,6 @@ function Update-TweakFooterCounts {
     $btnRevert.IsEnabled = ($count -gt 0)
 }
 
-# ── Collapse all button visibility + label ───────────────────────
-
 # ── Initial load ──────────────────────────────────────────────────
 # Deferred to first Tweaks-tab visit (Invoke-ScyTabInit in Scy.ps1) so the
 # folder scan + row building doesn't slow startup.
@@ -411,8 +393,6 @@ function Update-TweakFooterCounts {
     (Find "TweakSearchBox").Text = ""
     (Find "TweakSearchBox").Focus()
 })
-
-# ── Collapse all / Expand all button ─────────────────────────────
 
 # ── Tweak creator ────────────────────────────────────────────────
 (Find "BtnToggleTweakCreator").Add_Click({

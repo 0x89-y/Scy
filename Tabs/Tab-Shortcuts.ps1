@@ -471,19 +471,6 @@
       Save-Settings
   }
 
-  function Open-Setting {
-      param([string]$Cmd, [string]$Label, [string[]]$CmdArgs = @())
-      try {
-          if ($CmdArgs.Count -gt 0) {
-              Start-Process $Cmd -ArgumentList $CmdArgs
-          } else {
-              Start-Process $Cmd
-          }
-          $footerStatus.Text = "Scy - Opened $Label"
-      } catch {
-          Show-ThemedDialog "Could not open '$Label':`n$_" "Error" "OK" "Error"
-      }
-  }
 
 # ── Populate group selector ──────────────────────────────────────
 Refresh-ShortcutGroupBox

@@ -10,10 +10,8 @@ $systemSectionSfcDism  = Find "SystemSection_SfcDism"
 $script:systemSections   = @($systemSectionInfo, $systemSectionCleanup, $systemSectionBattery, $systemSectionFirmware, $systemSectionSfcDism)
 $script:systemNavLabels  = @("Info", "Cleanup", "Battery", "BIOS/UEFI", "SFC/DISM")
 
-# Info blocks. Selecting one only shows it - it never gathers. The per-block
-# Populate-* functions run Get-CimInstance on the UI thread and would freeze the
-# window; the gather is done once, asynchronously, by Populate-SysInfo on the
-# System tab's first visit (Invoke-ScyTabInit in Scy.ps1).
+# Info blocks. Selecting one only shows it - it never gathers. The data comes
+# from Populate-SysInfo, an async job started by each block's refresh button.
 $script:sysInfoBlocks = @(
     @{ Label = "Operating system"; Block = "SysInfo_OS"       }
     @{ Label = "Hardware";         Block = "SysInfo_Hardware" }
@@ -99,137 +97,8 @@ $netPanel    = Find "NetAdapterPanel"
 # Card helpers (New-InfoRow / New-AdapterHeader / New-Separator) live in
 # Helpers\Helpers-Cards.ps1 and are dot-sourced from Scy.ps1.
 
-# ── Populate OS card ─────────────────────────────────────────────
-# PS policy is part of the OS card now, so it gets refreshed together
-# with the rest of the OS row data.
-function Populate-OSInfo {
-    param($os = $null)
-    if (-not $os) { $os = Get-CimInstance Win32_OperatingSystem }
-    $uptime = (Get-Date) - $os.LastBootUpTime
-
-    $sysOS.Text       = $os.Caption + " " + $os.OSArchitecture
-    $sysBuild.Text    = $os.BuildNumber + "  (" + $os.Version + ")"
-    $sysComputer.Text = $env:COMPUTERNAME
-    $sysUser.Text     = $env:USERNAME
-    $sysUptime.Text   = [string]$uptime.Days + "d " + [string]$uptime.Hours + "h " + [string]$uptime.Minutes + "m"
-    Populate-ExecPolicy
-}
-
-# ── Populate Hardware card ────────────────────────────────────────
-function Populate-HardwareInfo {
-    param($os = $null)
-    Set-BusyStatus "Gathering hardware info..."
-
-    if (-not $os) { $os = Get-CimInstance Win32_OperatingSystem }
-    $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
-    $ram = [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)
-    $gpu = (Get-CimInstance Win32_VideoController | Select-Object -First 1).Name
-
-    $hwCPU.Text   = $cpu.Name.Trim()
-    $hwCores.Text = [string]$cpu.NumberOfCores + " cores / " + [string]$cpu.NumberOfLogicalProcessors + " threads"
-    $hwRAM.Text   = [string]$ram + " GB"
-    $hwGPU.Text   = $gpu.Trim()
-
-    Set-ReadyStatus
-}
-
-# ── Populate Drives card ──────────────────────────────────────────
-function Populate-DriveInfo {
-    $diskPanel.Children.Clear()
-    $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $null -ne $_.Used }
-
-    $smartMap = @{}
-    try {
-        $partitions = Get-Partition -ErrorAction SilentlyContinue | Where-Object { $_.DriveLetter }
-        foreach ($p in $partitions) {
-            try {
-                $disk = $p | Get-Disk -ErrorAction Stop
-                $phys = Get-PhysicalDisk -DeviceNumber $disk.Number -ErrorAction Stop
-                $smartMap[[string]$p.DriveLetter] = $phys.HealthStatus
-            } catch { }
-        }
-    } catch { }
-
-    $alt = $false
-    foreach ($d in $drives) {
-        $total    = $d.Used + $d.Free
-        $free     = [math]::Round($d.Free / 1GB, 1)
-        $tot      = [math]::Round($total / 1GB, 1)
-        $pct      = if ($total -gt 0) { $d.Free / $total } else { 1 }
-        $colorKey = if ($pct -lt 0.10) { "DangerBrush" } elseif ($pct -lt 0.20) { "WarningBrush" } else { "FgBrush" }
-        $row      = New-InfoRow ($d.Name + ":\") ([string]$free + " GB free of " + [string]$tot + " GB") $colorKey $alt
-        $diskPanel.Children.Add($row) | Out-Null
-        $alt = -not $alt
-
-        $status = $smartMap[[string]$d.Name]
-        $smartColor = switch ([string]$status) {
-            'Healthy'   { 'SuccessBrush' }
-            'Warning'   { 'WarningBrush' }
-            'Unhealthy' { 'DangerBrush' }
-            default     { 'MutedText' }
-        }
-        $smartText = if ($status) { [string]$status } else { 'Unknown' }
-        $diskPanel.Children.Add((New-InfoRow "  SMART" $smartText $smartColor $alt)) | Out-Null
-        $alt = -not $alt
-    }
-}
-
-# ── Populate Network card ─────────────────────────────────────────
-function Populate-NetInfo {
-    $netPanel.Children.Clear()
-    try {
-        $adapters  = Get-NetAdapter -Physical -ErrorAction Stop | Where-Object { $_.Status -eq 'Up' }
-        $addresses = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-                     Where-Object { $_.IPAddress -ne '127.0.0.1' -and $_.PrefixOrigin -ne 'WellKnown' }
-        $routes    = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue
-        $dnsAll    = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue
-
-        $active = @(foreach ($a in $adapters) {
-            $ipv4 = $addresses | Where-Object { $_.InterfaceIndex -eq $a.InterfaceIndex } | Select-Object -First 1
-            if (-not $ipv4) { continue }
-            [PSCustomObject]@{
-                Alias   = $a.Name
-                IP      = $ipv4.IPAddress + "/" + $ipv4.PrefixLength
-                Gateway = $(($routes | Where-Object { $_.InterfaceIndex -eq $a.InterfaceIndex } | Select-Object -First 1).NextHop)
-                DNS     = $(($dnsAll | Where-Object { $_.InterfaceIndex -eq $a.InterfaceIndex }).ServerAddresses -join ", ")
-            }
-        })
-
-        if ($active.Count -eq 0) {
-            $tb = New-Object System.Windows.Controls.TextBlock
-            $tb.Text     = "No active network adapters found."
-            $tb.FontSize = 12
-            $tb.Margin   = [System.Windows.Thickness]::new(4, 2, 0, 2)
-            $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-            $netPanel.Children.Add($tb) | Out-Null
-            return
-        }
-
-        $first = $true
-        foreach ($cfg in $active) {
-            if (-not $first) { $netPanel.Children.Add((New-Separator)) | Out-Null }
-            $first = $false
-
-            $netPanel.Children.Add((New-AdapterHeader $cfg.Alias)) | Out-Null
-            $netPanel.Children.Add((New-InfoRow "IP Address" $cfg.IP "FgBrush" $false)) | Out-Null
-
-            $gw = if ($cfg.Gateway) { $cfg.Gateway } else { "N/A" }
-            $netPanel.Children.Add((New-InfoRow "Gateway" $gw "FgBrush" $true)) | Out-Null
-
-            $dns = if ($cfg.DNS) { $cfg.DNS } else { "N/A" }
-            $netPanel.Children.Add((New-InfoRow "DNS" $dns "FgBrush" $false)) | Out-Null
-        }
-    } catch {
-        $tb = New-Object System.Windows.Controls.TextBlock
-        $tb.Text     = "Could not retrieve network info: " + $_.Exception.Message
-        $tb.FontSize = 12
-        $tb.Margin   = [System.Windows.Thickness]::new(4, 2, 0, 2)
-        $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "DangerBrush")
-        $netPanel.Children.Add($tb) | Out-Null
-    }
-}
-
 # ── Refresh All (background job) ──────────────────────────────────
+# Gathers OS, hardware, drives and network in one job and fills every Info block.
 function Populate-SysInfo {
     Set-BusyStatus "Gathering system info..."
 

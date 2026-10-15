@@ -275,49 +275,6 @@ function Hide-ScyProgress {
     if ($Bar)    { $Bar.IsIndeterminate = $false; $Bar.Value = 0 }
 }
 
-# ── Helper: run a user scriptblock off the UI thread, stream output ───
-function Run-Command {
-    param(
-        [System.Windows.Controls.TextBox]$OutputBox,
-        [scriptblock]$ScriptBlock,
-        [string]$Label,
-        [string]$StatusText = "Running..."
-    )
-
-    $statusIndicator.Text       = "● $StatusText"
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
-    $footerStatus.Text          = "Scy - $StatusText"
-
-    Write-Output-Box $OutputBox "`r`n▶ Running: $Label`r`n$('─' * 60)" -Clear
-
-    Start-ScyJob `
-        -Variables @{ userCode = $ScriptBlock.ToString() } `
-        -Context   @{ Box = $OutputBox } `
-        -Work {
-            param($emit)
-            $sb  = [scriptblock]::Create($userCode)
-            $out = & $sb 2>&1 | Out-String
-            & $emit $out
-        } `
-        -OnLine {
-            param($line, $ctx)
-            $ctx.Box.AppendText($line)
-            $ctx.Box.ScrollToEnd()
-        } `
-        -OnComplete {
-            param($result, $err, $ctx)
-            if ($err) {
-                $ctx.Box.AppendText("`r`n✖ Error: $err`r`n")
-            } else {
-                $ctx.Box.AppendText("`r`n✔ Done.`r`n")
-            }
-            $ctx.Box.ScrollToEnd()
-            $statusIndicator.Text       = "● Ready"
-            $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
-            $footerStatus.Text          = "Ready"
-        } | Out-Null
-}
-
 # ── Helper: toggle output panel visibility ───────────────────────
 function Toggle-Output {
     param([string]$BorderName, [string]$BtnName)
@@ -669,7 +626,9 @@ function Invoke-ScyTabInit {
                 if (Get-Command Render-Changelog        -EA SilentlyContinue) { Render-Changelog }
             }
         }
-    } catch {}
+    } catch {
+        Write-ScyLog "First-visit init for tab $Index failed: $($_.Exception.Message)" "ERROR"
+    }
 }
 
 $script:mainTabControl = Find "MainTabControl"

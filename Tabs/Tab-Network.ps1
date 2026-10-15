@@ -267,9 +267,9 @@ $btnNetSpeed.Add_Click({
     $netSpeedResultPanel.Visibility = "Collapsed"
     $netSpeedDetailsGrid.Visibility = "Collapsed"
     Set-NetBusy "Speed test running..."
-    # Speed test has no killable process, keep Stop disabled
+    # Speed test has no killable process, keep Stop disabled (the button
+    # style already fades disabled buttons; a manual Opacity was never reset)
     $btnNetStop.IsEnabled = $false
-    $btnNetStop.Opacity   = 0.4
 
     Start-ScyJob `
         -Variables @{ url = $serverUrl } `

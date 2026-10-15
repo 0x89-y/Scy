@@ -1375,7 +1375,6 @@ $script:appMetaCache = $script:metaState.Cache
 
 function Start-MetaFetchJob {
     param([string]$Id)
-    if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("Start-MetaFetchJob " + $Id) }
 
     # Spawn winget show as a plain Process and let it exit, then read the
     # stdout buffer in one go. Avoids the ~300ms runspace creation cost that
@@ -1418,38 +1417,32 @@ function Start-MetaFetchJob {
             $p     = $Sender
             $state = $msg.State
             try {
-                if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("subscriber action fired for " + $msg.Id) }
                 $stdout = $p.StandardOutput.ReadToEnd()
                 $lines  = $stdout -split "`r?`n"
                 $meta   = $null
                 try { $meta = Parse-WingetShowOutput -Lines $lines } catch {}
                 if ($meta) { $state.Cache[$msg.Id] = $meta }
-                if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("meta parsed for " + $msg.Id + " hasMeta=" + [string]([bool]$meta) + " hasHomepage=" + [string]([bool]($meta -and $meta.Homepage))) }
 
                 if ($state.Pending.ContainsKey($msg.Id)) {
                     $cbs = $state.Pending[$msg.Id]
                     $state.Pending.Remove($msg.Id) | Out-Null
-                    foreach ($cb in $cbs) { try { & $cb $meta $null } catch { if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("meta cb threw: " + $_.Exception.Message) } } }
+                    foreach ($cb in $cbs) { try { & $cb $meta $null } catch { if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog ("meta cb threw: " + $_.Exception.Message) "ERROR" } } }
                 }
-                if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("post-cb. Queue.Count=" + [string]$state.Queue.Count) }
                 $state.Active[0] = $false
 
                 if ($state.Queue.Count -gt 0) {
                     $nextId       = $state.Queue.Dequeue()
                     $state.Active[0] = $true
-                    if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("dequeued next: " + $nextId) }
                     $drainAction = { Start-MetaFetchJob -Id $nextId }.GetNewClosure()
                     $msg.Win.Dispatcher.BeginInvoke([action]$drainAction,
                         [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
-                    if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("BeginInvoke posted for " + $nextId) }
                 }
             } catch {
-                if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("ACTION THREW: " + $_.Exception.Message) }
+                if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog ("winget show handler failed: " + $_.Exception.Message) "ERROR" }
             } finally {
                 if ($state.Sources.ContainsKey($msg.Id)) { $state.Sources.Remove($msg.Id) | Out-Null }
                 Unregister-Event -SourceIdentifier $msg.SourceId -ErrorAction SilentlyContinue
                 try { $p.Dispose() } catch {}
-                if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("finally done for " + $msg.Id) }
             }
         } | Out-Null
 
@@ -1568,12 +1561,11 @@ function Get-DomainFromMeta {
 
 function Invoke-IconCallbacks {
     param([string]$Id, [string]$Path)
-    if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("Invoke-IconCallbacks " + $Id + " path=" + [string]$Path + " hasPending=" + [string]$global:iconPendingCallbacks.ContainsKey($Id)) }
     if (-not $global:iconPendingCallbacks.ContainsKey($Id)) { return }
     $cbs = $global:iconPendingCallbacks[$Id]
     $global:iconPendingCallbacks.Remove($Id) | Out-Null
     foreach ($cb in $cbs) {
-        try { & $cb $Path } catch { if (Get-Command Write-BulkLog -ErrorAction SilentlyContinue) { Write-BulkLog ("icon cb threw: " + $_.Exception.Message) } }
+        try { & $cb $Path } catch { if (Get-Command Write-ScyLog -ErrorAction SilentlyContinue) { Write-ScyLog ("icon cb threw: " + $_.Exception.Message) "ERROR" } }
     }
 }
 

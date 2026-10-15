@@ -64,12 +64,6 @@ function script:New-Brush($hex) {
     ([System.Windows.Media.SolidColorBrush]::new($color)).psobject.BaseObject
 }
 
-function script:LightenHex($hex, $amount) {
-    $r = [Math]::Min(255, [Convert]::ToInt32($hex.Substring(1,2), 16) + $amount)
-    $g = [Math]::Min(255, [Convert]::ToInt32($hex.Substring(3,2), 16) + $amount)
-    $b = [Math]::Min(255, [Convert]::ToInt32($hex.Substring(5,2), 16) + $amount)
-    "#{0:X2}{1:X2}{2:X2}" -f $r, $g, $b
-}
 
 function script:LerpHex($hex1, $hex2, $t) {
     $r1 = [Convert]::ToInt32($hex1.Substring(1,2), 16); $r2 = [Convert]::ToInt32($hex2.Substring(1,2), 16)
@@ -253,7 +247,9 @@ function Save-Settings {
             CustomRegBookmarkGroups        = @($script:customRegBookmarkGroups)
             NotesPreviewMode               = $script:notesPreviewMode
         } | ConvertTo-Json -Depth 5 | Set-Content -Path $script:settingsFile -Encoding UTF8
-    } catch {}
+    } catch {
+        Write-ScyLog "Saving settings failed: $($_.Exception.Message)" "ERROR"
+    }
 }
 
 function Set-LocalInstallFolder {
@@ -920,8 +916,9 @@ $btnInstallSelfUpdate.Add_Click({
         if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
         if (Test-Path $extPath) { Remove-Item $extPath -Recurse -Force }
 
-        # Download
+        # Download (no progress bar: on Windows PowerShell it slows the download dramatically)
         [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+        $ProgressPreference = 'SilentlyContinue'
         Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 60
 
         $selfUpdateStatusText.Text = "Installing update..."
