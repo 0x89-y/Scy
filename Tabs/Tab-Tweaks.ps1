@@ -1,4 +1,4 @@
-# ══════════════════════════════════════════════════════════════════
+﻿# ══════════════════════════════════════════════════════════════════
 #  TWEAKS TAB - Dynamic folder-based tweak loader
 #
 #  To add a new tweak, create a subfolder inside the Tweaks\ folder:
@@ -85,6 +85,56 @@ function Save-TweakBackup {
     if (-not (Test-Path -LiteralPath $script:tweakBackupDir)) { New-Item -ItemType Directory -Path $script:tweakBackupDir -Force | Out-Null }
     [System.IO.File]::WriteAllText($file, (ConvertTo-Json @($entries) -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
     return $true
+}
+
+# Put back registry values saved by Save-TweakBackup: the value (with its type),
+# or its absence - including keys the tweak created, which are removed again
+# once empty, up to the nearest key that existed before. Throws on failure.
+# Runs inside the apply/revert job (its text is handed over), and is unit-tested.
+function Restore-TweakBackup {
+    param($Entries)
+    # Flatten first: a JSON array from ConvertFrom-Json may arrive as one nested object
+    foreach ($e in @($Entries | ForEach-Object { $_ })) {
+        $p  = [string]$e.Path
+        $n  = [string]$e.Name
+        $vn = if ($n -eq '(Default)') { '' } else { $n }
+        if ($e.ValueExisted) {
+            if (-not (Test-Path -LiteralPath $p)) { New-Item -Path $p -Force -ErrorAction Stop | Out-Null }
+            $val = $e.Value
+            switch ([string]$e.Kind) { 'Binary' { $val = [byte[]]@($val) } 'MultiString' { $val = [string[]]@($val) } }
+            if ($vn -eq '') { Set-ItemProperty -LiteralPath $p -Name '(default)' -Value $val -ErrorAction Stop }
+            else { New-ItemProperty -LiteralPath $p -Name $n -Value $val -PropertyType ([string]$e.Kind) -Force -ErrorAction Stop | Out-Null }
+        } else {
+            $k = Get-Item -LiteralPath $p -ErrorAction SilentlyContinue
+            if ($k -and (@($k.GetValueNames()) -contains $vn)) {
+                if ($vn -eq '') {
+                    # Remove-ItemProperty can't delete a key's default value; use .NET
+                    $hiveName, $sub = $k.Name.Split('\', 2)
+                    $hive = switch ($hiveName) {
+                        'HKEY_CURRENT_USER'  { [Microsoft.Win32.Registry]::CurrentUser }
+                        'HKEY_LOCAL_MACHINE' { [Microsoft.Win32.Registry]::LocalMachine }
+                        'HKEY_USERS'         { [Microsoft.Win32.Registry]::Users }
+                        'HKEY_CLASSES_ROOT'  { [Microsoft.Win32.Registry]::ClassesRoot }
+                    }
+                    $w = $hive.OpenSubKey($sub, $true)
+                    try { $w.DeleteValue('', $false) } finally { $w.Close() }
+                } else {
+                    Remove-ItemProperty -LiteralPath $p -Name $n -ErrorAction Stop
+                }
+            }
+            # Keys the tweak created are removed again once empty, walking
+            # up to the nearest key that existed before the tweak
+            if (-not $e.KeyExisted) {
+                $cur = $p
+                while ($cur -and $cur -ne [string]$e.ExistingParent) {
+                    $k = Get-Item -LiteralPath $cur -ErrorAction SilentlyContinue
+                    if (-not $k -or $k.ValueCount -gt 0 -or $k.SubKeyCount -gt 0) { break }
+                    Remove-Item -LiteralPath $cur -ErrorAction Stop
+                    $cur = Split-Path $cur -Parent
+                }
+            }
+        }
+    }
 }
 
 function Update-TweakStates {
@@ -644,7 +694,10 @@ function Invoke-SelectedTweaks {
             try { $item.NewBackup = [bool](Save-TweakBackup $row) } catch { Write-ScyLog "Tweak backup failed for $($row.FolderName): $($_.Exception.Message)" "ERROR" }
             $item.Script = $row.ApplyScript
         } elseif ($row.Snapshot -and (Test-Path -LiteralPath $item.BackupFile)) {
-            $item.Restore = @(Get-Content -LiteralPath $item.BackupFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+            # Windows PowerShell's ConvertFrom-Json emits a JSON array as ONE object;
+            # piping it through ForEach-Object unrolls it into the individual entries.
+            $json = Get-Content -LiteralPath $item.BackupFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            $item.Restore = @($json | ForEach-Object { $_ })
         } elseif (Test-Path $row.RevertScript) {
             $item.Script = $row.RevertScript
         } else {
@@ -666,10 +719,11 @@ function Invoke-SelectedTweaks {
     Set-BusyStatus "$verbIng tweaks..."
 
     Start-ScyJob `
-        -Variables @{ items = $work } `
+        -Variables @{ items = $work; restoreFn = "function Restore-TweakBackup {${function:Restore-TweakBackup}}" } `
         -Context   @{ Mode = $Mode; NoRevert = $noRevert; VerbIng = $verbIng } `
         -Work {
             param($emit)
+            . ([scriptblock]::Create($restoreFn))
             $restartExplorer = $false
             $results = foreach ($it in $items) {
                 & $emit $it.Name
@@ -677,47 +731,7 @@ function Invoke-SelectedTweaks {
                 try {
                     if ($it.Restore) {
                         # Put back the values saved before the tweak was applied
-                        foreach ($e in @($it.Restore)) {
-                            $p  = [string]$e.Path
-                            $n  = [string]$e.Name
-                            $vn = if ($n -eq '(Default)') { '' } else { $n }
-                            if ($e.ValueExisted) {
-                                if (-not (Test-Path -LiteralPath $p)) { New-Item -Path $p -Force -ErrorAction Stop | Out-Null }
-                                $val = $e.Value
-                                switch ([string]$e.Kind) { 'Binary' { $val = [byte[]]@($val) } 'MultiString' { $val = [string[]]@($val) } }
-                                if ($vn -eq '') { Set-ItemProperty -LiteralPath $p -Name '(default)' -Value $val -ErrorAction Stop }
-                                else { New-ItemProperty -LiteralPath $p -Name $n -Value $val -PropertyType ([string]$e.Kind) -Force -ErrorAction Stop | Out-Null }
-                            } else {
-                                $k = Get-Item -LiteralPath $p -ErrorAction SilentlyContinue
-                                if ($k -and (@($k.GetValueNames()) -contains $vn)) {
-                                    if ($vn -eq '') {
-                                        # Remove-ItemProperty can't delete a key's default value; use .NET
-                                        $hiveName, $sub = $k.Name.Split('\', 2)
-                                        $hive = switch ($hiveName) {
-                                            'HKEY_CURRENT_USER'  { [Microsoft.Win32.Registry]::CurrentUser }
-                                            'HKEY_LOCAL_MACHINE' { [Microsoft.Win32.Registry]::LocalMachine }
-                                            'HKEY_USERS'         { [Microsoft.Win32.Registry]::Users }
-                                            'HKEY_CLASSES_ROOT'  { [Microsoft.Win32.Registry]::ClassesRoot }
-                                        }
-                                        $w = $hive.OpenSubKey($sub, $true)
-                                        try { $w.DeleteValue('', $false) } finally { $w.Close() }
-                                    } else {
-                                        Remove-ItemProperty -LiteralPath $p -Name $n -ErrorAction Stop
-                                    }
-                                }
-                                # Keys the tweak created are removed again once empty, walking
-                                # up to the nearest key that existed before the tweak
-                                if (-not $e.KeyExisted) {
-                                    $cur = $p
-                                    while ($cur -and $cur -ne [string]$e.ExistingParent) {
-                                        $k = Get-Item -LiteralPath $cur -ErrorAction SilentlyContinue
-                                        if (-not $k -or $k.ValueCount -gt 0 -or $k.SubKeyCount -gt 0) { break }
-                                        Remove-Item -LiteralPath $cur -ErrorAction Stop
-                                        $cur = Split-Path $cur -Parent
-                                    }
-                                }
-                            }
-                        }
+                        Restore-TweakBackup -Entries $it.Restore
                         if ($it.RestartExplorer) { $restartExplorer = $true }
                     } else {
                         # *>&1 turns non-terminating errors into records we can fail on

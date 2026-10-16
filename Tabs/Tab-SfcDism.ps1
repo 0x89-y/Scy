@@ -1,4 +1,4 @@
-# ── SFC / DISM Runner Tab ────────────────────────────────────────
+﻿# ── SFC / DISM Runner Tab ────────────────────────────────────────
 
 $sfcDismStatus      = Find "SfcDismStatus"
 $sfcDismProgress    = Find "SfcDismProgress"

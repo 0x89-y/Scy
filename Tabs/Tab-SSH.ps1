@@ -1,4 +1,4 @@
-# ── SSH Key Manager Tab ───────────────────────────────────────────
+﻿# ── SSH Key Manager Tab ───────────────────────────────────────────
 
 $sshKeyPanel       = Find "SSHKeyPanel"
 $sshGenerateStatus = Find "SSHGenerateStatus"

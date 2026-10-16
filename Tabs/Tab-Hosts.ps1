@@ -59,6 +59,19 @@ function Read-HostsFile {
     return ,$lines
 }
 
+# -- Turn the line list back into file text ------------------------
+# Untouched lines go back byte-for-byte; only new or toggled entries are reformatted.
+function ConvertTo-HostsFileLines {
+    param($Lines)
+    foreach ($l in @($Lines)) {
+        if (-not $l.IsEntry -or ($null -ne $l.Raw -and $l.Enabled -eq $l.OrigEnabled)) { $l.Raw; continue }
+        $line = "{0,-20}{1}" -f $l.IP, $l.Host
+        if ($l.Comment) { $line += "  # $($l.Comment)" }
+        if (-not $l.Enabled) { $line = "# $line" }
+        $line
+    }
+}
+
 # -- Build a single row for an entry ------------------------------
 function New-HostsRow {
     param($Entry, [bool]$Alternate = $false)
@@ -168,14 +181,7 @@ function Load-HostsEntries {
 # -- Write entries back to disk -----------------------------------
 function Save-HostsFile {
     try {
-        $out = foreach ($l in $script:hostsLines) {
-            # Untouched lines go back byte-for-byte; only new or toggled entries are reformatted.
-            if (-not $l.IsEntry -or ($null -ne $l.Raw -and $l.Enabled -eq $l.OrigEnabled)) { $l.Raw; continue }
-            $line = "{0,-20}{1}" -f $l.IP, $l.Host
-            if ($l.Comment) { $line += "  # $($l.Comment)" }
-            if (-not $l.Enabled) { $line = "# $line" }
-            $line
-        }
+        $out = ConvertTo-HostsFileLines $script:hostsLines
         if (Test-Path $hostsPath) { Copy-Item $hostsPath "$hostsPath.scy.bak" -Force }
         # No BOM: some tools misread a BOM'd first line of the hosts file.
         [System.IO.File]::WriteAllLines($hostsPath, [string[]]@($out), (New-Object System.Text.UTF8Encoding($false)))

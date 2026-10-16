@@ -1,4 +1,4 @@
-# ── BIOS / UEFI Info Panel ────────────────────────────────────────
+﻿# ── BIOS / UEFI Info Panel ────────────────────────────────────────
 $firmwareInfoPanel        = Find "FirmwareInfoPanel"
 $firmwareSecurityPanel    = Find "FirmwareSecurityPanel"
 $firmwareFeaturesPanel    = Find "FirmwareFeaturesPanel"

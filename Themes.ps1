@@ -1,4 +1,4 @@
-# Built-in theme palettes — the cy-design system (shared across the "cy" family:
+﻿# Built-in theme palettes — the cy-design system (shared across the "cy" family:
 # Acy, Ncy, Scy). Single source of truth for the splash screen (Scy.ps1) and the
 # runtime theme system (Tabs/Tab-Settings.ps1).
 #

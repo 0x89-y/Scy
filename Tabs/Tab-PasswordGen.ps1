@@ -1,4 +1,4 @@
-# ── Password Generator ────────────────────────────────────────────
+﻿# ── Password Generator ────────────────────────────────────────────
 
 $btnPwdGenerate   = Find "BtnPwdGenerate"
 $btnPwdCopy       = Find "BtnPwdCopy"

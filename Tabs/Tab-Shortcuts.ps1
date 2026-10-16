@@ -1,4 +1,4 @@
-  # ── Bookmarks rail (replaces the old sub-nav pills) ───────────────
+﻿  # ── Bookmarks rail (replaces the old sub-nav pills) ───────────────
   $bookmarksSectionShortcuts = Find "BookmarksSection_Shortcuts"
   $bookmarksSectionRegistry  = Find "BookmarksSection_Registry"
 

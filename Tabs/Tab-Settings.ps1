@@ -1,4 +1,4 @@
-# ── Settings Tab ─────────────────────────────────────────────────
+﻿# ── Settings Tab ─────────────────────────────────────────────────
 
 # ── Settings sub-navigation ──────────────────────────────────────
 $script:settingsNavLabels = @("General", "Appearance", "Apps & Groups", "About")

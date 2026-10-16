@@ -183,6 +183,7 @@ function Test-ScyAccessDenied {
     while ($ex) {
         if ($ex -is [System.UnauthorizedAccessException]) { return $true }
         if ($ex -is [System.Security.SecurityException]) { return $true }                # .NET registry writes
+        if ($ex -is [System.ComponentModel.Win32Exception] -and $ex.NativeErrorCode -in 5, 740) { return $true }   # access denied / elevation required
         if ($ex.HResult -eq -2147024891) { return $true }                                # 0x80070005 E_ACCESSDENIED
         if ($ex.PSObject.Properties['NativeErrorCode'] -and [string]$ex.NativeErrorCode -eq 'AccessDenied') { return $true }
         $ex = $ex.InnerException
@@ -267,8 +268,8 @@ function Select-ScyTab {
 }
 
 # ── Named controls ───────────────────────────────────────────────
-$statusIndicator = Find "StatusIndicator"
-$footerStatus    = Find "FooterStatus"
+$script:statusIndicator = Find "StatusIndicator"
+$script:footerStatus    = Find "FooterStatus"
 $psVersion       = Find "PSVersion"
 
 # ── Helper: append text to an output box ─────────────────────────

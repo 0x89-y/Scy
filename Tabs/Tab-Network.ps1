@@ -1,4 +1,4 @@
-# -- Network Tools Tab ----------------------------------------------------------
+﻿# -- Network Tools Tab ----------------------------------------------------------
 
 # -- Network rail --------------------------------------------------------------
 # Flat rail: the three Diagnostics tools sit at the top level alongside the
@@ -636,10 +636,10 @@ $btnNetNSCopy.Add_Click({
 })
 
 # -- Wi-Fi QR code dialog ----------------------------------------------------
-function Show-WifiQRDialog([string]$ssid, [string]$password, [string]$authType) {
+function Show-WifiQRDialog([string]$ssid, [string]$NetworkKey, [string]$authType) {
     # Escape special chars for WiFi QR format
     $escSsid = $ssid -replace '([\\;,:""])', '\$1'
-    $escPwd  = $password -replace '([\\;,:""])', '\$1'
+    $escPwd  = $NetworkKey -replace '([\\;,:""])', '\$1'
 
     $wifiString = if ($authType -eq "nopass") {
         "WIFI:T:nopass;S:$escSsid;;"

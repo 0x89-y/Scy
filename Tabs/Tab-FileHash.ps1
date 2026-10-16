@@ -1,4 +1,4 @@
-# ── File Hashing Tool ────────────────────────────────────────────
+﻿# ── File Hashing Tool ────────────────────────────────────────────
 $hashFileBox          = Find "HashFileBox"
 $hashFilePlaceholder  = Find "HashFilePlaceholder"
 $hashResultsPanel     = Find "HashResultsPanel"

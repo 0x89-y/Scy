@@ -1,4 +1,4 @@
-# ── Battery Health Report ─────────────────────────────────────────
+﻿# ── Battery Health Report ─────────────────────────────────────────
 $batteryStatusPanel   = Find "BatteryStatusPanel"
 $batteryCapacityPanel = Find "BatteryCapacityPanel"
 $batteryHealthPanel   = Find "BatteryHealthPanel"

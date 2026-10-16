@@ -35,7 +35,8 @@ jobs:
         run: |
           # manifest.txt lists the program files; the updater uses it to remove
           # files a newer version no longer ships (user files are never listed)
-          git ls-files | grep -v -E '^(\.github/|\.gitattributes$|\.gitignore$)' > manifest.txt
+          # (development-only files - CI, tests, analyzer settings - aren't shipped)
+          git ls-files | grep -v -E '^(\.github/|Tests/|\.gitattributes$|\.gitignore$|PSScriptAnalyzerSettings\.psd1$)' > manifest.txt
           zip -q -X "Scy-$VERSION.zip" -@ < manifest.txt
           zip -q -X "Scy-$VERSION.zip" manifest.txt
           sha256sum "Scy-$VERSION.zip" | cut -d' ' -f1 > "Scy-$VERSION.zip.sha256"

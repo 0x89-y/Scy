@@ -1,4 +1,4 @@
-# ── Registry Bookmarks Tab ──────────────────────────────────────
+﻿# ── Registry Bookmarks Tab ──────────────────────────────────────
 
 # ── Default Bookmarks Definition ──────────────────────────────
 $script:defaultRegBookmarks = @()
@@ -185,7 +185,7 @@ function Render-RegBookmarks {
             # Right-click context menu
             $bookmarkRef = $bookmark
             $row.Add_MouseRightButtonUp({
-                param($sender, $e)
+                param($src, $e)
                 $bm = $bookmarkRef
 
                 $menu = New-Object System.Windows.Controls.ContextMenu
@@ -256,7 +256,7 @@ function Render-RegBookmarks {
                 }.GetNewClosure())
                 $menu.Items.Add($deleteItem)
 
-                $menu.PlacementTarget = $sender
+                $menu.PlacementTarget = $src
                 $menu.IsOpen = $true
                 $e.Handled = $true
             }.GetNewClosure())

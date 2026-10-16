@@ -186,6 +186,77 @@ function Invoke-WingetStreamed {
 }
 '@
 
+# Parse `winget upgrade` output into packages, table by table: the main list and
+# the "needs explicit targeting" list each get column positions from their own
+# header. Column starts are where the header words begin; winget's upgrade tables
+# are always Name, Id, Version, Available, Source in that order, so this works in
+# any UI language and with single-space gaps in narrow tables.
+# Runs inside the check job (its text is handed over), and is unit-tested.
+function ConvertFrom-WingetUpgradeOutput {
+    param([string[]]$Lines, [string]$SeparatorPattern)
+    $raw          = @($Lines)
+    $packages     = @()
+    $seenIds      = @{}
+    $summaryCount = 0
+    $seenTable    = $false
+    $i = 0
+    while ($i -lt $raw.Count) {
+        $line = ([string]$raw[$i]) -replace '\r', ''
+        if ($i -gt 0 -and $line -match $SeparatorPattern) {
+            $seenTable = $true
+            $hdr  = ([string]$raw[$i - 1]) -replace '\r', ''
+            $cols = @(0)
+            for ($c = 1; $c -lt $hdr.Length; $c++) {
+                if ($hdr[$c] -ne ' ' -and $hdr[$c - 1] -eq ' ') { $cols += $c }
+            }
+            $nameCol  = 0
+            $idCol    = if ($cols.Count -gt 1) { $cols[1] } else { -1 }
+            $verCol   = if ($cols.Count -gt 2) { $cols[2] } else { -1 }
+            $availCol = if ($cols.Count -gt 3) { $cols[3] } else { -1 }
+
+            # Rows run until a blank line, a summary line or another separator
+            $i++
+            while ($i -lt $raw.Count) {
+                $row = (([string]$raw[$i]).TrimEnd()) -replace '\r', ''
+                if ($row.Trim() -eq '' -or $row -match '^\s*\d+\s' -or $row -match $SeparatorPattern) { break }
+                $i++
+
+                if ($idCol -gt 0 -and $row.Length -gt $idCol) {
+                    $name  = $row.Substring($nameCol, [Math]::Min($idCol, $row.Length) - $nameCol).Trim()
+                    $idEnd = if ($verCol -gt 0) { [Math]::Min($verCol, $row.Length) } else { $row.Length }
+                    $id    = $row.Substring($idCol, $idEnd - $idCol).Trim()
+                    $ver   = if ($verCol -gt 0 -and $row.Length -gt $verCol) {
+                        $vEnd = if ($availCol -gt 0) { [Math]::Min($availCol, $row.Length) } else { $row.Length }
+                        $row.Substring($verCol, $vEnd - $verCol).Trim()
+                    } else { '?' }
+                    # First word only: version strings never contain spaces, and this
+                    # stays right even if the Source column doesn't line up exactly
+                    $avail = if ($availCol -gt 0 -and $row.Length -gt $availCol) {
+                        $row.Substring($availCol).Trim() -replace '\s.*$', ''
+                    } else { '?' }
+                } else {
+                    $parts = @($row -split '\s{2,}' | Where-Object { $_ -ne '' })
+                    if ($parts.Count -lt 2) { continue }
+                    $name = $parts[0]; $id = $parts[1]
+                    $ver   = if ($parts.Count -gt 2) { $parts[2] } else { '?' }
+                    $avail = if ($parts.Count -gt 3) { $parts[3] } else { '?' }
+                }
+
+                # Notice sentences that run straight into a table have spaces in the "Id" slice
+                if ($name -ne '' -and $name -ne 'Name' -and $id -ne '' -and $id -notmatch '\s' -and -not $seenIds.ContainsKey($id)) {
+                    $seenIds[$id] = $true
+                    $packages += [PSCustomObject]@{ Name = $name; Id = $id; Version = $ver; Available = $avail }
+                }
+            }
+            continue
+        }
+        # The first number-led line after a table is its count ("9 upgrades available.")
+        if ($seenTable -and $summaryCount -eq 0 -and $line -match '^\s*(\d+)\s') { $summaryCount = [int]$Matches[1] }
+        $i++
+    }
+    return @{ Packages = $packages; Summary = $summaryCount }
+}
+
 (Find "BtnCheckUpdates").Add_Click({
     if ($script:updatesBusy) { return }
     $script:updatesBusy = $true
@@ -196,82 +267,17 @@ function Invoke-WingetStreamed {
     Start-UpdatesOutput "Running: winget upgrade"
 
     Start-ScyJob `
-        -Variables @{ sepPat = $script:_uSepPat } `
+        -Variables @{ sepPat = $script:_uSepPat; parseFn = "function ConvertFrom-WingetUpgradeOutput {${function:ConvertFrom-WingetUpgradeOutput}}" } `
         -Work {
             param($emit)
-            # `winget upgrade` text is parsed table by table: the main list and the
-            # "needs explicit targeting" list each get column positions from their
-            # own header. (The WinGet PowerShell module was tried here, but its
-            # IsUpdateAvailable flag skipped real updates, so the CLI stays the source.)
+            # (The WinGet PowerShell module was tried here, but its IsUpdateAvailable
+            # flag skipped real updates, so the CLI stays the source.)
+            . ([scriptblock]::Create($parseFn))
             $raw = @(winget upgrade --accept-source-agreements 2>&1 | ForEach-Object {
                 ([string]$_) -replace '\x1b\[[0-9;]*[A-Za-z]', ''
             })
-
-            $packages     = @()
-            $seenIds      = @{}
-            $summaryCount = 0
-            $seenTable    = $false
-            $i = 0
-            while ($i -lt $raw.Count) {
-                $line = ([string]$raw[$i]) -replace '\r', ''
-                if ($i -gt 0 -and $line -match $sepPat) {
-                    $seenTable = $true
-                    # Column starts = where each header word begins (the line above the
-                    # separator). winget's upgrade tables are always Name, Id, Version,
-                    # Available, Source in that order, so this works in any UI language
-                    # and with single-space gaps in narrow tables.
-                    $hdr  = ([string]$raw[$i - 1]) -replace '\r', ''
-                    $cols = @(0)
-                    for ($c = 1; $c -lt $hdr.Length; $c++) {
-                        if ($hdr[$c] -ne ' ' -and $hdr[$c - 1] -eq ' ') { $cols += $c }
-                    }
-                    $nameCol  = 0
-                    $idCol    = if ($cols.Count -gt 1) { $cols[1] } else { -1 }
-                    $verCol   = if ($cols.Count -gt 2) { $cols[2] } else { -1 }
-                    $availCol = if ($cols.Count -gt 3) { $cols[3] } else { -1 }
-
-                    # Rows run until a blank line, a summary line or another separator
-                    $i++
-                    while ($i -lt $raw.Count) {
-                        $row = (([string]$raw[$i]).TrimEnd()) -replace '\r', ''
-                        if ($row.Trim() -eq '' -or $row -match '^\s*\d+\s' -or $row -match $sepPat) { break }
-                        $i++
-
-                        if ($idCol -gt 0 -and $row.Length -gt $idCol) {
-                            $name  = $row.Substring($nameCol, [Math]::Min($idCol, $row.Length) - $nameCol).Trim()
-                            $idEnd = if ($verCol -gt 0) { [Math]::Min($verCol, $row.Length) } else { $row.Length }
-                            $id    = $row.Substring($idCol, $idEnd - $idCol).Trim()
-                            $ver   = if ($verCol -gt 0 -and $row.Length -gt $verCol) {
-                                $vEnd = if ($availCol -gt 0) { [Math]::Min($availCol, $row.Length) } else { $row.Length }
-                                $row.Substring($verCol, $vEnd - $verCol).Trim()
-                            } else { '?' }
-                            # First word only: version strings never contain spaces, and this
-                            # stays right even if the Source column doesn't line up exactly
-                            $avail = if ($availCol -gt 0 -and $row.Length -gt $availCol) {
-                                $row.Substring($availCol).Trim() -replace '\s.*$', ''
-                            } else { '?' }
-                        } else {
-                            $parts = @($row -split '\s{2,}' | Where-Object { $_ -ne '' })
-                            if ($parts.Count -lt 2) { continue }
-                            $name = $parts[0]; $id = $parts[1]
-                            $ver   = if ($parts.Count -gt 2) { $parts[2] } else { '?' }
-                            $avail = if ($parts.Count -gt 3) { $parts[3] } else { '?' }
-                        }
-
-                        # Notice sentences that run straight into a table have spaces in the "Id" slice
-                        if ($name -ne '' -and $name -ne 'Name' -and $id -ne '' -and $id -notmatch '\s' -and -not $seenIds.ContainsKey($id)) {
-                            $seenIds[$id] = $true
-                            $packages += [PSCustomObject]@{ Name = $name; Id = $id; Version = $ver; Available = $avail }
-                        }
-                    }
-                    continue
-                }
-                # The first number-led line after a table is its count ("9 upgrades available.")
-                if ($seenTable -and $summaryCount -eq 0 -and $line -match '^\s*(\d+)\s') { $summaryCount = [int]$Matches[1] }
-                $i++
-            }
-
-            return @{ Raw = $raw; Packages = $packages; Summary = $summaryCount }
+            $parsed = ConvertFrom-WingetUpgradeOutput -Lines $raw -SeparatorPattern $sepPat
+            return @{ Raw = $raw; Packages = $parsed.Packages; Summary = $parsed.Summary }
         } `
         -OnComplete {
             param($result, $err, $ctx)

@@ -32,7 +32,6 @@ function Test-AppInstalled {
 #   Local installers       -> PkgSection_Local
 #   Installed              -> PkgSection_Installed
 #   Updates                -> PkgSection_Updates
-$pkgSectionStore     = Find "PkgSection_Store"
 $pkgSectionInstalled = Find "PkgSection_Installed"
 $pkgSectionUpdates   = Find "PkgSection_Updates"
 $pkgSectionLocal     = Find "PkgSection_Local"

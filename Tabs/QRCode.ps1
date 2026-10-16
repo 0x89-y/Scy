@@ -1,4 +1,4 @@
-# ── Pure QR Code Generator (no external dependencies) ─────────────────────────
+﻿# ── Pure QR Code Generator (no external dependencies) ─────────────────────────
 # Implements QR Code Model 2 encoding: byte mode, EC level M, versions 1-10.
 # Returns a WPF WriteableBitmap suitable for display in an Image control.
 #
@@ -362,7 +362,7 @@ function _QR-BuildMatrix([string]$text, [string]$Level) {
 
     # Alignment patterns
     [int[]]$alignPos = $script:qrAlignmentPositions[$version]
-    if ($alignPos -ne $null -and $alignPos.Count -gt 0) {
+    if ($null -ne $alignPos -and $alignPos.Count -gt 0) {
         $centerList = [System.Collections.Generic.List[int[]]]::new()
         foreach ($ar in $alignPos) {
             foreach ($ac in $alignPos) {

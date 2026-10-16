@@ -1,4 +1,4 @@
-# ── Tools sub-navigation ──────────────────────────────────────────
+﻿# ── Tools sub-navigation ──────────────────────────────────────────
 # (Software Export moved to Apps > Installed)
 $script:toolsNavLabels = @("QR Code", "Notes", "File Hashing", "Passwords")
 
@@ -326,10 +326,8 @@ function ConvertTo-NotesFlowDocument {
         }
 
         # Bullet list
-        $isBullet = $false
         if (-not $isHeading -and $line -match '^[\-\*]\s+(.+)') {
             $line = $Matches[1]
-            $isBullet = $true
             $para.Margin = [System.Windows.Thickness]::new(16,1,0,1)
             $bullet = New-Object System.Windows.Documents.Run([char]0x2022 + "  ")
             $bullet.Foreground = $accentBrush
