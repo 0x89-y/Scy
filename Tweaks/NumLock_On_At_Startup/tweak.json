@@ -1,4 +1,7 @@
 {
     "group": "Input & Accessibility",
-    "description": "Enable NumLock by default at the login screen"
+    "description": "Enable NumLock by default at the login screen",
+    "check": [
+        { "path": "Registry::HKEY_USERS\\.DEFAULT\\Control Panel\\Keyboard", "name": "InitialKeyboardIndicators", "value": "2" }
+    ]
 }

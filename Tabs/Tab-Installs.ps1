@@ -2114,6 +2114,16 @@ function Search-StoreWinget {
         -Context   @{ Query = $Query } `
         -Work {
             param($emit)
+            # Preferred: the Microsoft.WinGet.Client module (full names/IDs, no
+            # column parsing); falls back to `winget search` text.
+            try {
+                if (Get-Module -ListAvailable -Name Microsoft.WinGet.Client) {
+                    Import-Module Microsoft.WinGet.Client -ErrorAction Stop
+                    $items = @(Find-WinGetPackage -Query $wingetQuery -ErrorAction Stop |
+                               ForEach-Object { @{ Name = [string]$_.Name; Id = [string]$_.Id } })
+                    return @{ Items = $items }
+                }
+            } catch { }
             $raw   = & winget search $wingetQuery --accept-source-agreements 2>&1
             $lines = @($raw | ForEach-Object { [string]$_ })
             return @{ Lines = $lines }
@@ -2128,11 +2138,20 @@ function Search-StoreWinget {
                 return
             }
 
-            $rows = @(Get-WingetRows $result.Lines)
+            # Name/Id pairs from the module, or parsed from the CLI table
+            $pairs = if ($result.ContainsKey('Items')) {
+                @($result.Items | ForEach-Object { , @($_.Name, $_.Id) })
+            } else {
+                @(Get-WingetRows $result.Lines | ForEach-Object {
+                    $n = if ($_.Count -gt 0) { $_[0].Trim() } else { "" }
+                    $i = if ($_.Count -gt 1) { $_[1].Trim() } else { "" }
+                    , @($n, $i)
+                })
+            }
             $added = 0
-            foreach ($row in $rows) {
-                $name = if ($row.Count -gt 0) { $row[0].Trim() } else { "" }
-                $id   = if ($row.Count -gt 1) { $row[1].Trim() } else { "" }
+            foreach ($pair in $pairs) {
+                $name = [string]$pair[0]
+                $id   = [string]$pair[1]
                 if (-not $name -or -not $id) { continue }
                 if ($name -eq "Name" -or $name -match '^-+$') { continue }
                 if ($script:storeSearchCuratedHits.ContainsKey($id)) { continue }

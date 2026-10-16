@@ -17,6 +17,102 @@
 $tweaksFolder    = Join-Path $PSScriptRoot "..\Tweaks"
 $tweakCheckboxes = @{}   # folderPath -> @{ CheckBox; ApplyScript; RevertScript }
 
+# ── Applied state + previous values ──────────────────────────────
+# A tweak.json may list the registry values that mean "applied":
+#   "check": [ { "path": "HKCU:\\...", "name": "ValueName", "value": 0 } ]
+# Scy only reads them (fast, works without admin) to show Applied / Partly applied.
+# Before applying, the current values are saved to %APPDATA%\Scy\tweak-backups,
+# and Revert puts exactly those back instead of running Revert.ps1 - unless the
+# tweak sets "snapshot": false (e.g. it removes apps or switches power plans).
+# "restartExplorer": true restarts Explorer after such a restore.
+$script:tweakBackupDir = Join-Path $script:dataDir "tweak-backups"
+
+# Current state of one registry value (reads only).
+function Get-TweakRegValue {
+    param([string]$Path, [string]$Name)
+    $key = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
+    if (-not $key) { return @{ KeyExisted = $false; ValueExisted = $false } }
+    $vn = if ($Name -eq '(Default)') { '' } else { $Name }
+    if (@($key.GetValueNames()) -notcontains $vn) { return @{ KeyExisted = $true; ValueExisted = $false } }
+    return @{
+        KeyExisted   = $true
+        ValueExisted = $true
+        Value        = $key.GetValue($vn, $null, 'DoNotExpandEnvironmentNames')
+        Kind         = [string]$key.GetValueKind($vn)
+    }
+}
+
+# "Applied", "Partial", "NotApplied", or $null when the tweak has no check.
+function Get-TweakState {
+    param($Checks)
+    $checks = @($Checks | Where-Object { $_ })
+    if ($checks.Count -eq 0) { return $null }
+    $hits = 0
+    foreach ($c in $checks) {
+        $v = Get-TweakRegValue -Path $c.path -Name $c.name
+        if ($v.ValueExisted -and [string]$v.Value -eq [string]$c.value) { $hits++ }
+    }
+    if ($hits -eq $checks.Count) { return "Applied" }
+    if ($hits -gt 0) { return "Partial" }
+    return "NotApplied"
+}
+
+function Get-TweakBackupPath {
+    param([string]$FolderName)
+    Join-Path $script:tweakBackupDir ($FolderName + ".json")
+}
+
+# Save the pre-apply values of a tweak's checked registry values. An existing
+# backup is kept: it holds the original values, from before the first apply.
+# Returns $true when a new backup was written.
+function Save-TweakBackup {
+    param($Row)
+    if (-not $Row.Snapshot -or @($Row.Checks).Count -eq 0) { return $false }
+    $file = Get-TweakBackupPath $Row.FolderName
+    if (Test-Path -LiteralPath $file) { return $false }
+    $entries = foreach ($c in @($Row.Checks)) {
+        $v = Get-TweakRegValue -Path $c.path -Name $c.name
+        # For a key that doesn't exist yet, remember the nearest one that does:
+        # Revert removes the (empty) keys the tweak created, up to that one.
+        $existingParent = $null
+        if (-not $v.KeyExisted) {
+            $existingParent = Split-Path $c.path -Parent
+            while ($existingParent -and -not (Test-Path -LiteralPath $existingParent)) { $existingParent = Split-Path $existingParent -Parent }
+        }
+        [ordered]@{ Path = $c.path; Name = $c.name; KeyExisted = $v.KeyExisted; ValueExisted = $v.ValueExisted
+                    Value = $v.Value; Kind = $v.Kind; ExistingParent = $existingParent }
+    }
+    if (-not (Test-Path -LiteralPath $script:tweakBackupDir)) { New-Item -ItemType Directory -Path $script:tweakBackupDir -Force | Out-Null }
+    [System.IO.File]::WriteAllText($file, (ConvertTo-Json @($entries) -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
+    return $true
+}
+
+function Update-TweakStates {
+    foreach ($key in $tweakCheckboxes.Keys) {
+        $row = $tweakCheckboxes[$key]
+        if (-not $row.StatePill) { continue }
+        $state = Get-TweakState $row.Checks
+        $row.State = $state
+        switch ($state) {
+            "Applied" {
+                $row.StatePillText.Text = "Applied"
+                $row.StatePill.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "SuccessBrush")
+                $row.StatePillText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
+                $row.StatePill.ToolTip = "This tweak's settings are currently in place"
+                $row.StatePill.Visibility = "Visible"
+            }
+            "Partial" {
+                $row.StatePillText.Text = "Partly applied"
+                $row.StatePill.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "MutedText")
+                $row.StatePillText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+                $row.StatePill.ToolTip = "Some of this tweak's settings are in place, others aren't"
+                $row.StatePill.Visibility = "Visible"
+            }
+            default { $row.StatePill.Visibility = "Collapsed" }
+        }
+    }
+}
+
 function Build-TweakRow {
     param($Dir)
 
@@ -99,6 +195,20 @@ function Build-TweakRow {
         $nameRow.Children.Add($cautionBadge) | Out-Null
     }
 
+    # State pill (Applied / Partly applied) - filled in by Update-TweakStates
+    $statePill                   = New-Object System.Windows.Controls.Border
+    $statePill.BorderThickness   = [System.Windows.Thickness]::new(1)
+    $statePill.CornerRadius      = [System.Windows.CornerRadius]::new(7)
+    $statePill.Padding           = [System.Windows.Thickness]::new(6, 1, 6, 1)
+    $statePill.Margin            = [System.Windows.Thickness]::new(8, 0, 0, 0)
+    $statePill.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    $statePill.Visibility        = "Collapsed"
+    $statePillText               = New-Object System.Windows.Controls.TextBlock
+    $statePillText.FontSize      = 10
+    $statePillText.FontWeight    = [System.Windows.FontWeights]::SemiBold
+    $statePill.Child             = $statePillText
+    $nameRow.Children.Add($statePill) | Out-Null
+
     $stack.Children.Add($nameRow) | Out-Null
 
     if ($description) {
@@ -167,6 +277,12 @@ function Build-TweakRow {
         Description   = $description
         FolderName    = $Dir.Name
         RequiresAdmin = $requiresAdmin
+        Checks          = @(if ($tweakMeta -and $tweakMeta.check) { $tweakMeta.check })
+        Snapshot        = -not ($tweakMeta -and $tweakMeta.PSObject.Properties['snapshot'] -and -not $tweakMeta.snapshot)
+        RestartExplorer = [bool]($tweakMeta -and $tweakMeta.restartExplorer)
+        StatePill       = $statePill
+        StatePillText   = $statePillText
+        State           = $null
     }
 }
 
@@ -294,6 +410,7 @@ function Rebuild-TweaksPanel {
         $script:tweakGroupPanels[$gName] = @{ Container = $itemsPanel; ItemsPanel = $itemsPanel; Rows = $rows }
     }
     Update-TweakFooterCounts
+    Update-TweakStates
 
     # Rebuild the rail and re-apply the current selection (falls back to All tweaks)
     $keep = if ($null -ne $script:tweaksSubNavIndex) { $script:tweaksSubNavIndex } else { 0 }
@@ -518,9 +635,23 @@ function Invoke-SelectedTweaks {
     foreach ($key in $tweakCheckboxes.Keys) {
         $row = $tweakCheckboxes[$key]
         if (-not $row.CheckBox.IsChecked) { continue }
-        $script = if ($Mode -eq "Apply") { $row.ApplyScript } else { $row.RevertScript }
-        if (-not (Test-Path $script)) { $noRevert += $row.DisplayName; continue }
-        $work += @{ Key = $key; Name = $row.DisplayName; Script = $script }
+        $item = @{ Key = $key; Name = $row.DisplayName; Script = $null; Restore = $null
+                   BackupFile = (Get-TweakBackupPath $row.FolderName); NewBackup = $false; RestartExplorer = $row.RestartExplorer }
+
+        if ($Mode -eq "Apply") {
+            if (-not (Test-Path $row.ApplyScript)) { continue }
+            # Remember what was there before, so Revert can put exactly that back
+            try { $item.NewBackup = [bool](Save-TweakBackup $row) } catch { Write-ScyLog "Tweak backup failed for $($row.FolderName): $($_.Exception.Message)" "ERROR" }
+            $item.Script = $row.ApplyScript
+        } elseif ($row.Snapshot -and (Test-Path -LiteralPath $item.BackupFile)) {
+            $item.Restore = @(Get-Content -LiteralPath $item.BackupFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+        } elseif (Test-Path $row.RevertScript) {
+            $item.Script = $row.RevertScript
+        } else {
+            $noRevert += $row.DisplayName
+            continue
+        }
+        $work += $item
     }
 
     if ($work.Count -eq 0 -and $noRevert.Count -eq 0) {
@@ -539,17 +670,66 @@ function Invoke-SelectedTweaks {
         -Context   @{ Mode = $Mode; NoRevert = $noRevert; VerbIng = $verbIng } `
         -Work {
             param($emit)
+            $restartExplorer = $false
             $results = foreach ($it in $items) {
                 & $emit $it.Name
                 $err = $null
                 try {
-                    # *>&1 turns non-terminating errors into records we can fail on
-                    & $it.Script *>&1 | ForEach-Object {
-                        if ($_ -is [System.Management.Automation.ErrorRecord]) { throw $_ }
+                    if ($it.Restore) {
+                        # Put back the values saved before the tweak was applied
+                        foreach ($e in @($it.Restore)) {
+                            $p  = [string]$e.Path
+                            $n  = [string]$e.Name
+                            $vn = if ($n -eq '(Default)') { '' } else { $n }
+                            if ($e.ValueExisted) {
+                                if (-not (Test-Path -LiteralPath $p)) { New-Item -Path $p -Force -ErrorAction Stop | Out-Null }
+                                $val = $e.Value
+                                switch ([string]$e.Kind) { 'Binary' { $val = [byte[]]@($val) } 'MultiString' { $val = [string[]]@($val) } }
+                                if ($vn -eq '') { Set-ItemProperty -LiteralPath $p -Name '(default)' -Value $val -ErrorAction Stop }
+                                else { New-ItemProperty -LiteralPath $p -Name $n -Value $val -PropertyType ([string]$e.Kind) -Force -ErrorAction Stop | Out-Null }
+                            } else {
+                                $k = Get-Item -LiteralPath $p -ErrorAction SilentlyContinue
+                                if ($k -and (@($k.GetValueNames()) -contains $vn)) {
+                                    if ($vn -eq '') {
+                                        # Remove-ItemProperty can't delete a key's default value; use .NET
+                                        $hiveName, $sub = $k.Name.Split('\', 2)
+                                        $hive = switch ($hiveName) {
+                                            'HKEY_CURRENT_USER'  { [Microsoft.Win32.Registry]::CurrentUser }
+                                            'HKEY_LOCAL_MACHINE' { [Microsoft.Win32.Registry]::LocalMachine }
+                                            'HKEY_USERS'         { [Microsoft.Win32.Registry]::Users }
+                                            'HKEY_CLASSES_ROOT'  { [Microsoft.Win32.Registry]::ClassesRoot }
+                                        }
+                                        $w = $hive.OpenSubKey($sub, $true)
+                                        try { $w.DeleteValue('', $false) } finally { $w.Close() }
+                                    } else {
+                                        Remove-ItemProperty -LiteralPath $p -Name $n -ErrorAction Stop
+                                    }
+                                }
+                                # Keys the tweak created are removed again once empty, walking
+                                # up to the nearest key that existed before the tweak
+                                if (-not $e.KeyExisted) {
+                                    $cur = $p
+                                    while ($cur -and $cur -ne [string]$e.ExistingParent) {
+                                        $k = Get-Item -LiteralPath $cur -ErrorAction SilentlyContinue
+                                        if (-not $k -or $k.ValueCount -gt 0 -or $k.SubKeyCount -gt 0) { break }
+                                        Remove-Item -LiteralPath $cur -ErrorAction Stop
+                                        $cur = Split-Path $cur -Parent
+                                    }
+                                }
+                            }
+                        }
+                        if ($it.RestartExplorer) { $restartExplorer = $true }
+                    } else {
+                        # *>&1 turns non-terminating errors into records we can fail on
+                        & $it.Script *>&1 | ForEach-Object {
+                            if ($_ -is [System.Management.Automation.ErrorRecord]) { throw $_ }
+                        }
                     }
                 } catch { $err = $_ }
-                @{ Key = $it.Key; Name = $it.Name; Error = $err }
+                @{ Key = $it.Key; Name = $it.Name; Error = $err; BackupFile = $it.BackupFile; NewBackup = $it.NewBackup; Restored = [bool]$it.Restore }
             }
+            # Restored Explorer settings only take effect after a restart (Windows relaunches it)
+            if ($restartExplorer) { Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue }
             return ,@($results)
         } `
         -OnLine {
@@ -571,13 +751,17 @@ function Invoke-SelectedTweaks {
                 if (-not $r.Error) {
                     $done++
                     if ($ctx.Mode -eq "Revert" -and $tweakCheckboxes.Contains($r.Key)) { $tweakCheckboxes[$r.Key].CheckBox.IsChecked = $false }
-                } elseif (Test-ScyAccessDenied $r.Error) {
-                    $needAdmin += $r.Name
+                    # Backup used up: the next apply records fresh "before" values
+                    if ($r.Restored) { Remove-Item -LiteralPath $r.BackupFile -Force -ErrorAction SilentlyContinue }
                 } else {
-                    $failed += "$($r.Name): $($r.Error)"
+                    # A failed apply most likely changed nothing - don't keep a backup of it
+                    if ($r.NewBackup) { Remove-Item -LiteralPath $r.BackupFile -Force -ErrorAction SilentlyContinue }
+                    if (Test-ScyAccessDenied $r.Error) { $needAdmin += $r.Name }
+                    else { $failed += "$($r.Name): $($r.Error)" }
                 }
             }
             Update-TweakFooterCounts
+            Update-TweakStates
             Show-TweakSummary -Mode $ctx.Mode -Done $done -Failed $failed -NeedAdmin $needAdmin -NoRevert $ctx.NoRevert
         } | Out-Null
 }

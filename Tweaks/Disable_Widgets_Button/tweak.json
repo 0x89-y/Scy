@@ -1,4 +1,8 @@
 {
     "group": "Taskbar & Start Menu",
-    "description": "Remove the Widgets icon from the Windows 11 taskbar"
+    "description": "Remove the Widgets icon from the Windows 11 taskbar",
+    "restartExplorer": true,
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "TaskbarDa", "value": 0 }
+    ]
 }

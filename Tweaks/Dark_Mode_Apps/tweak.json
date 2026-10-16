@@ -1,4 +1,7 @@
 {
     "group": "Appearance",
-    "description": "Force dark theme for Windows applications"
+    "description": "Force dark theme for Windows applications",
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "name": "AppsUseLightTheme", "value": 0 }
+    ]
 }

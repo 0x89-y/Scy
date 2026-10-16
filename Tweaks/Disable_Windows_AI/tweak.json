@@ -2,5 +2,10 @@
     "group": "System",
     "description": "Removes Copilot, CoreAI and Recall, disables the AI service and Notepad AI. Removed apps must be reinstalled manually to undo",
     "requiresAdmin": true,
-    "caution": true
+    "caution": true,
+    "snapshot": false,
+    "check": [
+        { "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer", "name": "SettingsPageVisibility", "value": "hide:aicomponents" },
+        { "path": "HKLM:\\SOFTWARE\\Policies\\WindowsNotepad", "name": "DisableAIFeatures", "value": 1 }
+    ]
 }

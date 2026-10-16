@@ -1,4 +1,7 @@
 {
     "group": "Taskbar & Start Menu",
-    "description": "Remove Bing web results from Start Menu search"
+    "description": "Remove Bing web results from Start Menu search",
+    "check": [
+        { "path": "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer", "name": "DisableSearchBoxSuggestions", "value": 1 }
+    ]
 }

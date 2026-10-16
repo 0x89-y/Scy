@@ -1,5 +1,8 @@
 {
     "group": "System",
     "description": "Show detailed status messages during startup and shutdown",
-    "requiresAdmin": true
+    "requiresAdmin": true,
+    "check": [
+        { "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System", "name": "VerboseStatus", "value": 1 }
+    ]
 }

@@ -41,7 +41,7 @@ foreach ($section in @("Updates", "Changelog", "General", "VisibleTabs", "Backup
     })
 }
 
-$script:settingsFile = Join-Path $PSScriptRoot "..\settings.json"
+$script:settingsFile = Join-Path $script:dataDir "settings.json"   # see "User data folder" in Scy.ps1
 $script:settings = @{}
 $script:customShortcutGroups    = [System.Collections.Generic.List[string]]::new()
 $script:customInstallCategories = [System.Collections.Generic.List[string]]::new()
@@ -246,6 +246,7 @@ function Save-Settings {
             RegBookmarks                   = $script:settings.RegBookmarks
             CustomRegBookmarkGroups        = @($script:customRegBookmarkGroups)
             NotesPreviewMode               = $script:notesPreviewMode
+            NotesActive                    = $script:notesActive
         } | ConvertTo-Json -Depth 5
 
         # Write a temp file, then swap it in atomically and keep the previous
@@ -408,6 +409,7 @@ function Import-ScySettingsObject {
         foreach ($g in $saved.CustomRegBookmarkGroups) { $script:customRegBookmarkGroups.Add([string]$g) }
     }
     if ($null -ne $saved.NotesPreviewMode) { $script:notesPreviewMode = [bool]$saved.NotesPreviewMode }
+    if ($saved.NotesActive) { $script:notesActive = [string]$saved.NotesActive }
 }
 
 # Fall back to the .bak Save-Settings keeps if the main file is unreadable.
@@ -680,7 +682,7 @@ foreach ($presetName in @($script:AccentPresets.Keys)) {
     $script:useDevBranch = $true
     Save-Settings
     if ($selfUpdateStatusText) {
-        $selfUpdateStatusText.Text       = "Switched to dev branch - check again"
+        $selfUpdateStatusText.Text       = "Pre-releases included - check again"
         $selfUpdateStatusText.Foreground = $window.Resources["MutedText"]
         if ($btnInstallSelfUpdate) { $btnInstallSelfUpdate.Visibility = "Collapsed" }
     }
@@ -689,7 +691,7 @@ foreach ($presetName in @($script:AccentPresets.Keys)) {
     $script:useDevBranch = $false
     Save-Settings
     if ($selfUpdateStatusText) {
-        $selfUpdateStatusText.Text       = "Switched to main branch - check again"
+        $selfUpdateStatusText.Text       = "Pre-releases excluded - check again"
         $selfUpdateStatusText.Foreground = $window.Resources["MutedText"]
         if ($btnInstallSelfUpdate) { $btnInstallSelfUpdate.Visibility = "Collapsed" }
     }
@@ -726,6 +728,8 @@ foreach ($presetName in @($script:AccentPresets.Keys)) {
     $script:enableLogging = $false
     Save-Settings
 })
+(Find "BtnOpenDataFolder").Add_Click({ Start-Process explorer.exe -ArgumentList "`"$script:dataDir`"" })
+
 (Find "BtnOpenLog").Add_Click({
     $logPath = Join-Path $env:LOCALAPPDATA "Scy\scy.log"
     if (Test-Path $logPath) {
@@ -860,12 +864,37 @@ function Set-SelfUpdateStatus([string]$Text, [string]$BrushKey) {
     $selfUpdateStatusText.Foreground = $window.Resources[$BrushKey]
 }
 
-# Fetch the published version.json in a background job (a slow or offline
-# network used to freeze the window here). -Quiet is the launch-time check:
+# ── Where updates come from ──────────────────────────────────────
+# Published GitHub Releases (a vX.Y.Z tag, built by .github/workflows/release.yml):
+# a zip plus its SHA256, verified before anything on disk is replaced.
+# "Include pre-releases" also offers releases marked as pre-release. Until the
+# first release is published, Scy keeps the old behaviour and updates from the
+# head of the main (or, with pre-releases on, dev) branch.
+$script:scyRepo          = "0x89-y/Scy"
+$script:selfUpdateTarget = $null    # what the last check found (see Start-SelfUpdateCheck)
+$script:updateBackupDir  = Join-Path $script:dataDir "update-backup"
+$script:scyInstallDir    = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+# "v0.13.0-beta.1" -> [version]0.13.0 ($null if it isn't a version)
+function ConvertTo-ScyVersion([string]$Text) {
+    $core = (([string]$Text).Trim().TrimStart('v', 'V') -split '[-+]')[0]
+    $v = $null
+    if ([version]::TryParse($core, [ref]$v)) { return $v }
+    return $null
+}
+
+function Test-ScyVersionNewer([string]$Remote, [string]$Local) {
+    $r = ConvertTo-ScyVersion $Remote; $l = ConvertTo-ScyVersion $Local
+    if (-not $r -or -not $l) { return $false }
+    if ($r -gt $l) { return $true }
+    # Same numbers: a final release beats the pre-release it came from
+    return ($r -eq $l -and $Local.Contains('-') -and -not $Remote.TrimStart('v', 'V').Contains('-'))
+}
+
+# Fetch what's available in a background job. -Quiet is the launch-time check:
 # failures stay silent, but a newer version still lights up the banner.
 function Start-SelfUpdateCheck {
     param([switch]$Quiet)
-    $branch = if ($script:useDevBranch) { "dev" } else { "main" }
     if (-not $Quiet) {
         Set-SelfUpdateStatus "Checking..." "WarningBrush"
         $btnInstallSelfUpdate.Visibility = "Collapsed"
@@ -873,33 +902,53 @@ function Start-SelfUpdateCheck {
     }
 
     Start-ScyJob `
-        -Variables @{ url = "https://raw.githubusercontent.com/0x89-y/Scy/$branch/version.json"; timeout = $(if ($Quiet) { 10 } else { 15 }) } `
+        -Variables @{ repo = $script:scyRepo; includePre = [bool]$script:useDevBranch; timeout = $(if ($Quiet) { 10 } else { 15 }) } `
         -Context   @{ Quiet = [bool]$Quiet } `
         -Work {
             param($emit)
             [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-            $remote = Invoke-RestMethod -Uri $url -Headers @{ "User-Agent" = "Scy-Updater" } -TimeoutSec $timeout
-            return [string]$remote.version
+            $headers = @{ "User-Agent" = "Scy-Updater"; "Accept" = "application/vnd.github+json" }
+            $resp = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases?per_page=20" -Headers $headers -TimeoutSec $timeout
+            $releases = @($resp | ForEach-Object { $_ })   # Windows PowerShell returns JSON arrays unenumerated
+
+            if ($releases.Count -eq 0) {
+                # Nothing published yet: the head of a branch, as before releases existed
+                $branch = if ($includePre) { "dev" } else { "main" }
+                $vj = Invoke-RestMethod -Uri "https://raw.githubusercontent.com/$repo/$branch/version.json" -Headers @{ "User-Agent" = "Scy-Updater" } -TimeoutSec $timeout
+                return @{ Kind = "branch"; Version = [string]$vj.version; Branch = $branch
+                          ZipUrl = "https://github.com/$repo/archive/refs/heads/$branch.zip" }
+            }
+
+            # The API lists newest first
+            foreach ($rel in $releases) {
+                if ($rel.draft -or ($rel.prerelease -and -not $includePre)) { continue }
+                $zip = @($rel.assets | Where-Object { $_.name -like "Scy-*.zip" }) | Select-Object -First 1
+                if (-not $zip) { continue }
+                $sha = @($rel.assets | Where-Object { $_.name -eq ($zip.name + ".sha256") }) | Select-Object -First 1
+                return @{ Kind = "release"; Version = ([string]$rel.tag_name).TrimStart('v', 'V'); ZipUrl = [string]$zip.browser_download_url
+                          HashUrl = $(if ($sha) { [string]$sha.browser_download_url } else { $null })
+                          Digest = [string]$zip.digest; PageUrl = [string]$rel.html_url }
+            }
+            return $null
         } `
         -OnComplete {
-            param($remote, $err, $ctx)
+            param($found, $err, $ctx)
             $btnCheckSelfUpdate.IsEnabled = $true
-            if ($err -or -not $remote) {
+            if ($err) {
                 if (-not $ctx.Quiet) { Set-SelfUpdateStatus "Could not check for updates" "DangerBrush" }
                 return
             }
-            $script:latestVersion = $remote
-            $newer = $false
-            try { $newer = [version]$remote -gt [version]$script:localVersion.version } catch {}
-            if ($newer) {
-                Set-SelfUpdateStatus "Update available  (v$remote)" "WarningBrush"
-                $btnInstallSelfUpdate.Visibility = "Visible"
-                $updateBanner = Find "UpdateBanner"
-                $updateBanner.Text       = "Update available (v$remote)"
-                $updateBanner.Visibility = "Visible"
-            } else {
-                Set-SelfUpdateStatus "Up to date" "SuccessBrush"
+            if (-not $found -or -not (Test-ScyVersionNewer $found.Version ([string]$script:localVersion.version))) {
+                if (-not $ctx.Quiet -or $found) { Set-SelfUpdateStatus "Up to date" "SuccessBrush" }
+                return
             }
+            $script:selfUpdateTarget = $found
+            $script:latestVersion    = $found.Version
+            Set-SelfUpdateStatus "Update available  (v$($found.Version))" "WarningBrush"
+            $btnInstallSelfUpdate.Visibility = "Visible"
+            $updateBanner = Find "UpdateBanner"
+            $updateBanner.Text       = "Update available (v$($found.Version))"
+            $updateBanner.Visibility = "Visible"
         } | Out-Null
 }
 
@@ -910,62 +959,107 @@ if ($script:autoCheckSelfUpdate) {
         [System.Windows.Threading.DispatcherPriority]::ApplicationIdle) | Out-Null
 }
 
+# ── Install ──────────────────────────────────────────────────────
 $btnInstallSelfUpdate.Add_Click({
-    $confirm = Show-ThemedDialog "Download and install the latest version of Scy?`nYour settings will be preserved." "Update Scy" "YesNo" "Question"
+    $target = $script:selfUpdateTarget
+    if (-not $target) { return }
+    $confirm = Show-ThemedDialog "Download and install Scy v$($target.Version)?`nYour settings and notes are kept, and the current version is backed up so you can go back." "Update Scy" "YesNo" "Question"
     if ($confirm -ne "Yes") { return }
 
-    Write-ScyLog "Self-update started (target v$($script:latestVersion))"
+    Write-ScyLog "Self-update started (v$($script:localVersion.version) -> v$($target.Version), $($target.Kind))"
     $btnInstallSelfUpdate.IsEnabled = $false
     $btnCheckSelfUpdate.IsEnabled   = $false
     Set-SelfUpdateStatus "Downloading update..." "WarningBrush"
 
-    # Download, extract and copy run in a background job; the copy overwrites
-    # the scripts on disk, which is safe because this session already loaded them.
+    # Download, verify, back up and copy in a background job. Overwriting the
+    # scripts on disk is safe: this session has already loaded them.
     Start-ScyJob `
         -Variables @{
-            branch    = $(if ($script:useDevBranch) { "dev" } else { "main" })
-            targetDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+            t           = $target
+            targetDir   = $script:scyInstallDir
+            backupDir   = $script:updateBackupDir
+            fromVersion = [string]$script:localVersion.version
         } `
         -Work {
             param($emit)
-            $zipUrl  = "https://github.com/0x89-y/Scy/archive/refs/heads/$branch.zip"
-            $zipPath = Join-Path $env:TEMP "Scy-update.zip"
-            $extPath = Join-Path $env:TEMP "Scy-update"
+            $tmp = Join-Path $env:TEMP ("Scy-update-" + [guid]::NewGuid().ToString("N").Substring(0, 8))
+            New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+            try {
+                [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+                $ProgressPreference = 'SilentlyContinue'   # Windows PowerShell's progress bar slows downloads dramatically
+                $ua = @{ "User-Agent" = "Scy-Updater" }
+                $zipPath = Join-Path $tmp "scy.zip"
+                Invoke-WebRequest -Uri $t.ZipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 120 -Headers $ua
 
-            # Clean up any previous update artifacts
-            if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-            if (Test-Path $extPath) { Remove-Item $extPath -Recurse -Force }
+                if ($t.Kind -eq "release") {
+                    & $emit "Verifying download..."
+                    $expected = $null
+                    if ($t.HashUrl) {
+                        $c = (Invoke-WebRequest -Uri $t.HashUrl -UseBasicParsing -TimeoutSec 30 -Headers $ua).Content
+                        if ($c -is [byte[]]) { $c = [System.Text.Encoding]::UTF8.GetString($c) }
+                        $expected = (([string]$c).Trim() -split '\s+')[0]
+                    } elseif ($t.Digest -like "sha256:*") {
+                        $expected = $t.Digest.Substring(7)
+                    }
+                    if (-not $expected) { throw "This release has no SHA256 checksum, so the download can't be verified. Nothing was changed." }
+                    $actual = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
+                    if ($actual -ne $expected.Trim().ToUpperInvariant()) {
+                        throw "The download's checksum doesn't match the release - it's damaged or was altered. Nothing was changed."
+                    }
+                }
 
-            # Download (no progress bar: on Windows PowerShell it slows the download dramatically)
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-            $ProgressPreference = 'SilentlyContinue'
-            Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 60
+                & $emit "Installing update..."
+                $ext = Join-Path $tmp "x"
+                Expand-Archive -LiteralPath $zipPath -DestinationPath $ext -Force
+                # Package root = the folder holding Scy.ps1 (branch zips nest it in Scy-<branch>\)
+                $src = (Get-ChildItem -LiteralPath $ext -Recurse -Filter "Scy.ps1" | Select-Object -First 1).DirectoryName
+                if (-not $src) { throw "The download doesn't contain Scy. Nothing was changed." }
 
-            & $emit "Installing update..."
-            Expand-Archive -Path $zipPath -DestinationPath $extPath -Force
+                # Never overwrite user data (older versions kept it here); skip repo-only files
+                $skip = '^(settings\.json|notes\.txt|LICENSE.*|README.*|install\.ps1)$'
+                $newFiles = @(Get-ChildItem -LiteralPath $src -Recurse -File |
+                              ForEach-Object { $_.FullName.Substring($src.Length + 1) } |
+                              Where-Object { $_ -notmatch $skip })
 
-            # The ZIP extracts to a Scy-<branch>/ subfolder
-            $sourceDir = Join-Path $extPath "Scy-$branch"
+                # Files the installed version shipped that the new one no longer has.
+                # Only known when both carry a manifest (release builds do); user files are never listed.
+                $removed = @()
+                $oldManifest = Join-Path $targetDir "manifest.txt"
+                $newManifest = Join-Path $src "manifest.txt"
+                if ((Test-Path -LiteralPath $oldManifest) -and (Test-Path -LiteralPath $newManifest)) {
+                    $newSet  = @(Get-Content -LiteralPath $newManifest | Where-Object { $_ } | ForEach-Object { $_.Replace('/', '\') })
+                    $removed = @(Get-Content -LiteralPath $oldManifest | Where-Object { $_ } | ForEach-Object { $_.Replace('/', '\') } |
+                                 Where-Object { $newSet -notcontains $_ -and $_ -notmatch $skip })
+                }
 
-            # Copy files, preserving user data
-            Get-ChildItem -Path $sourceDir -Recurse -File | ForEach-Object {
-                $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
-                if ($relativePath -eq "settings.json") { return }
-                if ($relativePath -eq "notes.txt") { return }
-                $destFile = Join-Path $targetDir $relativePath
-                $destDir  = Split-Path $destFile -Parent
-                if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
-                Copy-Item $_.FullName -Destination $destFile -Force
+                # Back up everything that's about to be overwritten or removed
+                if (Test-Path -LiteralPath $backupDir) { Remove-Item -LiteralPath $backupDir -Recurse -Force }
+                $added = @()
+                foreach ($rel in @($newFiles + $removed)) {
+                    $cur = Join-Path $targetDir $rel
+                    if (Test-Path -LiteralPath $cur -PathType Leaf) {
+                        $dst = Join-Path $backupDir ("files\" + $rel)
+                        New-Item -ItemType Directory -Path (Split-Path $dst -Parent) -Force | Out-Null
+                        Copy-Item -LiteralPath $cur -Destination $dst -Force
+                    } elseif ($newFiles -contains $rel) {
+                        $added += $rel
+                    }
+                }
+                New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+                [System.IO.File]::WriteAllText((Join-Path $backupDir "update-info.json"),
+                    (ConvertTo-Json @{ FromVersion = $fromVersion; ToVersion = $t.Version; Added = $added; Date = (Get-Date).ToString("s") }),
+                    (New-Object System.Text.UTF8Encoding($false)))
+
+                foreach ($rel in $newFiles) {
+                    $dst = Join-Path $targetDir $rel
+                    New-Item -ItemType Directory -Path (Split-Path $dst -Parent) -Force | Out-Null
+                    Copy-Item -LiteralPath (Join-Path $src $rel) -Destination $dst -Force
+                }
+                foreach ($rel in $removed) { Remove-Item -LiteralPath (Join-Path $targetDir $rel) -Force -ErrorAction SilentlyContinue }
+                return @{ Removed = $removed.Count }
+            } finally {
+                Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
             }
-
-            # Remove unnecessary files (LICENSE, README, install script)
-            Get-ChildItem -Path $targetDir -File | Where-Object { $_.Name -match '^(LICENSE|README|install\.ps1)' } | ForEach-Object {
-                Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
-            }
-
-            # Clean up temp files
-            Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-            Remove-Item $extPath -Recurse -Force -ErrorAction SilentlyContinue
         } `
         -OnLine {
             param($line, $ctx)
@@ -980,21 +1074,71 @@ $btnInstallSelfUpdate.Add_Click({
                 Write-ScyLog "Self-update FAILED: $($err.Exception.Message)" "ERROR"
                 return
             }
-
-            # Re-read the new version.json
-            if (Test-Path $script:versionFile) {
-                try {
-                    $script:localVersion = Get-Content $script:versionFile -Raw -Encoding UTF8 | ConvertFrom-Json
-                    $selfUpdateVersionLabel.Text = "Version: $($script:localVersion.version)"
-                } catch {}
-            }
-
+            Update-ScyVersionLabel
+            Update-SelfUpdateRollbackRow
             Set-SelfUpdateStatus "Updated successfully" "SuccessBrush"
             $btnInstallSelfUpdate.Visibility = "Collapsed"
             Write-ScyLog "Self-update completed (now v$($script:localVersion.version))"
-            Show-ThemedDialog "Scy has been updated to the latest version.`nPlease restart Scy to apply changes." "Update complete" "OK" "Information" | Out-Null
+            Show-ThemedDialog "Scy has been updated to v$($script:localVersion.version).`nPlease restart Scy to apply the changes." "Update complete" "OK" "Information" | Out-Null
         } | Out-Null
 })
+
+function Update-ScyVersionLabel {
+    if (Test-Path $script:versionFile) {
+        try {
+            $script:localVersion = Get-Content $script:versionFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            $selfUpdateVersionLabel.Text = "Version: $($script:localVersion.version)"
+        } catch {}
+    }
+}
+
+# ── Restore the previous version ─────────────────────────────────
+$selfUpdateRollbackRow  = Find "SelfUpdateRollbackRow"
+$selfUpdateRollbackText = Find "SelfUpdateRollbackText"
+$btnRollbackSelfUpdate  = Find "BtnRollbackSelfUpdate"
+
+function Update-SelfUpdateRollbackRow {
+    $info = Join-Path $script:updateBackupDir "update-info.json"
+    if (-not (Test-Path -LiteralPath $info)) { $selfUpdateRollbackRow.Visibility = "Collapsed"; return }
+    try {
+        $i = Get-Content -LiteralPath $info -Raw -Encoding UTF8 | ConvertFrom-Json
+        $selfUpdateRollbackText.Text = "Go back to v$($i.FromVersion), the version installed before the update to v$($i.ToVersion)."
+        $selfUpdateRollbackRow.Visibility = "Visible"
+    } catch { $selfUpdateRollbackRow.Visibility = "Collapsed" }
+}
+
+$btnRollbackSelfUpdate.Add_Click({
+    $info = Join-Path $script:updateBackupDir "update-info.json"
+    if (-not (Test-Path -LiteralPath $info)) { Update-SelfUpdateRollbackRow; return }
+    $i = Get-Content -LiteralPath $info -Raw -Encoding UTF8 | ConvertFrom-Json
+    $r = Show-ThemedDialog "Go back to Scy v$($i.FromVersion)? Your settings and notes are kept." "Restore previous version" "YesNo" "Question"
+    if ($r -ne "Yes") { return }
+    try {
+        $files = Join-Path $script:updateBackupDir "files"
+        if (Test-Path -LiteralPath $files) {
+            Get-ChildItem -LiteralPath $files -Recurse -File | ForEach-Object {
+                $dst = Join-Path $script:scyInstallDir $_.FullName.Substring($files.Length + 1)
+                New-Item -ItemType Directory -Path (Split-Path $dst -Parent) -Force | Out-Null
+                Copy-Item -LiteralPath $_.FullName -Destination $dst -Force
+            }
+        }
+        # Files the update added that the old version didn't have
+        foreach ($rel in @($i.Added)) {
+            if ($rel) { Remove-Item -LiteralPath (Join-Path $script:scyInstallDir $rel) -Force -ErrorAction SilentlyContinue }
+        }
+        Remove-Item -LiteralPath $script:updateBackupDir -Recurse -Force
+    } catch {
+        Show-ThemedDialog "Restoring the previous version failed:`n$($_.Exception.Message)" "Restore previous version" "OK" "Error" | Out-Null
+        return
+    }
+    Write-ScyLog "Rolled back to v$($i.FromVersion)"
+    Update-ScyVersionLabel
+    Update-SelfUpdateRollbackRow
+    Set-SelfUpdateStatus "Restored v$($i.FromVersion)" "SuccessBrush"
+    Show-ThemedDialog "Scy v$($i.FromVersion) has been restored.`nPlease restart Scy to apply the changes." "Restore previous version" "OK" "Information" | Out-Null
+})
+
+Update-SelfUpdateRollbackRow
 
 # ── Changelog ────────────────────────────────────────────────────
 # Reads changelog.json from the app root and renders one card per version.

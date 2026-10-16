@@ -1,5 +1,10 @@
 {
     "group": "Privacy & Telemetry",
     "description": "Stop Windows from collecting and uploading activity history",
-    "requiresAdmin": true
+    "requiresAdmin": true,
+    "check": [
+        { "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "name": "EnableActivityFeed", "value": 0 },
+        { "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "name": "PublishUserActivities", "value": 0 },
+        { "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "name": "UploadUserActivities", "value": 0 }
+    ]
 }

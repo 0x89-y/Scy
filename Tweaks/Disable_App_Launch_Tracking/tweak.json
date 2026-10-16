@@ -1,4 +1,7 @@
 {
     "group": "Privacy & Telemetry",
-    "description": "Stop Windows from tracking which apps you launch"
+    "description": "Stop Windows from tracking which apps you launch",
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "Start_TrackProgs", "value": 0 }
+    ]
 }

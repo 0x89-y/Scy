@@ -1,4 +1,8 @@
 {
     "group": "File Explorer",
-    "description": "Shows file extensions in Explorer (e.g. .txt, .exe)"
+    "description": "Shows file extensions in Explorer (e.g. .txt, .exe)",
+    "restartExplorer": true,
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "HideFileExt", "value": 0 }
+    ]
 }

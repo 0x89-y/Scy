@@ -85,6 +85,9 @@ $btnExportScan.Add_Click({
             $byName      = @{}
 
             # ── Winget list ──────────────────────────────────────
+            # The CLI, not the WinGet PowerShell module: `winget list` shows the
+            # installed display names, which the registry pass below merges on;
+            # the module reports catalog names, so ~every app would show twice.
             try {
                 $wingetOut = & winget list --accept-source-agreements 2>$null
                 if ($wingetOut) {

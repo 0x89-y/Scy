@@ -3086,7 +3086,23 @@
                                                      Background="{DynamicResource InputBgBrush}"
                                                      Foreground="{DynamicResource FgBrush}"
                                                      BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                     FontSize="12" Padding="8,5" Margin="0,0,0,12"/>
+                                                     FontSize="12" Padding="8,5" Margin="0,0,0,8"/>
+
+                                            <!-- Passphrase (optional) -->
+                                            <TextBlock Text="Passphrase (optional, recommended)" FontSize="12" Foreground="{DynamicResource SubTextBrush}" Margin="0,0,0,4"/>
+                                            <PasswordBox x:Name="SSHKeyPassphrase"
+                                                         Background="{DynamicResource InputBgBrush}"
+                                                         Foreground="{DynamicResource FgBrush}"
+                                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                         FontSize="12" Padding="8,5" Margin="0,0,0,8"/>
+                                            <TextBlock Text="Repeat passphrase" FontSize="12" Foreground="{DynamicResource SubTextBrush}" Margin="0,0,0,4"/>
+                                            <PasswordBox x:Name="SSHKeyPassphrase2"
+                                                         Background="{DynamicResource InputBgBrush}"
+                                                         Foreground="{DynamicResource FgBrush}"
+                                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                         FontSize="12" Padding="8,5" Margin="0,0,0,4"/>
+                                            <TextBlock Text="Without a passphrase, anyone who gets a copy of the key file can use it."
+                                                       FontSize="11" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
                                             <Button x:Name="BtnSSHCreate" Content="Create key"
                                                     Style="{StaticResource ActionButton}" HorizontalAlignment="Stretch"/>
@@ -3723,13 +3739,14 @@
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <!-- Header -->
                                 <DockPanel Grid.Row="0" Margin="0,0,0,10">
-                                    <TextBlock Text="Quick notes"
+                                    <TextBlock Text="Notes"
                                                FontSize="14" FontWeight="SemiBold"
                                                Foreground="{DynamicResource FgBrush}"
                                                VerticalAlignment="Center"/>
@@ -3739,8 +3756,9 @@
                                                    VerticalAlignment="Center" Margin="0,0,10,0"/>
                                         <Button x:Name="BtnNotesPreview" Content="Preview"
                                                 Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
-                                        <Button x:Name="BtnNotesClear" Content="Clear"
-                                                Style="{StaticResource DangerButton}"/>
+                                        <Button x:Name="BtnNotesClear" Content="Delete"
+                                                Style="{StaticResource DangerButton}"
+                                                ToolTip="Delete the open note"/>
                                     </StackPanel>
                                 </DockPanel>
 
@@ -3748,8 +3766,11 @@
                                            FontSize="11" Foreground="{DynamicResource MutedText}"
                                            Margin="11,28,0,8" TextWrapping="Wrap"/>
 
+                                <!-- Note tabs (filled by Tab-Notes.ps1); right-click a note to rename or delete it -->
+                                <WrapPanel x:Name="NotesTabsPanel" Grid.Row="1" Margin="0,0,0,8"/>
+
                                 <!-- Editor -->
-                                <Border Grid.Row="1" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                <Border Grid.Row="2" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="4,4" MinHeight="350">
                                     <Grid>
@@ -3777,7 +3798,7 @@
                                 </Border>
 
                                 <!-- Footer -->
-                                <DockPanel Grid.Row="2" Margin="0,8,0,0">
+                                <DockPanel Grid.Row="3" Margin="0,8,0,0">
                                     <TextBlock x:Name="NotesCharCount" Text="0 characters"
                                                FontSize="11" Foreground="{DynamicResource MutedText}"
                                                VerticalAlignment="Center"/>
@@ -3984,6 +4005,24 @@
                                                        FontSize="11" Foreground="{DynamicResource MutedText}"
                                                        Margin="0,0,0,14" TextWrapping="Wrap"/>
 
+                                            <!-- Mode: random characters or a word passphrase -->
+                                            <Grid Margin="0,0,0,12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="80"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Type" Grid.Column="0"
+                                                           FontSize="12" Foreground="{DynamicResource MutedText}"
+                                                           VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <Button x:Name="BtnPwdModeChars" Content="Random characters"
+                                                            Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
+                                                    <Button x:Name="BtnPwdModePhrase" Content="Passphrase"
+                                                            Style="{StaticResource SecondaryButton}"
+                                                            ToolTip="Random words from the EFF word list - easier to type and remember"/>
+                                                </StackPanel>
+                                            </Grid>
+
                                             <!-- Length row -->
                                             <Grid Margin="0,0,0,12">
                                                 <Grid.ColumnDefinitions>
@@ -3993,7 +4032,7 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="Length" Grid.Column="0"
+                                                <TextBlock x:Name="PwdLengthLabel" Text="Length" Grid.Column="0"
                                                            FontSize="12" Foreground="{DynamicResource MutedText}"
                                                            VerticalAlignment="Center"/>
                                                 <Button x:Name="BtnPwdLenMinus" Content="−" Grid.Column="1"
@@ -4013,13 +4052,42 @@
                                                 <Button x:Name="BtnPwdLenPlus" Content="+" Grid.Column="3"
                                                         Style="{StaticResource SecondaryButton}"
                                                         Width="28" Height="28" FontSize="14" Padding="0"/>
-                                                <TextBlock Grid.Column="4" Text="characters  (4 – 128)"
+                                                <TextBlock x:Name="PwdLengthHint" Grid.Column="4" Text="characters  (4 – 128)"
                                                            FontSize="11" Foreground="{DynamicResource MutedText}"
                                                            VerticalAlignment="Center" Margin="10,0,0,0"/>
                                             </Grid>
 
+                                            <!-- Passphrase options (passphrase mode only) -->
+                                            <Grid x:Name="PwdPhraseOptions" Margin="0,0,0,12" Visibility="Collapsed">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="80"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Separator" Grid.Column="0"
+                                                           FontSize="12" Foreground="{DynamicResource MutedText}"
+                                                           VerticalAlignment="Center"/>
+                                                <Border Grid.Column="1" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                        Width="50" Margin="0,0,16,0" Padding="6,0">
+                                                    <TextBox x:Name="PwdPhraseSeparator" Text="-" MaxLength="3"
+                                                             Background="Transparent" BorderThickness="0"
+                                                             Foreground="{DynamicResource FgBrush}" FontSize="12"
+                                                             CaretBrush="{DynamicResource FgBrush}"
+                                                             SelectionBrush="{DynamicResource AccentBrush}"
+                                                             TextAlignment="Center" Padding="0,6"
+                                                             VerticalAlignment="Center"/>
+                                                </Border>
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <CheckBox x:Name="PwdPhraseCapitalize" IsChecked="True" Style="{StaticResource CleanCheckBox}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Capitalize words" FontSize="12" Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center" Margin="8,0,16,0"/>
+                                                    <CheckBox x:Name="PwdPhraseNumber" IsChecked="True" Style="{StaticResource CleanCheckBox}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Add a number" FontSize="12" Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
+
                                             <!-- Character type options -->
-                                            <Grid Margin="0,0,0,12">
+                                            <Grid x:Name="PwdCharOptions" Margin="0,0,0,12">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="*"/>
@@ -4116,7 +4184,7 @@
 
                                             <TextBlock x:Name="PwdStatus" Text="Click Generate to create a password."
                                                        FontSize="11" Foreground="{DynamicResource MutedText}"
-                                                       Margin="0,8,0,0"/>
+                                                       Margin="0,8,0,0" TextWrapping="Wrap"/>
 
                                         </StackPanel>
                                     </Border>
@@ -4300,6 +4368,21 @@
                                                     VerticalAlignment="Center" Margin="0,0,8,0"/>
                                             <CheckBox x:Name="ToggleEnableLogging" Grid.Column="2"
                                                       Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Your data" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                <TextBlock Text="Settings and notes are kept in %APPDATA%\Scy, separate from the program files"
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnOpenDataFolder" Grid.Column="1" Content="Open folder"
+                                                    Style="{StaticResource SecondaryButton}" FontSize="11" Padding="10,4"
+                                                    VerticalAlignment="Center"/>
                                         </Grid>
                                         <Grid Margin="0,10,0,0">
                                             <Grid.ColumnDefinitions>
@@ -4940,13 +5023,27 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Use dev branch for updates" FontSize="12" FontWeight="SemiBold"
+                                                <TextBlock Text="Include pre-releases" FontSize="12" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource FgBrush}"/>
-                                                <TextBlock Text="Pulls updates from the dev branch instead of main (may be unstable)"
-                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0"/>
+                                                <TextBlock Text="Also offer test versions (may be unstable)"
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0" TextWrapping="Wrap"/>
                                             </StackPanel>
                                             <CheckBox x:Name="ToggleUseDevBranch" Grid.Column="1"
                                                       Style="{StaticResource TweakToggle}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid x:Name="SelfUpdateRollbackRow" Margin="0,12,0,0" Visibility="Collapsed">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Restore previous version" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource FgBrush}"/>
+                                                <TextBlock x:Name="SelfUpdateRollbackText" Text=""
+                                                           FontSize="11" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <Button x:Name="BtnRollbackSelfUpdate" Grid.Column="1" Content="Restore"
+                                                    Style="{StaticResource SecondaryButton}" VerticalAlignment="Center"/>
                                         </Grid>
                                     </StackPanel>
                                 </StackPanel>

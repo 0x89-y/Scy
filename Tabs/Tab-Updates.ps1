@@ -199,74 +199,76 @@ function Invoke-WingetStreamed {
         -Variables @{ sepPat = $script:_uSepPat } `
         -Work {
             param($emit)
+            # `winget upgrade` text is parsed table by table: the main list and the
+            # "needs explicit targeting" list each get column positions from their
+            # own header. (The WinGet PowerShell module was tried here, but its
+            # IsUpdateAvailable flag skipped real updates, so the CLI stays the source.)
             $raw = @(winget upgrade --accept-source-agreements 2>&1 | ForEach-Object {
                 ([string]$_) -replace '\x1b\[[0-9;]*[A-Za-z]', ''
             })
 
-            # Summary line ("3 upgrades available.") - the leading number is language-neutral
+            $packages     = @()
+            $seenIds      = @{}
             $summaryCount = 0
-            $summaryLine  = $raw | Where-Object { $_ -match '^\s*(\d+)\s' } | Select-Object -Last 1
-            if ($summaryLine -match '^\s*(\d+)\s') { $summaryCount = [int]$Matches[1] }
+            $seenTable    = $false
+            $i = 0
+            while ($i -lt $raw.Count) {
+                $line = ([string]$raw[$i]) -replace '\r', ''
+                if ($i -gt 0 -and $line -match $sepPat) {
+                    $seenTable = $true
+                    # Column starts = where each header word begins (the line above the
+                    # separator). winget's upgrade tables are always Name, Id, Version,
+                    # Available, Source in that order, so this works in any UI language
+                    # and with single-space gaps in narrow tables.
+                    $hdr  = ([string]$raw[$i - 1]) -replace '\r', ''
+                    $cols = @(0)
+                    for ($c = 1; $c -lt $hdr.Length; $c++) {
+                        if ($hdr[$c] -ne ' ' -and $hdr[$c - 1] -eq ' ') { $cols += $c }
+                    }
+                    $nameCol  = 0
+                    $idCol    = if ($cols.Count -gt 1) { $cols[1] } else { -1 }
+                    $verCol   = if ($cols.Count -gt 2) { $cols[2] } else { -1 }
+                    $availCol = if ($cols.Count -gt 3) { $cols[3] } else { -1 }
 
-            $sepIdx = $null
-            for ($i = 0; $i -lt $raw.Count; $i++) {
-                if ($raw[$i] -match $sepPat) { $sepIdx = $i; break }
-            }
+                    # Rows run until a blank line, a summary line or another separator
+                    $i++
+                    while ($i -lt $raw.Count) {
+                        $row = (([string]$raw[$i]).TrimEnd()) -replace '\r', ''
+                        if ($row.Trim() -eq '' -or $row -match '^\s*\d+\s' -or $row -match $sepPat) { break }
+                        $i++
 
-            $packages = @()
-            if ($null -ne $sepIdx -and ($sepIdx + 1) -lt $raw.Count) {
-                $nameCol = 0; $idCol = -1; $verCol = -1; $availCol = -1
-                for ($hi = $sepIdx - 1; $hi -ge [Math]::Max(0, $sepIdx - 3); $hi--) {
-                    $hdr = ($raw[$hi]) -replace '\r', ''
-                    $m   = [regex]::Matches($hdr, '\b(Name|Id|Version|Available)\b', 'IgnoreCase')
-                    if ($m.Count -ge 2) {
-                        foreach ($match in $m) {
-                            switch ($match.Value.ToLower()) {
-                                'name'      { $nameCol  = $match.Index }
-                                'id'        { $idCol    = $match.Index }
-                                'version'   { $verCol   = $match.Index }
-                                'available' { $availCol = $match.Index }
-                            }
+                        if ($idCol -gt 0 -and $row.Length -gt $idCol) {
+                            $name  = $row.Substring($nameCol, [Math]::Min($idCol, $row.Length) - $nameCol).Trim()
+                            $idEnd = if ($verCol -gt 0) { [Math]::Min($verCol, $row.Length) } else { $row.Length }
+                            $id    = $row.Substring($idCol, $idEnd - $idCol).Trim()
+                            $ver   = if ($verCol -gt 0 -and $row.Length -gt $verCol) {
+                                $vEnd = if ($availCol -gt 0) { [Math]::Min($availCol, $row.Length) } else { $row.Length }
+                                $row.Substring($verCol, $vEnd - $verCol).Trim()
+                            } else { '?' }
+                            # First word only: version strings never contain spaces, and this
+                            # stays right even if the Source column doesn't line up exactly
+                            $avail = if ($availCol -gt 0 -and $row.Length -gt $availCol) {
+                                $row.Substring($availCol).Trim() -replace '\s.*$', ''
+                            } else { '?' }
+                        } else {
+                            $parts = @($row -split '\s{2,}' | Where-Object { $_ -ne '' })
+                            if ($parts.Count -lt 2) { continue }
+                            $name = $parts[0]; $id = $parts[1]
+                            $ver   = if ($parts.Count -gt 2) { $parts[2] } else { '?' }
+                            $avail = if ($parts.Count -gt 3) { $parts[3] } else { '?' }
                         }
-                        if ($idCol    -le $nameCol)  { $idCol    = -1 }
-                        if ($verCol   -le $idCol)    { $verCol   = -1 }
-                        if ($availCol -le $verCol)   { $availCol = -1 }
-                        if ($availCol -eq -1 -and $verCol -gt 0 -and $hdr.Length -gt $verCol + 1) {
-                            $afterVer = [regex]::Match($hdr.Substring($verCol + 1), '\s{2,}\S')
-                            if ($afterVer.Success) { $availCol = $verCol + 1 + $afterVer.Index + $afterVer.Length - 1 }
+
+                        # Notice sentences that run straight into a table have spaces in the "Id" slice
+                        if ($name -ne '' -and $name -ne 'Name' -and $id -ne '' -and $id -notmatch '\s' -and -not $seenIds.ContainsKey($id)) {
+                            $seenIds[$id] = $true
+                            $packages += [PSCustomObject]@{ Name = $name; Id = $id; Version = $ver; Available = $avail }
                         }
-                        break
                     }
+                    continue
                 }
-
-                $raw[($sepIdx + 1)..($raw.Count - 1)] | Where-Object { $_.Trim() -ne '' } | ForEach-Object {
-                    $line = ($_.TrimEnd()) -replace '\r', ''
-                    if ($line -match '^\s*\d+\s') { return }
-                    if ($line -match $sepPat)     { return }
-
-                    if ($idCol -gt 0 -and $line.Length -gt $idCol) {
-                        $name  = $line.Substring($nameCol, [Math]::Min($idCol, $line.Length) - $nameCol).Trim()
-                        $idEnd = if ($verCol  -gt 0) { [Math]::Min($verCol,   $line.Length) } else { $line.Length }
-                        $id    = $line.Substring($idCol, $idEnd - $idCol).Trim()
-                        $ver   = if ($verCol -gt 0 -and $line.Length -gt $verCol) {
-                            $vEnd = if ($availCol -gt 0) { [Math]::Min($availCol, $line.Length) } else { $line.Length }
-                            $line.Substring($verCol, $vEnd - $verCol).Trim()
-                        } else { '?' }
-                        $avail = if ($availCol -gt 0 -and $line.Length -gt $availCol) {
-                            $line.Substring($availCol).Trim() -replace '\s.*$', ''
-                        } else { '?' }
-                    } else {
-                        $parts = @($line -split '\s{2,}' | Where-Object { $_ -ne '' })
-                        if ($parts.Count -lt 2) { return }
-                        $name = $parts[0]; $id = $parts[1]
-                        $ver   = if ($parts.Count -gt 2) { $parts[2] } else { '?' }
-                        $avail = if ($parts.Count -gt 3) { $parts[3] } else { '?' }
-                    }
-
-                    if ($name -ne '' -and $name -ne 'Name' -and $id -ne '' -and $id -notmatch '\s') {
-                        $packages += [PSCustomObject]@{ Name = $name; Id = $id; Version = $ver; Available = $avail }
-                    }
-                }
+                # The first number-led line after a table is its count ("9 upgrades available.")
+                if ($seenTable -and $summaryCount -eq 0 -and $line -match '^\s*(\d+)\s') { $summaryCount = [int]$Matches[1] }
+                $i++
             }
 
             return @{ Raw = $raw; Packages = $packages; Summary = $summaryCount }

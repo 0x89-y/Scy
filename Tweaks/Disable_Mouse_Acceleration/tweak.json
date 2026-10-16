@@ -1,4 +1,9 @@
 {
     "group": "Input & Accessibility",
-    "description": "Set 1:1 mouse movement by disabling pointer acceleration"
+    "description": "Set 1:1 mouse movement by disabling pointer acceleration",
+    "check": [
+        { "path": "HKCU:\\Control Panel\\Mouse", "name": "MouseSpeed", "value": "0" },
+        { "path": "HKCU:\\Control Panel\\Mouse", "name": "MouseThreshold1", "value": "0" },
+        { "path": "HKCU:\\Control Panel\\Mouse", "name": "MouseThreshold2", "value": "0" }
+    ]
 }

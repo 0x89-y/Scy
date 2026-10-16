@@ -1,5 +1,8 @@
 {
     "group": "System",
     "description": "Prevents the firmware vendor from running programs at boot via the Windows Platform Binary Table",
-    "requiresAdmin": true
+    "requiresAdmin": true,
+    "check": [
+        { "path": "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager", "name": "DisableWpbtExecution", "value": 1 }
+    ]
 }

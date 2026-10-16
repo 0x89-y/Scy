@@ -1,4 +1,10 @@
 {
     "group": "Taskbar & Start Menu",
-    "description": "Hide the Recommended section in the Start Menu"
+    "description": "Hide the Recommended section in the Start Menu",
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "Start_IrisRecommendations", "value": 0 },
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "Start_TrackProgs", "value": 0 },
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "Start_TrackDocs", "value": 0 },
+        { "path": "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer", "name": "HideRecommendedSection", "value": 1 }
+    ]
 }

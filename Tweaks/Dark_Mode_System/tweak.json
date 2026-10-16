@@ -1,4 +1,7 @@
 {
     "group": "Appearance",
-    "description": "Force dark theme for Windows system UI (taskbar, Start Menu, etc.)"
+    "description": "Force dark theme for Windows system UI (taskbar, Start Menu, etc.)",
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "name": "SystemUsesLightTheme", "value": 0 }
+    ]
 }

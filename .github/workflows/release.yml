@@ -1,0 +1,55 @@
+name: Release
+
+# Publishes a release when a version tag is pushed:
+#   git tag v0.13.0 && git push origin v0.13.0
+# A tag with a suffix (v0.13.0-beta.1) becomes a pre-release, which Scy only
+# offers when "Include pre-releases" is on. The tag must match version.json.
+#
+# The release carries Scy-<version>.zip plus Scy-<version>.zip.sha256; Scy's
+# updater and install.ps1 refuse a download whose checksum doesn't match.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches version.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          FILE="$(jq -r .version version.json)"
+          if [ "$TAG" != "$FILE" ]; then
+            echo "::error::Tag v$TAG doesn't match version.json ($FILE)"
+            exit 1
+          fi
+          echo "VERSION=$TAG" >> "$GITHUB_ENV"
+
+      - name: Build the package
+        run: |
+          # manifest.txt lists the program files; the updater uses it to remove
+          # files a newer version no longer ships (user files are never listed)
+          git ls-files | grep -v -E '^(\.github/|\.gitattributes$|\.gitignore$)' > manifest.txt
+          zip -q -X "Scy-$VERSION.zip" -@ < manifest.txt
+          zip -q -X "Scy-$VERSION.zip" manifest.txt
+          sha256sum "Scy-$VERSION.zip" | cut -d' ' -f1 > "Scy-$VERSION.zip.sha256"
+
+      - name: Release notes from changelog.json
+        run: |
+          jq -r --arg v "$VERSION" '.[] | select(.version == $v) | .changes[] | "- " + .' changelog.json > notes.md
+          [ -s notes.md ] || echo "Scy $VERSION" > notes.md
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRE=""
+          case "$VERSION" in *-*) PRE="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" "Scy-$VERSION.zip" "Scy-$VERSION.zip.sha256" \
+            --title "Scy $VERSION" --notes-file notes.md $PRE

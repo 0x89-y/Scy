@@ -1,4 +1,7 @@
 {
     "group": "Performance & Startup",
-    "description": "Remove the artificial delay before startup apps launch"
+    "description": "Remove the artificial delay before startup apps launch",
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize", "name": "StartupDelayInMSec", "value": 0 }
+    ]
 }

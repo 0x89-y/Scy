@@ -1,4 +1,8 @@
 {
     "group": "Taskbar & Start Menu",
-    "description": "Remove the Teams Chat icon from the taskbar"
+    "description": "Remove the Teams Chat icon from the taskbar",
+    "restartExplorer": true,
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "TaskbarMn", "value": 0 }
+    ]
 }

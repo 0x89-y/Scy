@@ -1,4 +1,10 @@
 {
     "group": "System",
-    "description": "Remove tips, ads, and suggestions from the lock screen"
+    "description": "Remove tips, ads, and suggestions from the lock screen",
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "RotatingLockScreenOverlayEnabled", "value": 0 },
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SubscribedContent-338387Enabled", "value": 0 },
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SubscribedContent-338388Enabled", "value": 0 },
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SubscribedContent-338389Enabled", "value": 0 }
+    ]
 }

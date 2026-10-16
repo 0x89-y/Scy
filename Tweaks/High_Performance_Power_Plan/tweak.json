@@ -1,4 +1,8 @@
 {
     "group": "Performance & Startup",
-    "description": "Switch to the High Performance power plan (not available on some laptops that use Modern Standby)"
+    "description": "Switch to the High Performance power plan (not available on some laptops that use Modern Standby)",
+    "snapshot": false,
+    "check": [
+        { "path": "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Power\\User\\PowerSchemes", "name": "ActivePowerScheme", "value": "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c" }
+    ]
 }

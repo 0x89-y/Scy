@@ -158,6 +158,18 @@ function Populate-SSHKeys {
         return
     }
 
+    $passphrase = (Find "SSHKeyPassphrase").Password
+    if ($passphrase -ne (Find "SSHKeyPassphrase2").Password) {
+        $sshGenerateStatus.Text = "The passphrases don't match."
+        $sshGenerateStatus.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "DangerBrush")
+        return
+    }
+    if ($passphrase.Length -gt 0 -and $passphrase.Length -lt 5) {
+        $sshGenerateStatus.Text = "The passphrase must be at least 5 characters (or leave it empty)."
+        $sshGenerateStatus.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "DangerBrush")
+        return
+    }
+
     if (-not (Get-Command ssh-keygen -ErrorAction SilentlyContinue)) {
         $sshGenerateStatus.Text = "ssh-keygen not found. Install OpenSSH (Settings > Optional features)."
         $sshGenerateStatus.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "DangerBrush")
@@ -192,7 +204,10 @@ function Populate-SSHKeys {
         }
         $psi = [System.Diagnostics.ProcessStartInfo]::new()
         $psi.FileName  = (Get-Command ssh-keygen).Source
-        $psi.Arguments = (@("-t", $keyType, "-C", $comment, "-f", $outPath, "-N", "") |
+        # The passphrase goes on the command line: ssh-keygen only prompts on a real
+        # console, which a redirected process doesn't have. It's visible only to the
+        # user's own processes for the moment ssh-keygen runs.
+        $psi.Arguments = (@("-t", $keyType, "-C", $comment, "-f", $outPath, "-N", $passphrase) |
                           ForEach-Object { & $quote $_ }) -join ' '
         $psi.UseShellExecute        = $false
         $psi.CreateNoWindow         = $true
@@ -206,7 +221,9 @@ function Populate-SSHKeys {
         $proc.WaitForExit()
 
         if (Test-Path "$outPath.pub") {
-            $sshGenerateStatus.Text = "Key created: $outPath"
+            (Find "SSHKeyPassphrase").Clear()
+            (Find "SSHKeyPassphrase2").Clear()
+            $sshGenerateStatus.Text = "Key created: $outPath" + $(if ($passphrase) { " (passphrase protected)" } else { "" })
             $sshGenerateStatus.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
             Populate-SSHKeys
         } else {

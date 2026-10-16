@@ -19,19 +19,61 @@ Write-Host ""
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 if (Test-Path $extPath) { Remove-Item $extPath -Recurse -Force }
 
+# Latest published release (zip + SHA256). Until the first release exists the
+# head of the main branch is installed instead.
+$expectedHash = $null
+$release      = $null
+try {
+    $resp = Invoke-RestMethod -Uri "https://api.github.com/repos/0x89-y/Scy/releases?per_page=20" `
+                              -Headers @{ "User-Agent" = "Scy-Installer" } -TimeoutSec 30
+    $release = @($resp | ForEach-Object { $_ }) |
+        Where-Object { -not $_.draft -and -not $_.prerelease -and @($_.assets | Where-Object { $_.name -like "Scy-*.zip" }).Count } |
+        Select-Object -First 1
+} catch { }
+if ($release) {
+    $asset  = @($release.assets | Where-Object { $_.name -like "Scy-*.zip" })[0]
+    $zipUrl = $asset.browser_download_url
+    $sha    = @($release.assets | Where-Object { $_.name -eq ($asset.name + ".sha256") })[0]
+    try {
+        if ($sha) {
+            $c = (Invoke-WebRequest -Uri $sha.browser_download_url -UseBasicParsing -TimeoutSec 30).Content
+            if ($c -is [byte[]]) { $c = [System.Text.Encoding]::UTF8.GetString($c) }
+            $expectedHash = (([string]$c).Trim() -split '\s+')[0]
+        } elseif ($asset.digest -like "sha256:*") {
+            $expectedHash = $asset.digest.Substring(7)
+        }
+    } catch { }
+    if (-not $expectedHash) {
+        Write-Host "  The latest release has no checksum, so it can't be verified. Not installing." -ForegroundColor Red
+        return
+    }
+    Write-Host "  Latest release: $($release.tag_name)" -ForegroundColor DarkGray
+}
+
 # Download
 Write-Host "  Downloading Scy..." -ForegroundColor Yellow
 try {
-    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 60
+    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -TimeoutSec 120
 } catch {
     Write-Host "  Failed to download: $_" -ForegroundColor Red
     return
 }
 
+if ($expectedHash) {
+    $actual = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
+    if ($actual -ne $expectedHash.Trim().ToUpperInvariant()) {
+        Write-Host "  The download's checksum doesn't match the release - it's damaged or was altered. Not installing." -ForegroundColor Red
+        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+        return
+    }
+    Write-Host "  Checksum verified" -ForegroundColor DarkGray
+}
+
 # Extract
 Write-Host "  Extracting..." -ForegroundColor Yellow
 Expand-Archive -Path $zipPath -DestinationPath $extPath -Force
-$sourceDir = Join-Path $extPath "Scy-main"
+# Package root = the folder holding Scy.ps1 (branch zips nest it in Scy-main\, release zips don't)
+$sourceDir = (Get-ChildItem -LiteralPath $extPath -Recurse -Filter "Scy.ps1" | Select-Object -First 1).DirectoryName
 
 # Create install directory if needed
 if (-not (Test-Path $installDir)) {

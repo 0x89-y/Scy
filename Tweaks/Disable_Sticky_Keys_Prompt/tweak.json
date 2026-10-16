@@ -1,4 +1,9 @@
 {
     "group": "Input & Accessibility",
-    "description": "Disables the Sticky Keys / Toggle Keys / Filter Keys shortcut prompts"
+    "description": "Disables the Sticky Keys / Toggle Keys / Filter Keys shortcut prompts",
+    "check": [
+        { "path": "HKCU:\\Control Panel\\Accessibility\\StickyKeys", "name": "Flags", "value": "506" },
+        { "path": "HKCU:\\Control Panel\\Accessibility\\ToggleKeys", "name": "Flags", "value": "58" },
+        { "path": "HKCU:\\Control Panel\\Accessibility\\Keyboard Response", "name": "Flags", "value": "122" }
+    ]
 }

@@ -1,4 +1,7 @@
 {
     "group": "System",
-    "description": "Add \"End Task\" option to taskbar right-click menu"
+    "description": "Add \"End Task\" option to taskbar right-click menu",
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\TaskbarDeveloperSettings", "name": "TaskbarEndTask", "value": 1 }
+    ]
 }

@@ -1,5 +1,9 @@
 {
     "group": "Privacy & Telemetry",
     "description": "Disables Windows diagnostic data collection",
-    "requiresAdmin": true
+    "requiresAdmin": true,
+    "check": [
+        { "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "name": "AllowTelemetry", "value": 0 },
+        { "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\DataCollection", "name": "AllowTelemetry", "value": 0 }
+    ]
 }

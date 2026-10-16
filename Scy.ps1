@@ -17,13 +17,28 @@ if (Test-Path $splashVersionPath) {
 # Load shared theme palette (also used by Tab-Settings.ps1 at runtime)
 . (Join-Path $PSScriptRoot "Themes.ps1")
 
+# ── User data folder ─────────────────────────────────────────────
+# Settings and notes live in %APPDATA%\Scy, apart from the program files, so
+# installs, self-updates and reinstalls can never touch them (and they roam
+# with the Windows profile). Older versions kept them next to Scy.ps1; move
+# them over once. A file already in the data folder always wins.
+$script:dataDir = Join-Path $env:APPDATA "Scy"
+if (-not (Test-Path $script:dataDir)) { New-Item -ItemType Directory -Path $script:dataDir -Force | Out-Null }
+foreach ($__f in @("settings.json", "notes.txt")) {
+    $__old = Join-Path $PSScriptRoot $__f
+    $__new = Join-Path $script:dataDir $__f
+    if ((Test-Path -LiteralPath $__old) -and -not (Test-Path -LiteralPath $__new)) {
+        try { Move-Item -LiteralPath $__old -Destination $__new -ErrorAction Stop } catch {}
+    }
+}
+
 # Read theme from settings early so the splash matches the user's theme.
 # cy-design model: mode (System/Light/Dark) picks the base; accent is separate
 # and doesn't affect the splash's neutral colours.
 $script:skipSplash = $false
 $script:enableLogging = $false
 $earlyMode = "System"
-$settingsPath = Join-Path $PSScriptRoot "settings.json"
+$settingsPath = Join-Path $script:dataDir "settings.json"
 if (Test-Path $settingsPath) {
     try {
         $earlySettings = Get-Content $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -167,6 +182,7 @@ function Test-ScyAccessDenied {
     }
     while ($ex) {
         if ($ex -is [System.UnauthorizedAccessException]) { return $true }
+        if ($ex -is [System.Security.SecurityException]) { return $true }                # .NET registry writes
         if ($ex.HResult -eq -2147024891) { return $true }                                # 0x80070005 E_ACCESSDENIED
         if ($ex.PSObject.Properties['NativeErrorCode'] -and [string]$ex.NativeErrorCode -eq 'AccessDenied') { return $true }
         $ex = $ex.InnerException

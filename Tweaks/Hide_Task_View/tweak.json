@@ -1,4 +1,8 @@
 {
     "group": "Taskbar & Start Menu",
-    "description": "Hides the Task View button from the taskbar (Windows 11)"
+    "description": "Hides the Task View button from the taskbar (Windows 11)",
+    "restartExplorer": true,
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "ShowTaskViewButton", "value": 0 }
+    ]
 }

@@ -1,4 +1,8 @@
 {
     "group": "File Explorer",
-    "description": "Hides frequently used folders from Explorer Quick Access"
+    "description": "Hides frequently used folders from Explorer Quick Access",
+    "restartExplorer": true,
+    "check": [
+        { "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer", "name": "ShowFrequent", "value": 0 }
+    ]
 }

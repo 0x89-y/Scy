@@ -32,17 +32,154 @@ $btnNotesPreview = Find "BtnNotesPreview"
 $notesPreview    = Find "NotesPreview"
 if ($null -eq $script:notesPreviewMode) { $script:notesPreviewMode = $false }
 
-$script:notesFilePath = Join-Path $PSScriptRoot "..\notes.txt"
+$notesTabsPanel  = Find "NotesTabsPanel"
 
-# ── Load saved notes ─────────────────────────────────────────────
-if (Test-Path $script:notesFilePath) {
-    try {
-        $saved = Get-Content $script:notesFilePath -Raw -Encoding UTF8
-        if ($saved) {
-            $notesTextBox.Text = $saved
-            $notesPlaceholder.Visibility = "Collapsed"
+# ── Storage: one Markdown file per note ──────────────────────────
+# %APPDATA%\Scy\notes\<name>.md (see "User data folder" in Scy.ps1). The single
+# notes.txt of older versions becomes the first note, "Notes".
+$script:notesDir     = Join-Path $script:dataDir "notes"
+$script:currentNote  = $null
+$script:notesLoading = $false   # true while a note is loaded into the editor (not a user edit)
+
+function Get-NoteNames {
+    if (-not (Test-Path -LiteralPath $script:notesDir)) { return @() }
+    @(Get-ChildItem -LiteralPath $script:notesDir -Filter "*.md" -File -ErrorAction SilentlyContinue |
+      Sort-Object CreationTimeUtc, Name | ForEach-Object { $_.BaseName })
+}
+
+function Get-NotePath {
+    param([string]$Name)
+    Join-Path $script:notesDir ($Name + ".md")
+}
+
+# Turn user input into a usable, unused note name ($null if nothing usable is left).
+function Resolve-NoteName {
+    param([string]$Name, [string]$Except)
+    $clean = ($Name -replace '[\\/:*?"<>|]', '').Trim().TrimEnd('.')
+    if (-not $clean) { return $null }
+    $existing = @(Get-NoteNames | Where-Object { $_ -ne $Except })
+    $candidate = $clean; $n = 2
+    while ($existing -contains $candidate) { $candidate = "$clean ($n)"; $n++ }
+    return $candidate
+}
+
+function Initialize-Notes {
+    if (-not (Test-Path -LiteralPath $script:notesDir)) { New-Item -ItemType Directory -Path $script:notesDir -Force | Out-Null }
+    $legacy = Join-Path $script:dataDir "notes.txt"
+    if ((Test-Path -LiteralPath $legacy) -and @(Get-NoteNames).Count -eq 0) {
+        try { Move-Item -LiteralPath $legacy -Destination (Get-NotePath "Notes") -ErrorAction Stop } catch {}
+    }
+    if (@(Get-NoteNames).Count -eq 0) {
+        [System.IO.File]::WriteAllText((Get-NotePath "Notes"), "", (New-Object System.Text.UTF8Encoding($false)))
+    }
+    $names = @(Get-NoteNames)
+    $start = if ($script:notesActive -and ($names -contains $script:notesActive)) { $script:notesActive } else { $names[0] }
+    Open-Note $start
+}
+
+# Load a note into the editor (saving any pending edits of the current one first).
+function Open-Note {
+    param([string]$Name)
+    if ($script:notesSaveTimer.IsEnabled) { Save-NotesFile }
+    $text = ""
+    try { $text = [System.IO.File]::ReadAllText((Get-NotePath $Name), [System.Text.Encoding]::UTF8) } catch {}
+    $script:currentNote = $Name
+    $script:notesLoading = $true
+    $notesTextBox.Text = $text
+    $script:notesLoading = $false
+    $notesPlaceholder.Visibility = if ($text -or $notesPreview.Visibility -eq "Visible") { "Collapsed" } else { "Visible" }
+    if ($notesPreview.Visibility -eq "Visible") { $notesPreview.Document = ConvertTo-NotesFlowDocument $text }
+    Update-NotesCharCount
+    if ($script:notesActive -ne $Name) {
+        $script:notesActive = $Name
+        if (Get-Command Save-Settings -ErrorAction SilentlyContinue) { Save-Settings }
+    }
+    Show-NoteTabs
+}
+
+function Show-NoteTabs {
+    $notesTabsPanel.Children.Clear()
+    foreach ($name in @(Get-NoteNames)) {
+        $btn = New-Object System.Windows.Controls.Button
+        $btn.Content = $name
+        $btn.Tag     = $name
+        $btn.Style   = $window.Resources["SecondaryButton"]
+        $btn.Margin  = [System.Windows.Thickness]::new(0, 0, 6, 6)
+        $btn.ToolTip = "Right-click to rename or delete"
+        if ($name -eq $script:currentNote) {
+            $btn.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "AccentBrush")
+            $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "AccentBrush")
         }
-    } catch { }
+        $btn.Add_Click({ param($s, $e) if ($s.Tag -ne $script:currentNote) { Open-Note $s.Tag } })
+
+        $menu = New-Object System.Windows.Controls.ContextMenu
+        $miRename = New-Object System.Windows.Controls.MenuItem
+        $miRename.Header = "Rename..."
+        $miRename.Tag    = $name
+        $miRename.Add_Click({ param($s, $e) Rename-Note $s.Tag })
+        $miDelete = New-Object System.Windows.Controls.MenuItem
+        $miDelete.Header = "Delete"
+        $miDelete.Tag    = $name
+        $miDelete.Add_Click({ param($s, $e) Remove-Note $s.Tag })
+        $menu.Items.Add($miRename) | Out-Null
+        $menu.Items.Add($miDelete) | Out-Null
+        $btn.ContextMenu = $menu
+
+        $notesTabsPanel.Children.Add($btn) | Out-Null
+    }
+
+    $newBtn = New-Object System.Windows.Controls.Button
+    $newBtn.Content = "+ New"
+    $newBtn.Style   = $window.Resources["SecondaryButton"]
+    $newBtn.Margin  = [System.Windows.Thickness]::new(0, 0, 6, 6)
+    $newBtn.Add_Click({ New-Note })
+    $notesTabsPanel.Children.Add($newBtn) | Out-Null
+}
+
+function New-Note {
+    $suggest = Resolve-NoteName ("Note " + (@(Get-NoteNames).Count + 1))
+    $raw = Show-ThemedInput -Prompt "Name for the new note:" -Title "New note" -Default $suggest
+    if ([string]::IsNullOrWhiteSpace($raw)) { return }
+    $name = Resolve-NoteName $raw
+    if (-not $name) { Show-ThemedDialog "That name can't be used for a note." "New note" "OK" "Warning" | Out-Null; return }
+    [System.IO.File]::WriteAllText((Get-NotePath $name), "", (New-Object System.Text.UTF8Encoding($false)))
+    Open-Note $name
+    $notesTextBox.Focus() | Out-Null
+}
+
+function Rename-Note {
+    param([string]$Name)
+    $raw = Show-ThemedInput -Prompt "Rename '$Name' to:" -Title "Rename note" -Default $Name
+    if ([string]::IsNullOrWhiteSpace($raw)) { return }
+    $new = Resolve-NoteName $raw -Except $Name
+    if (-not $new -or $new -eq $Name) { return }
+    if ($Name -eq $script:currentNote -and $script:notesSaveTimer.IsEnabled) { Save-NotesFile }
+    try {
+        Move-Item -LiteralPath (Get-NotePath $Name) -Destination (Get-NotePath $new) -ErrorAction Stop
+    } catch {
+        Show-ThemedDialog "Couldn't rename the note:`n$($_.Exception.Message)" "Rename note" "OK" "Error" | Out-Null
+        return
+    }
+    if ($Name -eq $script:currentNote) { $script:currentNote = $new; $script:notesActive = $new; Save-Settings }
+    Show-NoteTabs
+}
+
+function Remove-Note {
+    param([string]$Name)
+    $r = Show-ThemedDialog "Delete the note '$Name'? This cannot be undone." "Delete note" "YesNo" "Warning"
+    if ($r -ne "Yes") { return }
+    $script:notesSaveTimer.Stop()   # don't write the deleted note back
+    try { Remove-Item -LiteralPath (Get-NotePath $Name) -Force -ErrorAction Stop } catch {
+        Show-ThemedDialog "Couldn't delete the note:`n$($_.Exception.Message)" "Delete note" "OK" "Error" | Out-Null
+        return
+    }
+    $names = @(Get-NoteNames)
+    if ($names.Count -eq 0) {
+        # Always keep one note to type into
+        [System.IO.File]::WriteAllText((Get-NotePath "Notes"), "", (New-Object System.Text.UTF8Encoding($false)))
+        $names = @("Notes")
+    }
+    if ($Name -eq $script:currentNote) { Open-Note $names[0] } else { Show-NoteTabs }
 }
 
 # ── Placeholder behavior ─────────────────────────────────────────
@@ -64,10 +201,10 @@ Update-NotesCharCount
 # ── Auto-save with debounce ──────────────────────────────────────
 function Save-NotesFile {
     $script:notesSaveTimer.Stop()
+    if (-not $script:currentNote) { return }
     try {
-        $dir = Split-Path $script:notesFilePath
-        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-        [System.IO.File]::WriteAllText($script:notesFilePath, $notesTextBox.Text, [System.Text.Encoding]::UTF8)
+        if (-not (Test-Path -LiteralPath $script:notesDir)) { New-Item -ItemType Directory -Path $script:notesDir -Force | Out-Null }
+        [System.IO.File]::WriteAllText((Get-NotePath $script:currentNote), $notesTextBox.Text, (New-Object System.Text.UTF8Encoding($false)))
         $notesSaveStatus.Text = "Saved"
         # Fade out the status after a moment
         $fadeTimer = New-Object System.Windows.Threading.DispatcherTimer
@@ -93,6 +230,7 @@ $window.Add_Closing({ if ($script:notesSaveTimer.IsEnabled) { Save-NotesFile } }
 
 $notesTextBox.Add_TextChanged({
     Update-NotesCharCount
+    if ($script:notesLoading) { return }   # a note being opened, not an edit
     $notesSaveStatus.Text = ""
     $script:notesSaveTimer.Stop()
     $script:notesSaveTimer.Start()
@@ -268,6 +406,9 @@ $btnNotesPreview.Add_Click({
     Save-Settings
 })
 
+# Load the notes (migrating an old notes.txt) and open the last-used one
+Initialize-Notes
+
 # Restore saved preview mode on startup
 if ($script:notesPreviewMode) {
     $notesPreview.Document       = ConvertTo-NotesFlowDocument $notesTextBox.Text
@@ -277,18 +418,7 @@ if ($script:notesPreviewMode) {
     $btnNotesPreview.Content     = "Edit"
 }
 
-# ── Clear button ─────────────────────────────────────────────────
+# ── Delete button: deletes the open note (the last one is just emptied) ──
 $btnNotesClear.Add_Click({
-    if ([string]::IsNullOrWhiteSpace($notesTextBox.Text)) { return }
-    $result = Show-ThemedDialog "Clear all notes? This cannot be undone." "Clear notes" "YesNo" "Warning"
-    if ($result -eq "Yes") {
-        $notesTextBox.Text = ""
-        $notesPlaceholder.Visibility = "Visible"
-        try {
-            if (Test-Path $script:notesFilePath) {
-                Remove-Item $script:notesFilePath -Force
-            }
-        } catch { }
-        $notesSaveStatus.Text = "Cleared"
-    }
-}.GetNewClosure())
+    if ($script:currentNote) { Remove-Note $script:currentNote }
+})
