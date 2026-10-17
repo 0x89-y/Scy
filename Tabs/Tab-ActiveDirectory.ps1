@@ -136,7 +136,7 @@ function Test-AdEnvironment {
 function Update-AdBannerState {
     param([switch]$Checking)
     if ($Checking) {
-        foreach ($b in $script:adGatedButtons) { $b.IsEnabled = $false; $b.Opacity = 0.4 }
+        foreach ($b in $script:adGatedButtons) { $b.IsEnabled = $false }
         $adStatusBannerText.Text     = "Checking the Active Directory environment..."
         $btnAdInstallRsat.Visibility = "Collapsed"
         $adStatusBanner.Visibility   = "Visible"
@@ -146,7 +146,6 @@ function Update-AdBannerState {
 
     foreach ($b in $script:adGatedButtons) {
         $b.IsEnabled = $ready
-        $b.Opacity   = if ($ready) { 1.0 } else { 0.4 }
     }
 
     if ($ready) {
@@ -381,9 +380,7 @@ $btnAdInstallRsat.Add_Click({
 
     $adStatusBannerText.Text     = "Installing RSAT Active Directory tools. This can take several minutes..."
     $btnAdInstallRsat.IsEnabled  = $false
-    $btnAdInstallRsat.Opacity    = 0.4
     $btnAdRecheck.IsEnabled      = $false
-    $btnAdRecheck.Opacity        = 0.4
 
     Start-ScyJob `
         -Context @{ Banner = $adStatusBannerText; Install = $btnAdInstallRsat; Recheck = $btnAdRecheck } `
@@ -408,8 +405,8 @@ $btnAdInstallRsat.Add_Click({
         } `
         -OnComplete {
             param($result, $err, $ctx)
-            $ctx.Install.IsEnabled = $true; $ctx.Install.Opacity = 1.0
-            $ctx.Recheck.IsEnabled = $true; $ctx.Recheck.Opacity = 1.0
+            $ctx.Install.IsEnabled = $true
+            $ctx.Recheck.IsEnabled = $true
             Test-AdEnvironment
             if ($err) {
                 Show-ThemedDialog "RSAT install failed: $err`r`n`r`nMake sure Scy is running as administrator." "Install RSAT" "OK" "Error"

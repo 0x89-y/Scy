@@ -1139,9 +1139,9 @@ function New-AppCard {
     # Width comes from the UniformGrid column (see Update-StoreGridColumns) so the
     # grid always fills the pane with no leftover gap on the right.
     $border.HorizontalAlignment = "Stretch"
-    $border.Height          = 112
+    $border.Height          = 80
     $border.Margin          = [System.Windows.Thickness]::new(0, 0, -1, -1)
-    $border.Padding         = [System.Windows.Thickness]::new(16, 14, 16, 14)
+    $border.Padding         = [System.Windows.Thickness]::new(16, 12, 16, 12)
     $border.Cursor          = [System.Windows.Input.Cursors]::Hand
     $border.Add_MouseEnter({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush") })
     $border.Add_MouseLeave({ $this.Background = [System.Windows.Media.Brushes]::Transparent })
@@ -1202,7 +1202,7 @@ function New-AppCard {
     # scan toggle it in place, so we never rebuild the grid just to add badges.
     $pill                   = New-Object System.Windows.Controls.Border
     $pill.BorderThickness   = [System.Windows.Thickness]::new(1)
-    $pill.CornerRadius      = [System.Windows.CornerRadius]::new(7)
+    $pill.CornerRadius      = [System.Windows.CornerRadius]::new(4)
     $pill.Padding           = [System.Windows.Thickness]::new(6, 0, 6, 1)
     $pill.Margin            = [System.Windows.Thickness]::new(6, 0, 0, 0)
     $pill.VerticalAlignment = "Center"
@@ -1224,7 +1224,7 @@ function New-AppCard {
     $subBlock.FontSize     = 11
     $subBlock.TextWrapping = "Wrap"
     $subBlock.TextTrimming = "CharacterEllipsis"
-    $subBlock.MaxHeight    = 48
+    $subBlock.MaxHeight    = 32   # two lines
     $subBlock.Margin       = [System.Windows.Thickness]::new(0, 3, 0, 0)
     $subBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
 

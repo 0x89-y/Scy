@@ -42,7 +42,7 @@ function Apply-NetDiagFilter {
     }
 }
 
-# Flat rail: every entry is a top-level section.
+# Flat rail: plain entries, styled like every other single-level rail.
 function Build-NetRail {
     $panel = Find "NetRail"
     if (-not $panel) { return }
@@ -51,7 +51,7 @@ function Build-NetRail {
     for ($i = 0; $i -lt $script:netRailItems.Count; $i++) {
         $idx = $i
         $panel.Children.Add(
-            (New-RailEntry -Label $script:netRailItems[$idx].Label -IsSection $true `
+            (New-RailEntry -Label $script:netRailItems[$idx].Label `
                            -IsActive ($script:netRailIndex -eq $idx) `
                            -OnClick ({ Set-NetRail $idx }).GetNewClosure())) | Out-Null
     }
@@ -89,7 +89,6 @@ Set-NetRail 0
 
 $netHostBox         = Find "NetHostBox"
 $netHostPlaceholder = Find "NetHostPlaceholder"
-$netPingOutput      = Find "NetPingOutput"
 $netWifiPanel       = Find "NetWifiPanel"
 $btnNetPing         = Find "BtnNetPing"
 $btnNetTrace        = Find "BtnNetTrace"
@@ -98,13 +97,21 @@ $btnNetWifi         = Find "BtnNetWifi"
 $btnNetStop         = Find "BtnNetStop"
 
 # -- Speed test server list --------------------------------------------------
+# Automatic uses Cloudflare's speed-test service (nearest location, also measures
+# upload); the others are plain test files, download only. Cloudflare has no
+# Url: its endpoints are built in the test job. Streams is how many parallel
+# downloads the host allows per IP - Hetzner answers more than 2 with HTTP 429,
+# OVH more than 4.
 $script:speedServers = [ordered]@{
-    "Hetzner FSN1 (DE)"  = "https://fsn1-speed.hetzner.com/1GB.bin"
-    "Hetzner NBG1 (DE)"  = "https://nbg1-speed.hetzner.com/1GB.bin"
-    "Hetzner HEL1 (FI)"  = "https://hel1-speed.hetzner.com/1GB.bin"
-    "Hetzner ASH  (USA)" = "https://ash-speed.hetzner.com/1GB.bin"
-    "Hetzner HIL  (USA)" = "https://hil-speed.hetzner.com/1GB.bin"
-    "OVH BHS (Canada)"   = "https://proof.ovh.ca/files/1Gb.dat"
+    "Automatic (Cloudflare, nearest)" = @{ Cloudflare = $true;  Url = $null; Streams = 8 }
+    "Hetzner FSN1 (DE)"               = @{ Cloudflare = $false; Url = "https://fsn1-speed.hetzner.com/1GB.bin"; Streams = 2 }
+    "Hetzner NBG1 (DE)"               = @{ Cloudflare = $false; Url = "https://nbg1-speed.hetzner.com/1GB.bin"; Streams = 2 }
+    "Hetzner HEL1 (FI)"               = @{ Cloudflare = $false; Url = "https://hel1-speed.hetzner.com/1GB.bin"; Streams = 2 }
+    "Hetzner ASH (USA)"               = @{ Cloudflare = $false; Url = "https://ash-speed.hetzner.com/1GB.bin"; Streams = 2 }
+    "Hetzner HIL (USA)"               = @{ Cloudflare = $false; Url = "https://hil-speed.hetzner.com/1GB.bin"; Streams = 2 }
+    "Hetzner SIN (Singapore)"         = @{ Cloudflare = $false; Url = "https://sin-speed.hetzner.com/1GB.bin"; Streams = 2 }
+    "OVH RBX (France)"                = @{ Cloudflare = $false; Url = "https://proof.ovh.net/files/1Gb.dat"; Streams = 4 }
+    "OVH BHS (Canada)"                = @{ Cloudflare = $false; Url = "https://proof.ovh.ca/files/1Gb.dat"; Streams = 4 }
 }
 
 # -- Server selector ComboBox -----------------------------------------------
@@ -128,8 +135,9 @@ $netSpeedServerBox.Add_SelectionChanged({
     Save-Settings
 })
 
-# Shared process holder (ArrayList = .NET ref type, shared safely across runspaces)
-$script:netProcHolder = [System.Collections.ArrayList]::new()
+# Stop flag for ping/traceroute: the Stop button sets it, the job checks it
+# between probes (a synchronized hashtable is shared safely across runspaces)
+$script:netCancel = [hashtable]::Synchronized(@{ Stop = $false })
 
 # -- Placeholder behaviour ---------------------------------------------------
 $netHostBox.Add_GotFocus({  $netHostPlaceholder.Visibility = "Collapsed" })
@@ -145,90 +153,373 @@ $netHostBox.Add_KeyDown({
 
 # -- Status helpers ----------------------------------------------------------
 function Set-NetBusy([string]$msg) {
-    $statusIndicator.Text       = "* $msg"
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
     $footerStatus.Text          = "Scy - $msg"
     $btnNetPing.IsEnabled       = $false
     $btnNetTrace.IsEnabled      = $false
-    $btnNetSpeed.IsEnabled      = $false
     $btnNetStop.IsEnabled       = $true
     $window.Dispatcher.Invoke([action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
 }
 
 function Set-NetReady {
-    $statusIndicator.Text       = "* Ready"
-    $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
     $footerStatus.Text          = "Ready"
     $btnNetPing.IsEnabled       = $true
     $btnNetTrace.IsEnabled      = $true
-    $btnNetSpeed.IsEnabled      = $true
     $btnNetStop.IsEnabled       = $false
-    $script:netProcHolder.Clear()
 }
 
-# -- Live-streaming process runner -------------------------------------------
-# Streams stdout lines back to the UI via $emit; Stop-button cancellation kills
-# the external process via the shared $script:netProcHolder ArrayList.
-function Start-NetLiveExe {
-    param(
-        [string]$Exe,
-        [string]$Arguments,
-        [System.Windows.Controls.TextBox]$OutputBox,
-        [string]$StatusText
-    )
+# -- Ping / traceroute: text forms --------------------------------------------
+# Both use .NET's Ping class instead of ping.exe / tracert.exe: those print
+# localized text in the console code page, which came through garbled (umlauts
+# in the German timeout message turned into replacement characters). The Ping
+# class returns status codes and numbers, so the results view below is built
+# from data, and these functions give the plain-text form used by Copy.
+# They are unit-tested.
 
-    Set-NetBusy $StatusText
-    $OutputBox.Text = "> $Exe $Arguments`r`n$('-' * 60)`r`n"
+# "DestinationHostUnreachable" -> "Destination host unreachable"
+function ConvertTo-PingStatusText {
+    param([string]$Status)
+    $words = ($Status -creplace '(?<=[a-z])(?=[A-Z])', ' ').ToLower()
+    if (-not $words) { return "Unknown error" }
+    return $words.Substring(0, 1).ToUpper() + $words.Substring(1)
+}
+
+function Format-PingReply {
+    param([string]$Status, [string]$Address, [long]$Time, [int]$Ttl)
+    switch ($Status) {
+        "Success"  { return "Reply from ${Address}: $Time ms" + $(if ($Ttl -gt 0) { ", TTL $Ttl" } else { "" }) }
+        "TimedOut" { return "Request timed out" }
+        default {
+            $text = ConvertTo-PingStatusText $Status
+            if ($Address -and $Address -ne "0.0.0.0" -and $Address -ne "::") { return "Reply from ${Address}: $($text.ToLower())" }
+            return $text
+        }
+    }
+}
+
+# Numbers for a ping run. $Times are the round-trip times of the replies.
+function Get-PingStats {
+    param([int]$Sent, [long[]]$Times = @())
+    $times    = @($Times)
+    $received = $times.Count
+    $stats = @{
+        Sent = $Sent; Received = $received; Lost = $Sent - $received
+        Loss = if ($Sent -gt 0) { [int][math]::Round(100 * ($Sent - $received) / $Sent) } else { 0 }
+        Min  = $null; Avg = $null; Max = $null
+    }
+    if ($received -gt 0) {
+        $m = $times | Measure-Object -Minimum -Maximum -Average
+        $stats.Min = [long]$m.Minimum; $stats.Avg = [long][math]::Round($m.Average); $stats.Max = [long]$m.Maximum
+    }
+    return $stats
+}
+
+# Summary lines after a ping run (text form)
+function Get-PingSummary {
+    param([int]$Sent, [long[]]$Times = @())
+    $s     = Get-PingStats -Sent $Sent -Times $Times
+    $lines = @("Sent $($s.Sent), received $($s.Received), lost $($s.Lost) ($($s.Loss)% loss)")
+    if ($s.Received -gt 0) { $lines += "Min $($s.Min) ms, avg $($s.Avg) ms, max $($s.Max) ms" }
+    return ,$lines
+}
+
+# One traceroute hop: "  3   12 ms       *   10 ms    79.127.195.209"
+# $Times holds one entry per probe: a round-trip time, or $null for no answer.
+function Format-TraceHop {
+    param([int]$Hop, [object[]]$Times, [string]$Address)
+    $cols = foreach ($t in @($Times)) { if ($null -eq $t) { "{0,8}" -f "*" } else { "{0,8}" -f "$t ms" } }
+    $where = if ($Address) { $Address } else { "Request timed out" }
+    return ("{0,3}" -f $Hop) + ($cols -join "") + "    " + $where
+}
+
+# -- Ping / traceroute: results view ------------------------------------------
+# A stats line (ping), a column header, one row per reply or hop, and a footer.
+# All state lives in $script:netProbe; the job callbacks only call these functions.
+$netProbeTitle   = Find "NetProbeTitle"
+$netProbeStats   = Find "NetProbeStats"
+$netProbeHeader  = Find "NetProbeHeader"
+$netProbeRows    = Find "NetProbeRows"
+$netProbeFooter  = Find "NetProbeFooter"
+$btnNetProbeCopy = Find "BtnNetProbeCopy"
+$script:netProbe = @{ Mode = $null; Lines = @(); Sent = 0; Times = @(); Bars = @() }
+
+# Column widths per mode; "*" takes the rest
+$script:netProbeColumns = @{
+    Ping  = @(36, "*", 70, 150, 64)        # #, result, time, latency bar, TTL
+    Trace = @(36, "*", 70, 70, 70)         # hop, address, three probes
+}
+
+function New-NetProbeText {
+    param([string]$Text, [string]$Brush = "FgBrush", [string]$Align = "Left", [switch]$Bold, [double]$Size = 12)
+    $tb = New-Object System.Windows.Controls.TextBlock
+    $tb.Text = $Text
+    $tb.FontSize = $Size
+    $tb.TextAlignment = $Align
+    $tb.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
+    $tb.VerticalAlignment = "Center"
+    if ($Bold) { $tb.FontWeight = [System.Windows.FontWeights]::SemiBold }
+    $tb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $Brush)
+    return $tb
+}
+
+# A grid row with one element per column: of the current ping/trace mode, or
+# $Widths when given (NSLookup uses the same rows)
+function New-NetProbeRow {
+    param([object[]]$Cells, [double]$Padding = 4, [object[]]$Widths)
+    $grid = New-Object System.Windows.Controls.Grid
+    $grid.Margin = [System.Windows.Thickness]::new(0, $Padding, 0, $Padding)
+    $cols = if ($Widths) { $Widths } else { $script:netProbeColumns[$script:netProbe.Mode] }
+    for ($i = 0; $i -lt $cols.Count; $i++) {
+        $cd = New-Object System.Windows.Controls.ColumnDefinition
+        $cd.Width = if ($cols[$i] -eq "*") { [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star) } else { [System.Windows.GridLength]::new([double]$cols[$i]) }
+        $grid.ColumnDefinitions.Add($cd)
+        if ($i -lt $Cells.Count -and $Cells[$i]) {
+            $cell = $Cells[$i]
+            if ($i -gt 0) { $cell.Margin = [System.Windows.Thickness]::new(8, 0, 0, 0) }
+            [System.Windows.Controls.Grid]::SetColumn($cell, $i)
+            $grid.Children.Add($cell) | Out-Null
+        }
+    }
+    return $grid
+}
+
+# Back to the empty state, showing $Message
+function Reset-NetProbe {
+    param([string]$Message = "Enter a host above and click Ping or Traceroute.")
+    $script:netProbe = @{ Mode = $null; Lines = @(); Sent = 0; Times = @(); Bars = @() }
+    $netProbeTitle.Text = $Message
+    $netProbeTitle.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+    $netProbeStats.Children.Clear();  $netProbeStats.Visibility  = "Collapsed"
+    $netProbeHeader.Child = $null;    $netProbeHeader.Visibility = "Collapsed"
+    $netProbeRows.Children.Clear()
+    $netProbeFooter.Visibility = "Collapsed"
+    $btnNetProbeCopy.Visibility = "Collapsed"
+}
+
+function Start-NetProbeView {
+    param([string]$Mode, [string]$Label)
+    Reset-NetProbe
+    $script:netProbe.Mode = $Mode
+    $netProbeTitle.Text = if ($Mode -eq "Ping") { "Pinging $Label" } else { "Tracing route to $Label (max 30 hops)" }
+    $netProbeTitle.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+    $script:netProbe.Lines += if ($Mode -eq "Ping") { "Pinging $Label with 32 bytes of data:" } else { "Tracing route to $Label (max 30 hops):" }
+    $script:netProbe.Lines += ""
+
+    $labels = if ($Mode -eq "Ping") { @("#", "Result", "Time", "", "TTL") } else { @("Hop", "Address", "1", "2", "3") }
+    $cells = for ($i = 0; $i -lt $labels.Count; $i++) {
+        New-NetProbeText $labels[$i] "MutedText" $(if ($i -ge 2) { "Right" } else { "Left" }) -Size 11
+    }
+    $netProbeHeader.Child = New-NetProbeRow -Cells $cells -Padding 0
+    $netProbeHeader.Visibility = "Visible"
+    if ($Mode -eq "Ping") { Update-NetPingStats }
+}
+
+# The stats line: label/value pairs, loss colored by how bad it is
+function Update-NetPingStats {
+    $s = Get-PingStats -Sent $script:netProbe.Sent -Times $script:netProbe.Times
+    $netProbeStats.Children.Clear()
+    # Leading commas keep each pair a 3-item array (not flattened into the list)
+    $pairs = @(
+        ,@("Sent", "$($s.Sent)", "FgBrush")
+        ,@("Received", "$($s.Received)", "FgBrush")
+        ,@("Loss", "$($s.Loss)%", $(if ($s.Sent -eq 0 -or $s.Loss -eq 0) { "FgBrush" } elseif ($s.Loss -lt 100) { "WarningBrush" } else { "DangerBrush" }))
+    )
+    if ($s.Received -gt 0) { $pairs += ,@("Min", "$($s.Min) ms", "FgBrush"); $pairs += ,@("Avg", "$($s.Avg) ms", "FgBrush"); $pairs += ,@("Max", "$($s.Max) ms", "FgBrush") }
+    foreach ($p in $pairs) {
+        $sp = New-Object System.Windows.Controls.StackPanel
+        $sp.Orientation = "Horizontal"
+        $sp.Margin = [System.Windows.Thickness]::new(0, 0, 20, 0)
+        $sp.Children.Add((New-NetProbeText $p[0] "MutedText")) | Out-Null
+        $v = New-NetProbeText $p[1] $p[2] -Bold
+        $v.Margin = [System.Windows.Thickness]::new(6, 0, 0, 0)
+        $sp.Children.Add($v) | Out-Null
+        $netProbeStats.Children.Add($sp) | Out-Null
+    }
+    $netProbeStats.Visibility = "Visible"
+}
+
+# Latency bars are relative to the slowest reply so far
+function Update-NetPingBars {
+    $max = [math]::Max(1, (@($script:netProbe.Times) + 1 | Measure-Object -Maximum).Maximum)
+    foreach ($b in $script:netProbe.Bars) {
+        $b.Fill.Width = [math]::Max(3, [math]::Round(150 * $b.Time / $max))
+    }
+}
+
+function Add-NetPingReply {
+    param($m)
+    $script:netProbe.Sent++
+    $ok = ($m.Status -eq "Success")
+    $result = if ($ok) { New-NetProbeText $m.Address } else { New-NetProbeText (Format-PingReply -Status $m.Status -Address $m.Address) "DangerBrush" }
+    $time   = if ($ok) { New-NetProbeText "$($m.Time) ms" -Align Right } else { New-NetProbeText "-" "MutedText" -Align Right }
+    $bar = $null
+    if ($ok) {
+        $script:netProbe.Times += [long]$m.Time
+        $bar = New-Object System.Windows.Controls.Grid
+        $bar.Height = 6; $bar.VerticalAlignment = "Center"
+        $track = New-Object System.Windows.Controls.Border
+        $track.CornerRadius = [System.Windows.CornerRadius]::new(3)
+        $track.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BorderBrush")
+        $fill = New-Object System.Windows.Controls.Border
+        $fill.CornerRadius = [System.Windows.CornerRadius]::new(3)
+        $fill.HorizontalAlignment = "Left"
+        $fill.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
+        $bar.Children.Add($track) | Out-Null
+        $bar.Children.Add($fill) | Out-Null
+        $script:netProbe.Bars += @{ Fill = $fill; Time = [long]$m.Time }
+    }
+    $ttl = if ($ok -and $m.Ttl -gt 0) { New-NetProbeText "$($m.Ttl)" "MutedText" -Align Right } else { $null }
+    $netProbeRows.Children.Add((New-NetProbeRow -Cells @((New-NetProbeText "$($m.Seq)" "MutedText"), $result, $time, $bar, $ttl))) | Out-Null
+    $script:netProbe.Lines += Format-PingReply -Status $m.Status -Address $m.Address -Time $m.Time -Ttl $m.Ttl
+    Update-NetPingBars
+    Update-NetPingStats
+}
+
+function Add-NetTraceHop {
+    param($m)
+    $where = New-Object System.Windows.Controls.StackPanel
+    $where.VerticalAlignment = "Center"
+    if ($m.Address) {
+        $where.Children.Add((New-NetProbeText $m.Address)) | Out-Null
+        if ($m.HostName) { $where.Children.Add((New-NetProbeText $m.HostName "MutedText" -Size 11)) | Out-Null }
+    } else {
+        $where.Children.Add((New-NetProbeText "No reply" "MutedText")) | Out-Null
+    }
+    $cells = @((New-NetProbeText "$($m.Hop)" "MutedText"), $where)
+    foreach ($t in @($m.Times)) {
+        $cells += if ($null -eq $t) { New-NetProbeText "*" "MutedText" -Align Right } else { New-NetProbeText "$t ms" -Align Right }
+    }
+    $netProbeRows.Children.Add((New-NetProbeRow -Cells $cells)) | Out-Null
+    $addr = if ($m.HostName) { "$($m.HostName) [$($m.Address)]" } else { $m.Address }
+    $script:netProbe.Lines += Format-TraceHop -Hop $m.Hop -Times $m.Times -Address $addr
+}
+
+# $Text: closing line ("Trace complete.", "Stopped.", ...) or $null
+function Complete-NetProbe {
+    param([string]$Text, [string]$Brush = "MutedText")
+    if ($script:netProbe.Mode -eq "Ping" -and $script:netProbe.Sent -gt 0) {
+        $script:netProbe.Lines += ""
+        $script:netProbe.Lines += Get-PingSummary -Sent $script:netProbe.Sent -Times $script:netProbe.Times
+    }
+    if ($Text) {
+        $netProbeFooter.Text = $Text
+        $netProbeFooter.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $Brush)
+        $netProbeFooter.Visibility = "Visible"
+        $script:netProbe.Lines += ""
+        $script:netProbe.Lines += $Text
+    }
+    if ($netProbeRows.Children.Count -gt 0) { $btnNetProbeCopy.Visibility = "Visible" }
+}
+
+$btnNetProbeCopy.Add_Click({
+    Invoke-CopyAllFlash -Button $this -Text (($script:netProbe.Lines | Where-Object { $null -ne $_ }) -join "`r`n").Trim()
+})
+
+# -- Ping / traceroute job ----------------------------------------------------
+# Resolves the host, then pings it ($Mode "Ping") or probes it hop by hop with
+# rising TTLs ($Mode "Trace"). Sends plain data back; the view above draws it.
+function Start-NetProbe {
+    param([ValidateSet("Ping", "Trace")][string]$Mode, [string]$Target)
+
+    $script:netCancel.Stop = $false
+    Set-NetBusy $(if ($Mode -eq "Ping") { "Pinging $Target..." } else { "Tracing route to $Target..." })
+    Reset-NetProbe $(if ($Mode -eq "Ping") { "Pinging $Target..." } else { "Tracing route to $Target..." })
 
     Start-ScyJob `
-        -Variables @{
-            exe        = $Exe
-            argStr     = $Arguments
-            procHolder = $script:netProcHolder
-        } `
-        -Context @{ Box = $OutputBox } `
+        -Variables @{ mode = $Mode; target = $Target; cancel = $script:netCancel } `
+        -Context   @{ Mode = $Mode } `
         -Work {
             param($emit)
-            $psi = [System.Diagnostics.ProcessStartInfo]::new()
-            $psi.FileName               = $exe
-            $psi.Arguments              = $argStr
-            $psi.UseShellExecute        = $false
-            $psi.RedirectStandardOutput = $true
-            $psi.RedirectStandardError  = $true
-            $psi.CreateNoWindow         = $true
-
-            $p = [System.Diagnostics.Process]::new()
-            $p.StartInfo = $psi
-            $p.Start() | Out-Null
-            $procHolder.Clear()
-            $procHolder.Add($p) | Out-Null
-
-            while (-not $p.StandardOutput.EndOfStream) {
-                $line = $p.StandardOutput.ReadLine()
-                & $emit $line
+            # Resolve once (IPv4 preferred, like the classic tools) so every row
+            # shows the address actually probed
+            $ip = $null
+            if (-not [System.Net.IPAddress]::TryParse($target, [ref]$ip)) {
+                try {
+                    $all = [System.Net.Dns]::GetHostAddresses($target)
+                    $ip  = @($all | Where-Object { $_.AddressFamily -eq 'InterNetwork' }) + @($all) | Select-Object -First 1
+                } catch { $ip = $null }
+                if (-not $ip) { & $emit @{ Kind = 'error'; Text = "Could not find host '$target'. Check the name and try again." }; return }
             }
-            $p.WaitForExit()
+            $label = if ($ip.ToString() -eq $target) { $target } else { "$target [$ip]" }
+            & $emit @{ Kind = 'start'; Label = $label }
+
+            $pinger = [System.Net.NetworkInformation.Ping]::new()
+            $buffer = [byte[]]::new(32)
+            try {
+                if ($mode -eq "Ping") {
+                    for ($i = 0; $i -lt 4 -and -not $cancel.Stop; $i++) {
+                        $started = [DateTime]::UtcNow
+                        $r = $pinger.Send($ip, 2000, $buffer)
+                        $ttl = if ($r.Options) { $r.Options.Ttl } else { 0 }
+                        & $emit @{ Kind = 'reply'; Seq = $i + 1; Status = [string]$r.Status; Address = [string]$r.Address; Time = $r.RoundtripTime; Ttl = $ttl }
+                        # One ping per second, like ping.exe; wake early on Stop
+                        while ($i -lt 3 -and -not $cancel.Stop -and ([DateTime]::UtcNow - $started).TotalMilliseconds -lt 1000) { Start-Sleep -Milliseconds 50 }
+                    }
+                    & $emit @{ Kind = 'end'; Text = $(if ($cancel.Stop) { "Stopped." } else { $null }) }
+                } else {
+                    $reached = $false
+                    $names = @{}
+                    for ($ttl = 1; $ttl -le 30 -and -not $reached -and -not $cancel.Stop; $ttl++) {
+                        $opts  = [System.Net.NetworkInformation.PingOptions]::new($ttl, $true)
+                        $times = @(); $from = $null
+                        for ($probe = 0; $probe -lt 3 -and -not $cancel.Stop; $probe++) {
+                            $sw = [Diagnostics.Stopwatch]::StartNew()
+                            $r  = $pinger.Send($ip, 1000, $buffer, $opts)
+                            if ($r.Status -eq 'Success' -or $r.Status -eq 'TtlExpired') {
+                                # RoundtripTime is 0 for TtlExpired replies; time it ourselves
+                                $times += $sw.ElapsedMilliseconds
+                                $from = [string]$r.Address
+                                if ($r.Status -eq 'Success') { $reached = $true }
+                            } else {
+                                $times += $null
+                            }
+                        }
+                        if ($cancel.Stop -and $times.Count -lt 3) { break }   # don't show a half-probed hop
+                        # Reverse lookup, capped so a slow DNS server can't stall the trace
+                        $hostName = $null
+                        if ($from) {
+                            if (-not $names.ContainsKey($from)) {
+                                $names[$from] = $null
+                                try {
+                                    $task = [System.Net.Dns]::GetHostEntryAsync($from)
+                                    if ($task.Wait(700) -and $task.Result.HostName -ne $from) { $names[$from] = $task.Result.HostName }
+                                } catch { }
+                            }
+                            $hostName = $names[$from]
+                        }
+                        & $emit @{ Kind = 'hop'; Hop = $ttl; Times = $times; Address = $from; HostName = $hostName }
+                    }
+                    $end = if ($reached) { "Trace complete." } elseif ($cancel.Stop) { "Stopped." } else { "Target not reached within 30 hops." }
+                    & $emit @{ Kind = 'end'; Text = $end }
+                }
+            } finally {
+                $pinger.Dispose()
+            }
         } `
         -OnLine {
-            param($line, $ctx)
-            $ctx.Box.AppendText("$line`r`n")
-            $ctx.Box.ScrollToEnd()
+            param($m, $ctx)
+            switch ($m.Kind) {
+                'start' { Start-NetProbeView -Mode $ctx.Mode -Label $m.Label }
+                'reply' { Add-NetPingReply $m }
+                'hop'   { Add-NetTraceHop $m }
+                'end'   { Complete-NetProbe $m.Text }
+                'error' { Reset-NetProbe $m.Text; $netProbeTitle.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "DangerBrush") }
+            }
         } `
         -OnComplete {
             param($result, $err, $ctx)
+            if ($err) { Complete-NetProbe "Error: $($err.Exception.Message)" "DangerBrush" }
             Set-NetReady
         } | Out-Null
 }
 
 # -- Target host -------------------------------------------------------------
 # Returns the host to ping/trace, or $null if the box holds something that isn't
-# a hostname / IP. The value is spliced into a command line, so anything with
-# spaces or a leading dash (e.g. "-t host" -> ping forever) is rejected.
+# a hostname / IP (spaces, a leading dash and other stray characters are rejected).
 function Get-NetTargetHost {
     $h = $netHostBox.Text.Trim()
     if ([string]::IsNullOrWhiteSpace($h)) { return "8.8.8.8" }
     if ($h -match '^[A-Za-z0-9_][A-Za-z0-9.\-_:%]*$') { return $h }
-    $netPingOutput.Text = "Enter a hostname or IP address (e.g. example.com or 1.1.1.1)."
+    Reset-NetProbe "Enter a hostname or IP address (e.g. example.com or 1.1.1.1)."
     return $null
 }
 
@@ -236,8 +527,7 @@ function Get-NetTargetHost {
 function Invoke-NetPing {
     $h = Get-NetTargetHost
     if (-not $h) { return }
-    Start-NetLiveExe -Exe "ping" -Arguments "-n 4 $h" `
-                     -OutputBox $netPingOutput -StatusText "Pinging $h..."
+    Start-NetProbe -Mode Ping -Target $h
 }
 
 $btnNetPing.Add_Click({ Invoke-NetPing })
@@ -246,155 +536,327 @@ $btnNetPing.Add_Click({ Invoke-NetPing })
 function Invoke-NetTrace {
     $h = Get-NetTargetHost
     if (-not $h) { return }
-    Start-NetLiveExe -Exe "tracert" -Arguments "-d $h" `
-                     -OutputBox $netPingOutput -StatusText "Tracing route to $h..."
+    Start-NetProbe -Mode Trace -Target $h
 }
 
 $btnNetTrace.Add_Click({ Invoke-NetTrace })
 
 # -- Stop --------------------------------------------------------------------
-$btnNetStop.Add_Click({
-    if ($script:netProcHolder.Count -gt 0) {
-        $p = $script:netProcHolder[0]
-        if ($p -and -not $p.HasExited) {
-            try { $p.Kill() } catch {}
-        }
-    }
-})
+$btnNetStop.Add_Click({ $script:netCancel.Stop = $true })
 
 # -- Speed test --------------------------------------------------------------
-$netSpeedStatus      = Find "NetSpeedStatus"
-$netSpeedResultPanel = Find "NetSpeedResultPanel"
-$netSpeedValue       = Find "NetSpeedValue"
-$netSpeedLabel       = Find "NetSpeedLabel"
-$netSpeedDetailsGrid = Find "NetSpeedDetailsGrid"
-$netSpeedStreams     = Find "NetSpeedStreams"
-$netSpeedSampled     = Find "NetSpeedSampled"
-$netSpeedDuration    = Find "NetSpeedDuration"
+# Latency (median of small requests on one kept-alive connection), then download
+# over parallel streams (as many as the server allows), then upload over 4
+# (Cloudflare only - the test-file servers can't receive). Each phase warms up,
+# then measures for a fixed time with live numbers. Stream errors are collected
+# and reported: a dead server, a moved test file or a rate limit (HTTP 429) used
+# to show up as a silent "0 Mbps".
+$netSpeedStatus  = Find "NetSpeedStatus"
+$netSpeedMetrics = Find "NetSpeedMetrics"
+$netSpeedDown    = Find "NetSpeedDown"
+$netSpeedUp      = Find "NetSpeedUp"
+$netSpeedUpUnit  = Find "NetSpeedUpUnit"
+$netSpeedPing    = Find "NetSpeedPing"
+$netSpeedDetails = Find "NetSpeedDetails"
+$script:speedCancel  = [hashtable]::Synchronized(@{ Stop = $false })
+$script:speedRunning = $false
 
-$btnNetSpeed.Add_Click({
-    $selectedServer = $script:speedTestServer
-    $serverUrl      = $script:speedServers[$selectedServer]
-    $netSpeedStatus.Text = "Running speed test via $selectedServer ..."
-    $netSpeedResultPanel.Visibility = "Collapsed"
-    $netSpeedDetailsGrid.Visibility = "Collapsed"
-    Set-NetBusy "Speed test running..."
-    # Speed test has no killable process, keep Stop disabled (the button
-    # style already fades disabled buttons; a manual Opacity was never reset)
-    $btnNetStop.IsEnabled = $false
+# A stream's error code ("Timeout", "HTTP 404", ...) -> readable text (unit-tested)
+function ConvertTo-SpeedErrorText {
+    param([string]$Code)
+    if ($Code -match '^HTTP (\d+)$') {
+        switch ([int]$Matches[1]) {
+            403     { return "the server refused the request (HTTP 403)" }
+            404     { return "the test file wasn't found (HTTP 404)" }
+            429     { return "too many requests, try again later (HTTP 429)" }
+            default { return "the server answered with HTTP $($Matches[1])" }
+        }
+    }
+    switch ($Code) {
+        "Timeout"               { return "the connection timed out" }
+        "NameResolutionFailure" { return "the server name couldn't be found" }
+        "ConnectFailure"        { return "couldn't connect to the server" }
+        "SecureChannelFailure"  { return "the secure (TLS) connection failed" }
+        "ConnectionClosed"      { return "the server closed the connection" }
+        "ReceiveFailure"        { return "the connection broke off" }
+        "SendFailure"           { return "sending to the server failed" }
+        default { if ($Code) { return (ConvertTo-PingStatusText $Code).ToLower() } else { return "unknown error" } }
+    }
+}
+
+# 8.4 / 95 / 940: one decimal below 10 Mbps, whole numbers above (unit-tested)
+function Format-SpeedMbps {
+    param([double]$Mbps)
+    $fmt = if ($Mbps -lt 10) { "{0:0.0}" } else { "{0:0}" }
+    return [string]::Format([System.Globalization.CultureInfo]::InvariantCulture, $fmt, $Mbps)
+}
+
+function Set-SpeedRunning {
+    param([bool]$On)
+    $script:speedRunning = $On
+    $btnNetSpeed.Content   = if ($On) { "Stop" } else { "Start" }
+    $btnNetSpeed.Style     = $window.Resources[$(if ($On) { "SecondaryButton" } else { "ActionButton" })]
+    $btnNetSpeed.IsEnabled = $true
+    $netSpeedServerBox.IsEnabled = -not $On
+    if ($On) { Set-BusyStatus "Speed test running..." } else { Set-ReadyStatus }
+}
+
+function Set-SpeedStatus {
+    param([string]$Text, [string]$Brush = "MutedText")
+    $netSpeedStatus.Text = $Text
+    $netSpeedStatus.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $Brush)
+}
+
+function Start-SpeedTest {
+    $name   = [string]$netSpeedServerBox.SelectedItem
+    $server = $script:speedServers[$name]
+    if (-not $server) { return }
+    $script:speedCancel.Stop = $false
+    Set-SpeedRunning $true
+    Set-SpeedStatus "Connecting to $name..."
+    $netSpeedDown.Text = "-"; $netSpeedUp.Text = "-"; $netSpeedPing.Text = "-"
+    $netSpeedUpUnit.Visibility = "Visible"
+    $netSpeedUp.ToolTip = $null
+    $netSpeedMetrics.Visibility = "Visible"
+    $netSpeedDetails.Visibility = "Collapsed"
 
     Start-ScyJob `
-        -Variables @{ url = $serverUrl } `
-        -Context   @{ Server = $selectedServer } `
+        -Variables @{ isCf = $server.Cloudflare; url = $server.Url; streams = $server.Streams; cancel = $script:speedCancel } `
+        -Context   @{ Server = $name; Cloudflare = $server.Cloudflare } `
         -Work {
             param($emit)
-            $numConns = 8
-            $total    = [long[]]::new(1)
-            $phase    = [int[]]::new(1)
-            $lk       = [object]::new()
+            [System.Net.ServicePointManager]::DefaultConnectionLimit = [Math]::Max([System.Net.ServicePointManager]::DefaultConnectionLimit, 32)
+            $cfBase  = "https://speed.cloudflare.com"
+            $downUrl = if ($isCf) { "$cfBase/__down?bytes=90000000" } else { $url }   # Cloudflare refuses 100 MB+
+            $pingUrl = if ($isCf) { "$cfBase/__down?bytes=0" } else { $url }
 
-            $workerScript = {
-                param($u, $phase, $total, $lk)
-                $localBytes = [long]0
+            # WebException -> short code ("HTTP 404", "Timeout", ...); the workers get its text
+            $errCodeText = {
+                param($ex)
+                while ($ex -and -not ($ex -is [System.Net.WebException]) -and $ex.InnerException) { $ex = $ex.InnerException }
+                if ($ex -is [System.Net.WebException]) {
+                    if ($ex.Response -and $ex.Response.StatusCode) { return "HTTP " + [int]$ex.Response.StatusCode }
+                    return [string]$ex.Status
+                }
+                return $ex.GetType().Name
+            }.ToString()
+            $errCode = [scriptblock]::Create($errCodeText)
+
+            # -- Latency: the first request includes the TLS handshake, so it's dropped
+            & $emit @{ Kind = 'status'; Text = "Measuring latency..." }
+            $times = @(); $colo = $null; $pingErr = $null
+            for ($i = 0; $i -lt 6 -and -not $cancel.Stop; $i++) {
                 try {
-                    $req           = [System.Net.HttpWebRequest]::Create($u)
-                    $req.UserAgent = "Mozilla/5.0"
-                    $req.Timeout   = 20000
-                    $req.ServicePoint.ConnectionLimit = 16
-                    $resp          = $req.GetResponse()
-                    $str           = $resp.GetResponseStream()
-                    $buf           = New-Object byte[] 524288
-                    while ($phase[0] -lt 2) {
-                        $r = $str.Read($buf, 0, $buf.Length)
-                        if ($r -le 0) { break }
-                        if ($phase[0] -eq 1) { $localBytes += $r }
+                    $req = [System.Net.HttpWebRequest]::Create($pingUrl)
+                    $req.UserAgent = "Scy"; $req.Timeout = 10000; $req.KeepAlive = $true
+                    if (-not $isCf) { $req.AddRange(0, 0) }
+                    $sw   = [Diagnostics.Stopwatch]::StartNew()
+                    $resp = $req.GetResponse()
+                    $ms   = $sw.Elapsed.TotalMilliseconds
+                    # CF-RAY ends in the answering location's airport code, e.g. "-VIE"
+                    if ($isCf -and -not $colo -and ([string]$resp.Headers["CF-RAY"]) -match '-([A-Z]{3})$') { $colo = $Matches[1] }
+                    $s = $resp.GetResponseStream(); $b = [byte[]]::new(4096)
+                    while ($s.Read($b, 0, $b.Length) -gt 0) { }
+                    $resp.Close()
+                    if ($i -gt 0) { $times += $ms }
+                } catch { $pingErr = & $errCode $_.Exception; break }
+            }
+            if ($cancel.Stop) { return @{ Cancelled = $true } }
+            if ($times.Count -eq 0) { return @{ Error = $(if ($pingErr) { $pingErr } else { "unknown" }) } }
+            $ping = [math]::Round(@($times | Sort-Object)[[int][math]::Floor($times.Count / 2)])
+            & $emit @{ Kind = 'ping'; Value = $ping; Colo = $colo }
+
+            # -- One measured phase: $Streams workers run $Worker; bytes count only
+            # while measuring (after the warm-up). Live Mbps every half second.
+            function Measure-SpeedPhase {
+                param([scriptblock]$Worker, [string]$Target, [int]$Streams, [string]$Name, [int]$WarmMs, [int]$MeasureMs)
+                $phase = [int[]]::new(1); $total = [long[]]::new(1); $lk = [object]::new()
+                $errs  = [System.Collections.ArrayList]::Synchronized([System.Collections.ArrayList]::new())
+                $pool  = [runspacefactory]::CreateRunspacePool($Streams, $Streams)
+                $pool.Open()
+                $jobs = for ($i = 0; $i -lt $Streams; $i++) {
+                    $ps = [powershell]::Create()
+                    $ps.RunspacePool = $pool
+                    [void]$ps.AddScript($Worker)
+                    foreach ($a in @($Target, $phase, $total, $lk, $errs, $cancel, $errCodeText)) { [void]$ps.AddArgument($a) }
+                    @{ PS = $ps; Handle = $ps.BeginInvoke() }
+                }
+                $sw = [Diagnostics.Stopwatch]::StartNew()
+                while ($sw.ElapsedMilliseconds -lt $WarmMs -and -not $cancel.Stop) { Start-Sleep -Milliseconds 100 }
+                $phase[0] = 1
+                $sw.Restart(); $nextLive = 500
+                while ($sw.ElapsedMilliseconds -lt $MeasureMs -and -not $cancel.Stop) {
+                    Start-Sleep -Milliseconds 100
+                    # every stream already failed: nothing left to measure
+                    if ($errs.Count -ge $Streams) { break }
+                    if ($sw.ElapsedMilliseconds -ge $nextLive) {
+                        & $emit @{ Kind = 'live'; Phase = $Name; Mbps = $total[0] * 8 / $sw.Elapsed.TotalSeconds / 1e6 }
+                        $nextLive += 500
                     }
-                    # Abort rather than Close: closing a half-read response can make
-                    # .NET drain the rest of the 1 GB file before returning.
-                    $req.Abort()
-                } catch {}
-                [System.Threading.Monitor]::Enter($lk)
-                $total[0] += $localBytes
-                [System.Threading.Monitor]::Exit($lk)
+                }
+                $seconds = $sw.Elapsed.TotalSeconds
+                $phase[0] = 2
+                foreach ($j in $jobs) { try { [void]$j.PS.EndInvoke($j.Handle) } catch { }; $j.PS.Dispose() }
+                $pool.Close(); $pool.Dispose()
+                return @{ Bytes = $total[0]; Seconds = $seconds; Mbps = $total[0] * 8 / [math]::Max($seconds, 0.001) / 1e6
+                          Errors = @($errs); Streams = $Streams }
             }
 
-            # .NET Framework allows only 2 connections per host by default, which
-            # silently capped the "8 parallel streams" at 2.
-            [System.Net.ServicePointManager]::DefaultConnectionLimit = [Math]::Max([System.Net.ServicePointManager]::DefaultConnectionLimit, 16)
-
-            $pool = [runspacefactory]::CreateRunspacePool($numConns, $numConns)
-            $pool.Open()
-
-            & $emit "Connecting ($numConns parallel streams)..."
-            $jobs = 1..$numConns | ForEach-Object {
-                $ps = [powershell]::Create()
-                $ps.RunspacePool = $pool
-                $ps.AddScript($workerScript) | Out-Null
-                $ps.AddArgument($url)   | Out-Null
-                $ps.AddArgument($phase) | Out-Null
-                $ps.AddArgument($total) | Out-Null
-                $ps.AddArgument($lk)    | Out-Null
-                @{ PS = $ps; Handle = $ps.BeginInvoke() }
+            $downloadWorker = {
+                param($u, $phase, $total, $lk, $errs, $cancel, $errCodeText)
+                $errCode = [scriptblock]::Create($errCodeText)
+                $buf = [byte[]]::new(262144)
+                while ($phase[0] -lt 2 -and -not $cancel.Stop) {
+                    $req = $null
+                    try {
+                        $req = [System.Net.HttpWebRequest]::Create($u)
+                        $req.UserAgent = "Scy"; $req.Timeout = 15000; $req.ReadWriteTimeout = 15000
+                        $str = $req.GetResponse().GetResponseStream()
+                        while ($phase[0] -lt 2 -and -not $cancel.Stop) {
+                            $r = $str.Read($buf, 0, $buf.Length)
+                            if ($r -le 0) { break }   # file done: the outer loop asks again
+                            if ($phase[0] -eq 1) { [Threading.Monitor]::Enter($lk); $total[0] += $r; [Threading.Monitor]::Exit($lk) }
+                        }
+                        # Abort, not Close: closing a half-read response drains the rest of the file
+                        $req.Abort()
+                    } catch {
+                        if ($phase[0] -lt 2 -and -not $cancel.Stop) { [void]$errs.Add((& $errCode $_.Exception)) }
+                        if ($req) { try { $req.Abort() } catch { } }
+                        break
+                    }
+                }
             }
 
-            & $emit "Warming up..."
-            $phase[0] = 0
-            Start-Sleep -Milliseconds 1500
+            $uploadWorker = {
+                param($u, $phase, $total, $lk, $errs, $cancel, $errCodeText)
+                $errCode = [scriptblock]::Create($errCodeText)
+                $chunk = [byte[]]::new(65536)
+                $size  = 25000000
+                while ($phase[0] -lt 2 -and -not $cancel.Stop) {
+                    $req = $null
+                    try {
+                        $req = [System.Net.HttpWebRequest]::Create($u)
+                        $req.Method = "POST"; $req.ContentType = "application/octet-stream"; $req.UserAgent = "Scy"
+                        $req.ContentLength = $size; $req.AllowWriteStreamBuffering = $false
+                        $req.Timeout = 15000; $req.ReadWriteTimeout = 15000
+                        $s = $req.GetRequestStream(); $sent = 0
+                        while ($sent -lt $size -and $phase[0] -lt 2 -and -not $cancel.Stop) {
+                            $n = [Math]::Min($chunk.Length, $size - $sent)
+                            $s.Write($chunk, 0, $n); $sent += $n
+                            if ($phase[0] -eq 1) { [Threading.Monitor]::Enter($lk); $total[0] += $n; [Threading.Monitor]::Exit($lk) }
+                        }
+                        if ($sent -ge $size) { $s.Close(); $req.GetResponse().Close() } else { $req.Abort() }
+                    } catch {
+                        if ($phase[0] -lt 2 -and -not $cancel.Stop) { [void]$errs.Add((& $errCode $_.Exception)) }
+                        if ($req) { try { $req.Abort() } catch { } }
+                        break
+                    }
+                }
+            }
 
-            & $emit "Measuring download speed..."
-            $phase[0] = 1
-            $sw = [System.Diagnostics.Stopwatch]::StartNew()
-            Start-Sleep -Milliseconds 3000
-            $sw.Stop()
-            $phase[0] = 2
+            & $emit @{ Kind = 'status'; Text = "Measuring download..." }
+            $down = Measure-SpeedPhase -Worker $downloadWorker -Target $downUrl -Streams $streams -Name 'down' -WarmMs 1500 -MeasureMs 4000
+            if ($cancel.Stop) { return @{ Cancelled = $true; Ping = $ping; Colo = $colo; Down = $down } }
+            if ($down.Bytes -eq 0) {
+                return @{ Error = $(if ($down.Errors.Count) { $down.Errors[0] } else { "Timeout" }); Ping = $ping; Colo = $colo }
+            }
+            & $emit @{ Kind = 'live'; Phase = 'down'; Mbps = $down.Mbps }
 
-            $jobs | ForEach-Object { try { $_.PS.EndInvoke($_.Handle) } catch {} }
-            $pool.Close()
-
-            $seconds = [math]::Round($sw.Elapsed.TotalSeconds, 3)
-            $sizeMB  = [math]::Round($total[0] / 1MB, 2)
-            $mbps    = [math]::Round(($total[0] * 8) / $sw.Elapsed.TotalSeconds / 1000000, 2)
-
-            return @{ Mbps = $mbps; SizeMB = $sizeMB; Seconds = $seconds; NumConns = $numConns }
+            $up = $null
+            if ($isCf) {
+                & $emit @{ Kind = 'status'; Text = "Measuring upload..." }
+                $up = Measure-SpeedPhase -Worker $uploadWorker -Target "$cfBase/__up" -Streams 4 -Name 'up' -WarmMs 1000 -MeasureMs 4000
+                if (-not $cancel.Stop) { & $emit @{ Kind = 'live'; Phase = 'up'; Mbps = $up.Mbps } }
+            }
+            return @{ Ping = $ping; Colo = $colo; Down = $down; Up = $up; Cancelled = [bool]$cancel.Stop }
         } `
         -OnLine {
-            param($line, $ctx)
-            $netSpeedStatus.Text = $line
+            param($m, $ctx)
+            Show-SpeedProgress $m
         } `
         -OnComplete {
             param($result, $err, $ctx)
-            if ($err) {
-                $netSpeedStatus.Text = "Error: $($err.Exception.Message)"
-                Set-NetReady
-                return
-            }
-            $netSpeedValue.Text    = "$($result.Mbps)"
-            $netSpeedLabel.Text    = "Download  via $($ctx.Server)"
-            $netSpeedStreams.Text  = "$($result.NumConns)"
-            $netSpeedSampled.Text  = "$($result.SizeMB) MB"
-            $netSpeedDuration.Text = "$($result.Seconds)s"
-            $netSpeedResultPanel.Visibility = "Visible"
-            $netSpeedDetailsGrid.Visibility = "Visible"
-            $netSpeedStatus.Text   = "Completed"
-            Set-NetReady
+            Complete-SpeedTest $result $err $ctx
         } | Out-Null
+}
+
+function Show-SpeedProgress {
+    param($m)
+    switch ($m.Kind) {
+        'status' { Set-SpeedStatus $m.Text }
+        'ping'   { $netSpeedPing.Text = "$($m.Value)" }
+        'live'   {
+            $target = if ($m.Phase -eq 'down') { $netSpeedDown } else { $netSpeedUp }
+            $target.Text = Format-SpeedMbps $m.Mbps
+        }
+    }
+}
+
+function Complete-SpeedTest {
+    param($Result, $Err, $Ctx)
+    Set-SpeedRunning $false
+    if ($Err) { Set-SpeedStatus "The speed test failed: $($Err.Exception.Message)" "DangerBrush"; return }
+    $where = if ($Ctx.Cloudflare -and $Result.Colo) { "Cloudflare ($($Result.Colo))" } else { $Ctx.Server }
+
+    if ($Result.Error) {
+        Set-SpeedStatus "Couldn't test against ${where}: $(ConvertTo-SpeedErrorText $Result.Error). Try another server." "DangerBrush"
+        if (-not $Result.Ping) { $netSpeedMetrics.Visibility = "Collapsed" }
+        return
+    }
+    if (-not $Ctx.Cloudflare) {
+        $netSpeedUp.Text = "n/a"
+        $netSpeedUpUnit.Visibility = "Collapsed"
+        $netSpeedUp.ToolTip = "Upload is only measured with Automatic (Cloudflare)"
+    }
+
+    # Details: what was measured, and any streams that failed along the way
+    $parts = @()
+    foreach ($p in @(@{ Name = "download"; R = $Result.Down }, @{ Name = "upload"; R = $Result.Up })) {
+        if (-not $p.R) { continue }
+        $mb = [math]::Round($p.R.Bytes / 1MB)
+        $parts += "$($p.R.Streams) $($p.Name) streams, $mb MB in $([math]::Round($p.R.Seconds, 1)) s"
+        $failed = @($p.R.Errors).Count
+        if ($failed -gt 0) {
+            $parts += "$failed of $($p.R.Streams) $($p.Name) streams failed: $(ConvertTo-SpeedErrorText @($p.R.Errors)[0])"
+        }
+    }
+    $netSpeedDetails.Text = $parts -join "  |  "
+    $netSpeedDetails.Visibility = if ($parts.Count) { "Visible" } else { "Collapsed" }
+
+    if ($Result.Cancelled) { Set-SpeedStatus "Stopped. Partial results via $where." }
+    else { Set-SpeedStatus "Tested via $where." "FgBrush" }
+}
+
+$btnNetSpeed.Add_Click({
+    if ($script:speedRunning) {
+        # Stop: the job notices within ~0.1 s and finishes its current phase early
+        $script:speedCancel.Stop = $true
+        $btnNetSpeed.IsEnabled = $false
+        Set-SpeedStatus "Stopping..."
+        return
+    }
+    Start-SpeedTest
 })
 
 # -- NSLookup -----------------------------------------------------------------
 $netNSBox          = Find "NetNSBox"
 $netNSPlaceholder  = Find "NetNSPlaceholder"
 $netNSStatus       = Find "NetNSStatus"
+$netNSHeader       = Find "NetNSHeader"
 $netNSResultsPanel = Find "NetNSResultsPanel"
 $netNSTypeBox      = Find "NetNSTypeBox"
 $btnNetNSLookup    = Find "BtnNetNSLookup"
 $btnNetNSCopy      = Find "BtnNetNSCopy"
 
-# Record type selector
+# Record type selector; "All" queries the common types
 $script:nsRecordTypes = @("All", "A", "AAAA", "MX", "NS", "CNAME", "TXT", "SOA", "SRV", "PTR")
 foreach ($rt in $script:nsRecordTypes) {
     $netNSTypeBox.Items.Add($rt) | Out-Null
 }
 $netNSTypeBox.SelectedIndex = 0
+$script:nsAllTypes = @("A", "AAAA", "MX", "NS", "CNAME", "TXT")
+$script:nsColumns  = @(56, "*", 150, 70)   # type, value, details, TTL (set per lookup)
+$script:nsLines    = @()                   # text form for Copy
 
 # Placeholder behavior
 $netNSBox.Add_GotFocus({  $netNSPlaceholder.Visibility = "Collapsed" })
@@ -404,214 +866,133 @@ $netNSBox.Add_LostFocus({
     }
 })
 
-# Store last results for copy
-$script:nsLastResults = ""
-
-# -- Helpers to build styled result elements ----------------------------------
-function New-NSRecordRow {
-    param([string]$Value, [string]$Detail)
-
-    $row = New-Object System.Windows.Controls.DockPanel
-    $row.Margin = [System.Windows.Thickness]::new(0, 2, 0, 2)
-
-    $valBlock = New-Object System.Windows.Controls.TextBlock
-    $valBlock.Text       = $Value
-    $valBlock.FontFamily = New-Object System.Windows.Media.FontFamily("IBM Plex Mono, Cascadia Mono, Consolas")
-    $valBlock.FontSize   = 12
-    $valBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-    $valBlock.VerticalAlignment = "Center"
-    $valBlock.TextWrapping = "Wrap"
-    $row.Children.Add($valBlock) | Out-Null
-
-    if ($Detail) {
-        $detBlock = New-Object System.Windows.Controls.TextBlock
-        $detBlock.Text       = $Detail
-        $detBlock.FontSize   = 11
-        $detBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-        $detBlock.HorizontalAlignment = "Right"
-        $detBlock.VerticalAlignment   = "Center"
-        $detBlock.Margin = [System.Windows.Thickness]::new(12, 0, 0, 0)
-        [System.Windows.Controls.DockPanel]::SetDock($detBlock, "Right")
-        $row.Children.Insert(0, $detBlock) | Out-Null
+# One DNS record from Resolve-DnsName -> @{ Value; Detail; Ttl } (pure; also
+# runs inside the lookup job, and is unit-tested)
+function ConvertTo-NSRecordRow {
+    param($Record, [string]$Type)
+    $r = $Record
+    $value, $detail = switch ($Type) {
+        "A"     { $r.IPAddress, "" }
+        "AAAA"  { $r.IPAddress, "" }
+        "MX"    { $r.NameExchange, "Priority $($r.Preference)" }
+        "NS"    { $r.NameHost, "" }
+        "CNAME" { $r.NameHost, "" }
+        "PTR"   { $r.NameHost, "" }
+        "TXT"   { (@($r.Strings) -join ""), "" }
+        "SOA"   { $r.PrimaryServer, "Admin $($r.NameAdministrator), serial $($r.SerialNumber)" }
+        "SRV"   { "$($r.NameTarget):$($r.Port)", "Priority $($r.Priority), weight $($r.Weight)" }
+        default { [string]$r.Name, "" }
     }
-
-    return $row
+    return @{ Value = [string]$value; Detail = [string]$detail; Ttl = [int]$r.TTL }
 }
 
-function New-NSTypeGroup {
-    param([string]$TypeLabel, [System.Collections.ArrayList]$Rows)
-
-    # cy-design flush section: no fill/box, hairline top divider.
-    $group = New-Object System.Windows.Controls.Border
-    $group.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-    $group.BorderThickness = [System.Windows.Thickness]::new(0, 1, 0, 0)
-    $group.CornerRadius    = [System.Windows.CornerRadius]::new(0)
-    $group.Padding         = [System.Windows.Thickness]::new(0, 12, 0, 12)
-    $group.Margin          = [System.Windows.Thickness]::new(0)
-
-    $stack = New-Object System.Windows.Controls.StackPanel
-
-    # Type header
-    $header = New-Object System.Windows.Controls.DockPanel
-    $header.Margin = [System.Windows.Thickness]::new(0, 0, 0, 6)
-
-    $badge = New-Object System.Windows.Controls.Border
-    $badge.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
-    $badge.CornerRadius = [System.Windows.CornerRadius]::new(7)
-    $badge.Padding      = [System.Windows.Thickness]::new(8, 2, 8, 2)
-    $badgeText = New-Object System.Windows.Controls.TextBlock
-    $badgeText.Text       = $TypeLabel
-    $badgeText.FontSize   = 11
-    $badgeText.FontWeight = "SemiBold"
-    $badgeText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
-    $badge.Child = $badgeText
-    $header.Children.Add($badge) | Out-Null
-
-    $countText = New-Object System.Windows.Controls.TextBlock
-    $countText.Text       = "$($Rows.Count) record$(if ($Rows.Count -ne 1) { 's' })"
-    $countText.FontSize   = 11
-    $countText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-    $countText.HorizontalAlignment = "Right"
-    $countText.VerticalAlignment   = "Center"
-    $countText.Margin = [System.Windows.Thickness]::new(8, 0, 0, 0)
-    [System.Windows.Controls.DockPanel]::SetDock($countText, "Right")
-    $header.Children.Insert(0, $countText) | Out-Null
-
-    $stack.Children.Add($header) | Out-Null
-
-    # Separator
-    $sep = New-Object System.Windows.Controls.Border
-    $sep.BorderThickness = [System.Windows.Thickness]::new(0, 1, 0, 0)
-    $sep.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-    $sep.Margin          = [System.Windows.Thickness]::new(0, 0, 0, 6)
-    $stack.Children.Add($sep) | Out-Null
-
-    foreach ($r in $Rows) {
-        $stack.Children.Add($r) | Out-Null
-    }
-
-    $group.Child = $stack
-    return $group
+function Reset-NSView {
+    param([string]$Message, [string]$Brush = "MutedText")
+    $netNSStatus.Text = $Message
+    $netNSStatus.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $Brush)
+    $netNSHeader.Child = $null
+    $netNSHeader.Visibility = "Collapsed"
+    $netNSResultsPanel.Children.Clear()
+    $btnNetNSCopy.Visibility = "Collapsed"
 }
 
-# -- Main lookup function -----------------------------------------------------
+# One group per record type: the type in the first column of its first row,
+# groups separated by a hairline
+function Add-NSTypeGroup {
+    param([string]$Type, [object[]]$Rows)
+    if (-not $netNSHeader.Child) {
+        $labels = @("Type", "Value", "Details", "TTL")
+        $cells = for ($i = 0; $i -lt 4; $i++) { New-NetProbeText $labels[$i] "MutedText" $(if ($i -eq 3) { "Right" } else { "Left" }) -Size 11 }
+        $netNSHeader.Child = New-NetProbeRow -Cells $cells -Padding 0 -Widths $script:nsColumns
+        $netNSHeader.Visibility = "Visible"
+    }
+    $group = New-Object System.Windows.Controls.StackPanel
+    if ($netNSResultsPanel.Children.Count -gt 0) {
+        $sep = New-Object System.Windows.Controls.Border
+        $sep.BorderThickness = [System.Windows.Thickness]::new(0, 1, 0, 0)
+        $sep.Margin = [System.Windows.Thickness]::new(0, 4, 0, 4)
+        $sep.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
+        $group.Children.Add($sep) | Out-Null
+    }
+    $script:nsLines += "[$Type]"
+    $rows = @($Rows)
+    if ($rows.Count -eq 0) {
+        $group.Children.Add((New-NetProbeRow -Widths $script:nsColumns -Cells @(
+            (New-NetProbeText $Type "FgBrush" -Bold), (New-NetProbeText "No records" "MutedText")))) | Out-Null
+        $script:nsLines += "  (no records)"
+    }
+    for ($i = 0; $i -lt $rows.Count; $i++) {
+        $row   = $rows[$i]
+        $value = New-NetProbeText $row.Value
+        $value.TextWrapping = "Wrap"           # long TXT records wrap instead of trimming
+        $value.TextTrimming = "None"
+        $label = if ($i -eq 0) { New-NetProbeText $Type "FgBrush" -Bold } else { $null }
+        $group.Children.Add((New-NetProbeRow -Widths $script:nsColumns -Cells @(
+            $label, $value, (New-NetProbeText $row.Detail "MutedText"), (New-NetProbeText "$($row.Ttl)s" "MutedText" -Align Right)))) | Out-Null
+        $script:nsLines += "  " + ((@($row.Value, $row.Detail, "TTL $($row.Ttl)s") | Where-Object { $_ }) -join "  ")
+    }
+    $netNSResultsPanel.Children.Add($group) | Out-Null
+}
+
+# -- Lookup (background job) --------------------------------------------------
+# Only answer records of the asked type count: for a type the domain doesn't
+# have, DNS servers send the zone's SOA in the authority section instead, which
+# used to be listed as if it were an MX/AAAA/... record.
 function Invoke-NSLookup {
     $domain = $netNSBox.Text.Trim()
     if ([string]::IsNullOrWhiteSpace($domain)) { return }
+    if ($domain -notmatch '^[A-Za-z0-9_][A-Za-z0-9.\-_:]*$') {
+        Reset-NSView "Enter a domain name or IP address (e.g. example.com)." "DangerBrush"
+        return
+    }
+    $selected = [string]$netNSTypeBox.SelectedItem
+    $types = if ($selected -eq "All") { $script:nsAllTypes } else { @($selected) }
+    # Only MX, SOA and SRV have details; without them the column gives its room to the values
+    $script:nsColumns = @(56, "*", $(if (@($types | Where-Object { $_ -in "MX", "SOA", "SRV" }).Count) { 150 } else { 0 }), 70)
 
-    $selectedType = $netNSTypeBox.SelectedItem
-    $netNSResultsPanel.Children.Clear()
-    $netNSStatus.Text = "Resolving $domain ..."
+    Reset-NSView "Looking up $domain..."
+    $script:nsLines = @("NSLookup: $domain", "")
     $btnNetNSLookup.IsEnabled = $false
-    $window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Render)
 
-    $script:nsLastResults = "NSLookup: $domain`r`n$('=' * 50)`r`n"
-
-    try {
-        $types = if ($selectedType -eq "All") {
-            @("A", "AAAA", "MX", "NS", "CNAME", "TXT")
-        } else {
-            @($selectedType)
-        }
-
-        $totalRecords = 0
-
-        foreach ($type in $types) {
-            try {
-                $records = Resolve-DnsName -Name $domain -Type $type -ErrorAction Stop
-                $rows = [System.Collections.ArrayList]::new()
-                $script:nsLastResults += "`r`n[$type]`r`n"
-
-                foreach ($rec in $records) {
-                    $value  = ""
-                    $detail = ""
-                    switch ($rec.QueryType) {
-                        "A" {
-                            $value  = $rec.IPAddress
-                            $detail = "TTL $($rec.TTL)s"
-                            $script:nsLastResults += "  $($rec.IPAddress)  TTL=$($rec.TTL)`r`n"
-                        }
-                        "AAAA" {
-                            $value  = $rec.IPAddress
-                            $detail = "TTL $($rec.TTL)s"
-                            $script:nsLastResults += "  $($rec.IPAddress)  TTL=$($rec.TTL)`r`n"
-                        }
-                        "MX" {
-                            $value  = $rec.NameExchange
-                            $detail = "Priority $($rec.Preference)  |  TTL $($rec.TTL)s"
-                            $script:nsLastResults += "  $($rec.NameExchange)  Priority=$($rec.Preference)  TTL=$($rec.TTL)`r`n"
-                        }
-                        "NS" {
-                            $value  = $rec.NameHost
-                            $detail = "TTL $($rec.TTL)s"
-                            $script:nsLastResults += "  $($rec.NameHost)  TTL=$($rec.TTL)`r`n"
-                        }
-                        "CNAME" {
-                            $value  = $rec.NameHost
-                            $detail = "TTL $($rec.TTL)s"
-                            $script:nsLastResults += "  $($rec.NameHost)  TTL=$($rec.TTL)`r`n"
-                        }
-                        "TXT" {
-                            $value  = $rec.Strings -join ' '
-                            $detail = "TTL $($rec.TTL)s"
-                            $script:nsLastResults += "  $($rec.Strings -join ' ')  TTL=$($rec.TTL)`r`n"
-                        }
-                        "SOA" {
-                            $value  = "$($rec.PrimaryServer)  ($($rec.NameAdministrator))"
-                            $detail = "Serial $($rec.SerialNumber)  |  TTL $($rec.TTL)s"
-                            $script:nsLastResults += "  Primary=$($rec.PrimaryServer)  Admin=$($rec.NameAdministrator)  Serial=$($rec.SerialNumber)  TTL=$($rec.TTL)`r`n"
-                        }
-                        "SRV" {
-                            $value  = "$($rec.NameTarget):$($rec.Port)"
-                            $detail = "Priority $($rec.Priority)  Weight $($rec.Weight)  |  TTL $($rec.TTL)s"
-                            $script:nsLastResults += "  $($rec.NameTarget):$($rec.Port)  Priority=$($rec.Priority)  Weight=$($rec.Weight)  TTL=$($rec.TTL)`r`n"
-                        }
-                        "PTR" {
-                            $value  = $rec.NameHost
-                            $detail = "TTL $($rec.TTL)s"
-                            $script:nsLastResults += "  $($rec.NameHost)  TTL=$($rec.TTL)`r`n"
-                        }
-                        default {
-                            $value  = "$($rec.Name)  $($rec.Type)"
-                            $detail = "TTL $($rec.TTL)s"
-                            $script:nsLastResults += "  $($rec.Name)  $($rec.Type)  TTL=$($rec.TTL)`r`n"
-                        }
-                    }
-                    if ($value) {
-                        $rows.Add((New-NSRecordRow -Value $value -Detail $detail)) | Out-Null
-                    }
-                }
-
-                if ($rows.Count -gt 0) {
-                    $netNSResultsPanel.Children.Add((New-NSTypeGroup -TypeLabel $type -Rows $rows)) | Out-Null
-                    $totalRecords += $rows.Count
-                }
-            } catch {
-                # Skip types with no records silently in All mode
-                if ($selectedType -ne "All") {
-                    $noResult = New-Object System.Windows.Controls.TextBlock
-                    $noResult.Text       = "No $type records found for $domain"
-                    $noResult.FontSize   = 11
-                    $noResult.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-                    $noResult.Margin     = [System.Windows.Thickness]::new(0, 0, 0, 8)
-                    $netNSResultsPanel.Children.Add($noResult) | Out-Null
-                    $script:nsLastResults += "`r`n[$type]  No records found`r`n"
+    Start-ScyJob `
+        -Variables @{ domain = $domain; types = $types; rowFn = "function ConvertTo-NSRecordRow {${function:ConvertTo-NSRecordRow}}" } `
+        -Context   @{ Domain = $domain; Total = [ref]0 } `
+        -Work {
+            param($emit)
+            . ([scriptblock]::Create($rowFn))
+            foreach ($type in $types) {
+                try {
+                    $answers = @(Resolve-DnsName -Name $domain -Type $type -DnsOnly -ErrorAction Stop |
+                                 Where-Object { [string]$_.Section -eq "Answer" -and [string]$_.Type -eq $type })
+                    if ($type -eq "MX") { $answers = @($answers | Sort-Object Preference) }
+                    & $emit @{ Kind = 'type'; Type = $type; Rows = @($answers | ForEach-Object { ConvertTo-NSRecordRow $_ $type }) }
+                } catch {
+                    # Win32 error codes, the same in every Windows language
+                    $code = $_.Exception.NativeErrorCode
+                    if ($code -eq 9003) { & $emit @{ Kind = 'nxdomain' }; return }
+                    if ($code -eq 9501) { & $emit @{ Kind = 'type'; Type = $type; Rows = @() }; continue }
+                    & $emit @{ Kind = 'error'; Type = $type; Text = $_.Exception.Message }
                 }
             }
-        }
-
-        if ($totalRecords -gt 0) {
-            $netNSStatus.Text = "$totalRecords record$(if ($totalRecords -ne 1) { 's' }) found for $domain"
-            $btnNetNSCopy.IsEnabled = $true
-            $btnNetNSCopy.Opacity = 1.0
-        } else {
-            $netNSStatus.Text = "No records found for $domain"
-        }
-    } catch {
-        $netNSStatus.Text = "Error: $($_.Exception.Message)"
-    }
-
-    $btnNetNSLookup.IsEnabled = $true
+        } `
+        -OnLine {
+            param($m, $ctx)
+            switch ($m.Kind) {
+                'type'     { Add-NSTypeGroup $m.Type $m.Rows; $ctx.Total.Value += @($m.Rows).Count }
+                'nxdomain' { Reset-NSView "$($ctx.Domain) doesn't exist (no such domain)." "DangerBrush"; $ctx.Total.Value = -1 }
+                'error'    { Add-NSTypeGroup $m.Type @(@{ Value = "Lookup failed: $($m.Text)"; Detail = ""; Ttl = 0 }) }
+            }
+        } `
+        -OnComplete {
+            param($result, $err, $ctx)
+            $btnNetNSLookup.IsEnabled = $true
+            if ($err) { Reset-NSView "Lookup failed: $($err.Exception.Message)" "DangerBrush"; return }
+            if ($ctx.Total.Value -lt 0) { return }   # no such domain, already shown
+            $n = $ctx.Total.Value
+            $netNSStatus.Text = "$($ctx.Domain): " + $(if ($n -eq 1) { "1 record" } else { "$n records" })
+            $netNSStatus.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+            if ($netNSResultsPanel.Children.Count -gt 0) { $btnNetNSCopy.Visibility = "Visible" }
+        } | Out-Null
 }
 
 $btnNetNSLookup.Add_Click({ Invoke-NSLookup })
@@ -622,17 +1003,7 @@ $netNSBox.Add_KeyDown({
 })
 
 $btnNetNSCopy.Add_Click({
-    if ($script:nsLastResults) {
-        [System.Windows.Clipboard]::SetText($script:nsLastResults)
-    }
-    $btnNetNSCopy.Content = "Copied"
-    $fadeTimer = New-Object System.Windows.Threading.DispatcherTimer
-    $fadeTimer.Interval = [TimeSpan]::FromSeconds(2)
-    $fadeTimer.Add_Tick({
-        $args[0].Stop()
-        $btnNetNSCopy.Content = "Copy"
-    })
-    $fadeTimer.Start()
+    Invoke-CopyAllFlash -Button $this -Text ($script:nsLines -join "`r`n")
 })
 
 # -- Wi-Fi QR code dialog ----------------------------------------------------
@@ -773,8 +1144,6 @@ function Show-WifiQRDialog([string]$ssid, [string]$NetworkKey, [string]$authType
 # -- Wi-Fi passwords ---------------------------------------------------------
 $btnNetWifi.Add_Click({
     $netWifiPanel.Children.Clear()
-    $statusIndicator.Text       = "* Reading Wi-Fi profiles..."
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
     $btnNetWifi.IsEnabled       = $false
 
     # netsh export + parsing run in a background job; rows are built on completion
@@ -923,8 +1292,6 @@ function Show-WifiProfiles {
         $netWifiPanel.Children.Add($tb) | Out-Null
     }
 
-    $statusIndicator.Text       = "* Ready"
-    $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
     $footerStatus.Text          = "Ready"
 }
 

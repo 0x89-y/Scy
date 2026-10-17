@@ -281,7 +281,7 @@ Describe 'Tweak state, backup and restore' {
         Set-ItemProperty "$base\B\Inproc" -Name '(Default)' -Value ''
         Get-TweakState $row.Checks | Should -Be 'Applied'
 
-        # Loaded exactly as Invoke-SelectedTweaks does (this used to arrive as one nested entry)
+        # Loaded exactly as Invoke-TweakChanges does (this used to arrive as one nested entry)
         $json    = Get-Content (Get-TweakBackupPath 'Test') -Raw | ConvertFrom-Json
         $entries = @($json | ForEach-Object { $_ })
         $entries.Count | Should -Be 3
@@ -350,6 +350,104 @@ Describe 'Input validation' {
         @{ Value = '1.2.3'; Expected = $false }, @{ Value = 'dns.google'; Expected = $false }
     ) {
         Test-DnsServerAddress $Value | Should -Be $Expected
+    }
+}
+
+Describe 'Ping and traceroute output' {
+    BeforeAll {
+        . ([scriptblock]::Create((Get-ScySource 'Tabs\Tab-Network.ps1' -Function 'ConvertTo-PingStatusText', 'Format-PingReply', 'Get-PingStats', 'Get-PingSummary', 'Format-TraceHop')))
+    }
+    It 'formats a reply with time and TTL' {
+        Format-PingReply -Status 'Success' -Address '1.1.1.1' -Time 11 -Ttl 58 | Should -Be 'Reply from 1.1.1.1: 11 ms, TTL 58'
+    }
+    It 'leaves out a missing TTL (IPv6 replies have none)' {
+        Format-PingReply -Status 'Success' -Address '::1' -Time 0 -Ttl 0 | Should -Be 'Reply from ::1: 0 ms'
+    }
+    It 'reports a timeout' {
+        Format-PingReply -Status 'TimedOut' -Address '0.0.0.0' | Should -Be 'Request timed out'
+    }
+    It 'spells out other statuses, naming the router that answered' {
+        Format-PingReply -Status 'DestinationHostUnreachable' -Address '192.168.1.1' | Should -Be 'Reply from 192.168.1.1: destination host unreachable'
+        Format-PingReply -Status 'DestinationNetworkUnreachable' -Address '0.0.0.0' | Should -Be 'Destination network unreachable'
+    }
+    It 'summarizes loss and times' {
+        $s = Get-PingSummary -Sent 4 -Times @(7, 10, 13)
+        $s[0] | Should -Be 'Sent 4, received 3, lost 1 (25% loss)'
+        $s[1] | Should -Be 'Min 7 ms, avg 10 ms, max 13 ms'
+    }
+    It 'computes the numbers behind the stats line' {
+        $s = Get-PingStats -Sent 4 -Times @(7, 10, 14)
+        $s.Received | Should -Be 3
+        $s.Lost     | Should -Be 1
+        $s.Loss     | Should -Be 25
+        $s.Min      | Should -Be 7
+        $s.Avg      | Should -Be 10
+        $s.Max      | Should -Be 14
+        (Get-PingStats -Sent 0).Loss | Should -Be 0
+        (Get-PingStats -Sent 2).Min  | Should -BeNullOrEmpty
+    }
+    It 'summarizes a run without replies in one line' {
+        $s = Get-PingSummary -Sent 4 -Times @()
+        @($s).Count | Should -Be 1
+        $s[0] | Should -Be 'Sent 4, received 0, lost 4 (100% loss)'
+    }
+    It 'formats a hop with answered and missing probes' {
+        Format-TraceHop -Hop 3 -Times @(12, $null, 10) -Address '79.127.195.209' |
+            Should -Be '  3   12 ms       *   10 ms    79.127.195.209'
+    }
+    It 'formats a hop that never answered' {
+        Format-TraceHop -Hop 12 -Times @($null, $null, $null) -Address $null |
+            Should -Be ' 12       *       *       *    Request timed out'
+    }
+}
+
+Describe 'Speed test' {
+    BeforeAll {
+        . ([scriptblock]::Create((Get-ScySource 'Tabs\Tab-Network.ps1' -Function 'ConvertTo-PingStatusText', 'ConvertTo-SpeedErrorText', 'Format-SpeedMbps')))
+    }
+    It 'explains <Code> as "<Expected>"' -ForEach @(
+        @{ Code = 'HTTP 404';              Expected = "the test file wasn't found (HTTP 404)" }
+        @{ Code = 'HTTP 503';              Expected = 'the server answered with HTTP 503' }
+        @{ Code = 'Timeout';               Expected = 'the connection timed out' }
+        @{ Code = 'NameResolutionFailure'; Expected = "the server name couldn't be found" }
+        @{ Code = 'ProtocolError';         Expected = 'protocol error' }
+        @{ Code = '';                      Expected = 'unknown error' }
+    ) {
+        ConvertTo-SpeedErrorText $Code | Should -Be $Expected
+    }
+    It 'formats <Mbps> Mbps as <Expected> (always with a dot)' -ForEach @(
+        @{ Mbps = 8.44;   Expected = '8.4' }
+        @{ Mbps = 0;      Expected = '0.0' }
+        @{ Mbps = 94.6;   Expected = '95' }
+        @{ Mbps = 940.2;  Expected = '940' }
+    ) {
+        Format-SpeedMbps $Mbps | Should -Be $Expected
+    }
+}
+
+Describe 'NSLookup records' {
+    BeforeAll {
+        . ([scriptblock]::Create((Get-ScySource 'Tabs\Tab-Network.ps1' -Function 'ConvertTo-NSRecordRow')))
+    }
+    It 'shows an A record as its address' {
+        $r = ConvertTo-NSRecordRow ([pscustomobject]@{ IPAddress = '168.119.60.252'; TTL = 600 }) 'A'
+        $r.Value  | Should -Be '168.119.60.252'
+        $r.Detail | Should -Be ''
+        $r.Ttl    | Should -Be 600
+    }
+    It 'shows an MX record with its priority' {
+        $r = ConvertTo-NSRecordRow ([pscustomobject]@{ NameExchange = 'mx1.example.com'; Preference = 10; TTL = 300 }) 'MX'
+        $r.Value  | Should -Be 'mx1.example.com'
+        $r.Detail | Should -Be 'Priority 10'
+    }
+    It 'joins the strings of a long TXT record' {
+        $r = ConvertTo-NSRecordRow ([pscustomobject]@{ Strings = @('v=spf1 include:a.example ', '-all'); TTL = 60 }) 'TXT'
+        $r.Value | Should -Be 'v=spf1 include:a.example -all'
+    }
+    It 'shows an SRV record as target:port with priority and weight' {
+        $r = ConvertTo-NSRecordRow ([pscustomobject]@{ NameTarget = 'sip.example.com'; Port = 5061; Priority = 1; Weight = 5; TTL = 60 }) 'SRV'
+        $r.Value  | Should -Be 'sip.example.com:5061'
+        $r.Detail | Should -Be 'Priority 1, weight 5'
     }
 }
 

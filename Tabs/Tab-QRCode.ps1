@@ -279,8 +279,8 @@ function Invoke-QRGenerate {
         $script:lastQRBg      = $script:qrBg
         $script:lastQRQuiet   = $quiet
 
-        $btnQRSave.IsEnabled = $true; $btnQRSave.Opacity = 1
-        $btnQRCopy.IsEnabled = $true; $btnQRCopy.Opacity = 1
+        $btnQRSave.IsEnabled = $true
+        $btnQRCopy.IsEnabled = $true
 
         $byteLen = [System.Text.Encoding]::UTF8.GetByteCount($payload)
         $hint          = New-Object System.Windows.Controls.TextBlock

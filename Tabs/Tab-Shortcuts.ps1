@@ -261,8 +261,10 @@
               $rowGrid.ColumnDefinitions.Add($starCol)
               $rowGrid.ColumnDefinitions.Add($autoCol)
 
-              $nameRow = New-Object System.Windows.Controls.StackPanel
-              $nameRow.Orientation = "Horizontal"
+              # DockPanel (not a horizontal StackPanel) so the name gets a finite width
+              # and trims with "..." instead of running under the command column
+              $nameRow = New-Object System.Windows.Controls.DockPanel
+              $nameRow.LastChildFill = $true
               $nameRow.VerticalAlignment = "Center"
               [System.Windows.Controls.Grid]::SetColumn($nameRow, 0)
 
@@ -270,13 +272,14 @@
               $nameBlock.Text = $shortcut.Name
               $nameBlock.FontSize = 12
               $nameBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+              $nameBlock.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
+              $nameBlock.ToolTip = $shortcut.Name
               $nameBlock.VerticalAlignment = "Center"
-              $nameRow.Children.Add($nameBlock) | Out-Null
 
               if ($shortcut.RequiresAdmin) {
                   $adminBadge                = New-Object System.Windows.Controls.Border
                   $adminBadge.BorderThickness = [System.Windows.Thickness]::new(1)
-                  $adminBadge.CornerRadius   = [System.Windows.CornerRadius]::new(7)
+                  $adminBadge.CornerRadius   = [System.Windows.CornerRadius]::new(4)
                   $adminBadge.Padding        = [System.Windows.Thickness]::new(6, 1, 6, 1)
                   $adminBadge.Margin         = [System.Windows.Thickness]::new(8, 0, 0, 0)
                   $adminBadge.VerticalAlignment = "Center"
@@ -288,14 +291,20 @@
                   $adminBadgeText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
                   $adminBadge.Child          = $adminBadgeText
                   $adminBadge.ToolTip        = "Needs administrator rights. Windows may ask for permission when it opens."
+                  [System.Windows.Controls.DockPanel]::SetDock($adminBadge, [System.Windows.Controls.Dock]::Right)
                   $nameRow.Children.Add($adminBadge) | Out-Null
               }
+              $nameRow.Children.Add($nameBlock) | Out-Null
 
               $cmdBlock = New-Object System.Windows.Controls.TextBlock
               $cmdBlock.Text = $cmdDisplay
               $cmdBlock.FontSize = 11
               $cmdBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
               $cmdBlock.VerticalAlignment = "Center"
+              $cmdBlock.MaxWidth = 100
+              $cmdBlock.Margin = [System.Windows.Thickness]::new(10, 0, 0, 0)
+              $cmdBlock.TextTrimming = [System.Windows.TextTrimming]::CharacterEllipsis
+              $cmdBlock.ToolTip = $cmdDisplay
               [System.Windows.Controls.Grid]::SetColumn($cmdBlock, 1)
 
               $rowGrid.Children.Add($nameRow)  | Out-Null

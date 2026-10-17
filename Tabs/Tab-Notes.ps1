@@ -1,6 +1,6 @@
 ﻿# ── Tools sub-navigation ──────────────────────────────────────────
 # (Software Export moved to Apps > Installed)
-$script:toolsNavLabels = @("QR Code", "Notes", "File Hashing", "Passwords")
+$script:toolsNavLabels = @("QR code", "Notes", "File hashing", "Passwords")
 
 $toolsSectionQRCode      = Find "ToolsSection_QRCode"
 $toolsSectionNotes       = Find "ToolsSection_Notes"

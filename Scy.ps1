@@ -286,7 +286,6 @@ function Select-ScyTab {
 }
 
 # ── Named controls ───────────────────────────────────────────────
-$script:statusIndicator = Find "StatusIndicator"
 $script:footerStatus    = Find "FooterStatus"
 $psVersion       = Find "PSVersion"
 

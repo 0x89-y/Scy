@@ -183,8 +183,7 @@ $btnScan.Add_Click({
     # Recycle-bin size loads on demand with the scan (not on tab entry).
     Update-RecycleBinSize
 
-    $statusIndicator.Text       = "● Scanning..."
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
+    Set-BusyStatus "Scanning..."
     $cleanTempStatus.Text       = "Scanning..."
     $cleanTempStatus.Foreground = $window.Resources["MutedText"]
     $btnScan.IsEnabled = $false
@@ -202,8 +201,7 @@ $btnScan.Add_Click({
         if ($err) {
             $cleanTempStatus.Text       = "Scan failed: $err"
             $cleanTempStatus.Foreground = $window.Resources["DangerBrush"]
-            $statusIndicator.Text       = "● Ready"
-            $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
+            Set-ReadyStatus
             return
         }
 
@@ -230,8 +228,7 @@ $btnScan.Add_Click({
 
         $btnClean.IsEnabled = $true
 
-        $statusIndicator.Text       = "● Ready"
-        $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
+        Set-ReadyStatus
     }
 
     $onLineCtx = {
@@ -303,8 +300,7 @@ $btnClean.Add_Click({
         }
     }
 
-    $statusIndicator.Text       = "● Cleaning..."
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
+    Set-BusyStatus "Cleaning..."
     $cleanTempStatus.Text       = "Cleaning..."
     $cleanTempStatus.Foreground = $window.Resources["MutedText"]
     $btnClean.IsEnabled = $false
@@ -352,8 +348,7 @@ $btnClean.Add_Click({
         if ($err) {
             $cleanTempStatus.Text       = "Cleanup failed: $err"
             $cleanTempStatus.Foreground = $window.Resources["DangerBrush"]
-            $statusIndicator.Text       = "● Ready"
-            $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
+            Set-ReadyStatus
             return
         }
 
@@ -390,8 +385,7 @@ $btnClean.Add_Click({
         $script:cleanScanData   = $null
         $script:cleanCheckboxes = @{}
 
-        $statusIndicator.Text       = "● Ready"
-        $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
+        Set-ReadyStatus
     }
 
     Start-ScyJob `
@@ -445,8 +439,7 @@ $btnEmptyRecycleBin.Add_Click({
     $confirm = Show-ThemedDialog "Empty the Recycle Bin?" "Confirm" "YesNo" "Question"
     if ($confirm -ne "Yes") { return }
 
-    $statusIndicator.Text       = "● Emptying..."
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
+    Set-BusyStatus "Emptying..."
     $recycleBinStatus.Text      = "Emptying..."
     $recycleBinStatus.Foreground = $window.Resources["MutedText"]
     $btnEmptyRecycleBin.IsEnabled = $false
@@ -477,8 +470,7 @@ $btnEmptyRecycleBin.Add_Click({
         }
         $recycleBinResult.Visibility = "Visible"
 
-        $statusIndicator.Text       = "● Ready"
-        $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
+        Set-ReadyStatus
     }
 
     Start-ScyJob `

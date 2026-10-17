@@ -69,7 +69,6 @@ function Invoke-FileHash {
         $hashStatus.Text = "File not found: $FilePath"
         $hashResultsPanel.Visibility = "Collapsed"
         $btnHashCopy.IsEnabled = $false
-        $btnHashCopy.Opacity = 0.4
         return
     }
 
@@ -121,7 +120,6 @@ function Invoke-FileHash {
                 $hashStatus.Text = "Error: $($err.Exception.Message)"
                 $hashResultsPanel.Visibility = "Collapsed"
                 $btnHashCopy.IsEnabled = $false
-                $btnHashCopy.Opacity = 0.4
                 return
             }
 
@@ -135,7 +133,6 @@ function Invoke-FileHash {
             $hashResultsPanel.Visibility = "Visible"
             $hashStatus.Text = ""
             $btnHashCopy.IsEnabled = $true
-            $btnHashCopy.Opacity = 1.0
             if ($ctx.Then) { & $ctx.Then }
         } | Out-Null
 }

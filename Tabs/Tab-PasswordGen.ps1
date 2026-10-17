@@ -204,7 +204,6 @@ function Invoke-GeneratePasswords {
     $pwdStatus.Foreground = $window.Resources["SuccessBrush"]
 
     $btnPwdCopy.IsEnabled = $true
-    $btnPwdCopy.Opacity   = 1.0
 }
 
 $btnPwdGenerate.Add_Click({ Invoke-GeneratePasswords })

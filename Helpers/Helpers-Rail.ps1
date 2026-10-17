@@ -2,8 +2,9 @@
 #
 # One rail implementation for every tab (Apps, System, Tweaks, Bookmarks,
 # Network, Active Directory, Tools, Settings) so they all look identical:
-# flush, hairline-divided entries; the active entry gets a 16% accent wash,
-# a 2px accent left-bar and accent text.
+# flush entries without dividers; the active entry gets a 3px accent left-bar,
+# white semi-bold text and a neutral row fill (readable on dark; purple is only
+# the marker, like the underline on the top tabs).
 #
 # Usage:
 #   Build-Rail -Panel (Find "SystemRail") -Labels @("Info","Cleanup") `
@@ -22,11 +23,9 @@ function New-RailEntry {
         [bool]$IsSection = $false
     )
 
-    # The outer border carries only the bottom hairline; the accent left-bar is a
-    # separate 2px element (a Border has a single BorderBrush for all sides).
+    # The accent left-bar is a separate 3px element inside the entry.
     $border = New-Object System.Windows.Controls.Border
-    $border.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-    $border.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
+    $border.BorderThickness = [System.Windows.Thickness]::new(0)
     $border.Padding         = [System.Windows.Thickness]::new(0)
     $border.Cursor          = [System.Windows.Input.Cursors]::Hand
     $border.Background      = [System.Windows.Media.Brushes]::Transparent
@@ -37,13 +36,13 @@ function New-RailEntry {
     $outer.ColumnDefinitions.Add($b0); $outer.ColumnDefinitions.Add($b1)
 
     $bar = New-Object System.Windows.Controls.Border
-    $bar.Width             = 2
+    $bar.Width             = 3
     $bar.VerticalAlignment = "Stretch"
     $bar.Background        = [System.Windows.Media.Brushes]::Transparent
     [System.Windows.Controls.Grid]::SetColumn($bar, 0)
 
     $grid = New-Object System.Windows.Controls.Grid
-    $grid.Margin = [System.Windows.Thickness]::new((10 + ($Indent * 12)), 9, 12, 9)
+    $grid.Margin = [System.Windows.Thickness]::new((10 + ($Indent * 12)), 8, 12, 8)
     [System.Windows.Controls.Grid]::SetColumn($grid, 1)
     $c0 = New-Object System.Windows.Controls.ColumnDefinition; $c0.Width = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
     $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = [System.Windows.GridLength]::Auto
@@ -64,10 +63,12 @@ function New-RailEntry {
     [System.Windows.Controls.Grid]::SetColumn($countBlock, 1)
 
     if ($IsActive) {
-        $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentContainerBrush")
+        # Neutral row fill: in two-level rails the section headers are also white
+        # semi-bold, so text alone wouldn't single out the selected entry
+        $border.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush")
         $bar.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "AccentBrush")
-        $name.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "AccentBrush")
-        $countBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "AccentBrush")
+        $name.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "FgBrush")
+        $countBlock.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
         $name.FontWeight = [System.Windows.FontWeights]::SemiBold
     } else {
         if ($IsSection) {

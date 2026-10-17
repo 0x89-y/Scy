@@ -36,7 +36,7 @@ function Build-SystemRail {
     for ($i = 0; $i -lt $script:systemRailItems.Count; $i++) {
         $idx = $i
         $panel.Children.Add(
-            (New-RailEntry -Label $script:systemRailItems[$idx].Label -IsSection $true `
+            (New-RailEntry -Label $script:systemRailItems[$idx].Label `
                            -IsActive ($script:systemRailIndex -eq $idx) `
                            -OnClick ({ Set-SystemRail $idx }).GetNewClosure())) | Out-Null
     }
@@ -101,6 +101,7 @@ $netPanel    = Find "NetAdapterPanel"
 # Gathers OS, hardware, drives and network in one job and fills every Info block.
 function Populate-SysInfo {
     Set-BusyStatus "Gathering system info..."
+    Start-SysInfoLoad
 
     Start-ScyJob `
         -Work {
@@ -188,6 +189,7 @@ function Populate-SysInfo {
         -OnComplete {
             param($d, $err, $ctx)
             if ($err) {
+                Complete-SysInfoLoad $false
                 Set-ReadyStatus
                 return
             }
@@ -241,6 +243,7 @@ function Populate-SysInfo {
                 }
             }
 
+            Complete-SysInfoLoad $true
             Set-ReadyStatus
         } | Out-Null
 }
@@ -290,16 +293,77 @@ foreach ($__refreshBtn in @("BtnRefreshOS", "BtnRefreshHardware", "BtnRefreshDri
     if ($__b) { $__b.Add_Click({ Populate-SysInfo; Populate-ExecPolicy }) }
 }
 
+# ── "Not loaded yet" state ───────────────────────────────────────
+# Info only gathers when asked. Until the first load, each block shows a one-line
+# hint with a Load button in place of its (empty) rows.
+$script:sysInfoHints = @()
+foreach ($__blk in $script:sysInfoBlocks) {
+    $__stack = (Find $__blk.Block).Child
+    $__hint = New-Object System.Windows.Controls.StackPanel
+    $__hint.Orientation = "Horizontal"
+    $__hint.Tag = "SysInfoNotLoaded"
+    $__text = New-Object System.Windows.Controls.TextBlock
+    $__text.Text = "Not loaded yet."
+    $__text.FontSize = 12
+    $__text.VerticalAlignment = "Center"
+    $__text.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
+    $__load = New-Object System.Windows.Controls.Button
+    $__load.Content = "Load"
+    $__load.Style = $window.Resources["SecondaryButton"]
+    $__load.FontSize = 11
+    $__load.Padding = [System.Windows.Thickness]::new(10, 3, 10, 3)
+    $__load.Margin = [System.Windows.Thickness]::new(10, 0, 0, 0)
+    $__load.Add_Click({ Populate-SysInfo; Populate-ExecPolicy })
+    $__hint.Children.Add($__text) | Out-Null
+    $__hint.Children.Add($__load) | Out-Null
+    $__stack.Children.Insert(1, $__hint)
+    $script:sysInfoHints += @{ Text = $__text; Button = $__load }
+}
+
+# Loaded: show the rows, hide the hint. Not loaded: the reverse. $Message
+# replaces the hint text (e.g. while loading or after a failure).
+function Set-SysInfoLoaded {
+    param([bool]$Loaded, [string]$Message = "Not loaded yet.", [bool]$Busy = $false)
+    foreach ($blk in $script:sysInfoBlocks) {
+        $stack = (Find $blk.Block).Child
+        for ($i = 1; $i -lt $stack.Children.Count; $i++) {
+            $isHint = ($stack.Children[$i].Tag -eq "SysInfoNotLoaded")
+            $stack.Children[$i].Visibility = if ($isHint -ne $Loaded) { "Visible" } else { "Collapsed" }
+        }
+    }
+    foreach ($h in $script:sysInfoHints) {
+        $h.Text.Text = $Message
+        $h.Button.IsEnabled = -not $Busy
+    }
+    $script:sysInfoLoaded = $Loaded
+}
+Set-SysInfoLoaded $false
+
+# Called by Populate-SysInfo. A refresh after the first load keeps showing the
+# old values while it runs; only the very first load shows "Loading...".
+function Start-SysInfoLoad {
+    if (-not $script:sysInfoLoaded) { Set-SysInfoLoaded $false "Loading..." $true }
+}
+function Complete-SysInfoLoad {
+    param([bool]$Ok)
+    if ($Ok) { Set-SysInfoLoaded $true }
+    elseif (-not $script:sysInfoLoaded) { Set-SysInfoLoaded $false "Couldn't load system info." }
+}
+
 # ── Copy-all buttons (OS, Hardware, Drives, Network) ─────────────
 function Invoke-CopyAllFlash {
     param([System.Windows.Controls.Button]$Button, [string]$Text)
     [System.Windows.Clipboard]::SetText($Text)
-    $Button.Content = "✓"
+    # Briefly show a checkmark, then put back what the button showed. The copy
+    # buttons use the Segoe MDL2 icon font, which has its own checkmark glyph.
+    $check = if ($Button.FontFamily.Source -eq "Segoe MDL2 Assets") { [string][char]0xE73E } else { [string][char]0x2713 }
+    if ([string]$Button.Content -eq $check) { return }   # already flashing
     $t = New-Object System.Windows.Threading.DispatcherTimer
     $t.Interval = [TimeSpan]::FromSeconds(1.5)
-    $t.Tag = $Button
+    $t.Tag = @{ Button = $Button; Content = $Button.Content }
+    $Button.Content = $check
     $t.Add_Tick({
-        $args[0].Tag.Content = "Copy all"
+        $args[0].Tag.Button.Content = $args[0].Tag.Content
         $args[0].Stop()
     })
     $t.Start()

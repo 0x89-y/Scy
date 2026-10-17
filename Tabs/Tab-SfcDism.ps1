@@ -29,8 +29,6 @@ function Set-SfcDismBusy([string]$msg) {
     $sfcDismStatus.Text        = $msg
     $sfcDismStatus.Foreground  = $window.Resources["WarningBrush"]
     $sfcDismProgress.Value     = 0
-    $statusIndicator.Text      = "* $msg"
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
     $footerStatus.Text         = "Scy - $msg"
     $btnSfcRun.IsEnabled       = $false
     $btnDismRun.IsEnabled      = $false
@@ -284,15 +282,13 @@ function Start-SfcDismRunner {
         param($m, $ctx)
         switch ($m.Kind) {
             'line'     { $sfcDismOutput.AppendText($m.Text + "`r`n"); $sfcDismOutput.ScrollToEnd() }
-            'status'   { $sfcDismStatus.Text = $m.Text; $statusIndicator.Text = "* " + $m.Text }
+            'status'   { $sfcDismStatus.Text = $m.Text; $footerStatus.Text = "Scy - " + $m.Text }
             'progress' { $sfcDismProgress.Value = $m.Value }
         }
     } `
     -OnComplete {
         param($results, $err, $ctx)
         $script:sfcDismProcHolder.Clear()
-        $statusIndicator.Text       = "* Ready"
-        $statusIndicator.Foreground = $window.Resources["SuccessBrush"]
         $footerStatus.Text          = "Ready"
         $btnSfcRun.IsEnabled        = $true
         $btnDismRun.IsEnabled       = $true

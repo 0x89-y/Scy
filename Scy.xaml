@@ -66,17 +66,19 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border"
                                 Background="{TemplateBinding Background}"
-                                CornerRadius="10"
+                                CornerRadius="6"
                                 Padding="{TemplateBinding Padding}"
                                 BorderThickness="0">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter x:Name="content" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverSurfaceBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource MutedText}"/>
+                                <Setter TargetName="content" Property="Opacity" Value="0.8"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -99,19 +101,20 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border"
                                 Background="{TemplateBinding Background}"
-                                CornerRadius="10"
+                                CornerRadius="6"
                                 Padding="{TemplateBinding Padding}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter x:Name="content" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="{DynamicResource HoverSurfaceBrush}"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                                <Setter Property="Foreground" Value="{DynamicResource MutedText}"/>
+                                <Setter TargetName="content" Property="Opacity" Value="0.7"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -134,11 +137,11 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border"
                                 Background="{TemplateBinding Background}"
-                                CornerRadius="10"
+                                CornerRadius="6"
                                 Padding="{TemplateBinding Padding}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter x:Name="content" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -146,7 +149,9 @@
                                 <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.4"/>
+                                <Setter Property="Foreground" Value="{DynamicResource MutedText}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                                <Setter TargetName="content" Property="Opacity" Value="0.7"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -170,7 +175,7 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border"
                                 Background="{TemplateBinding Background}"
-                                CornerRadius="7"
+                                CornerRadius="6"
                                 Padding="{TemplateBinding Padding}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
@@ -265,7 +270,7 @@
                 <Border x:Name="Border" Grid.ColumnSpan="2"
                         Background="{DynamicResource InputBgBrush}"
                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                        CornerRadius="7"/>
+                        CornerRadius="6"/>
                 <Path x:Name="Arrow" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
                       Data="M 0 0 L 4 4 L 8 0 Z" Fill="{DynamicResource MutedText}"/>
             </Grid>
@@ -302,7 +307,7 @@
                                    AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
                                 <Border Background="{DynamicResource Surface2Brush}"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                        CornerRadius="7" Padding="2"
+                                        CornerRadius="6" Padding="2"
                                         MinWidth="{TemplateBinding ActualWidth}" MaxHeight="200">
                                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                                         <StackPanel IsItemsHost="True"/>
@@ -708,10 +713,6 @@
                     <TextBlock Text="Scy" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource FgBrush}"/>
                 </StackPanel>
                 <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Stretch">
-                    <TextBlock x:Name="StatusIndicator" Text="● Ready" FontSize="12"
-                               Foreground="{DynamicResource SuccessBrush}"
-                               VerticalAlignment="Center" Margin="0,0,12,0"
-                               WindowChrome.IsHitTestVisibleInChrome="True"/>
                     <Button x:Name="BtnSettingsCog" Content="&#xE713;" ToolTip="Settings"
                             Style="{StaticResource TitleBarIconButton}"/>
                     <Rectangle Width="1" Fill="{DynamicResource BorderBrush}" Margin="0,8,0,8"/>
@@ -730,7 +731,7 @@
             <!-- Global Search - right end of the tab strip band. Height is explicit
                  so Apply-NavLayout can align it against the strip predictably. -->
             <Border x:Name="GlobalSearchContainer" HorizontalAlignment="Right" VerticalAlignment="Top"
-                    Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                    Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                     Padding="10,0" Width="260" Height="32" Margin="0,6,20,0" Panel.ZIndex="10">
                 <Grid>
@@ -844,7 +845,7 @@
 
                                                 <!-- Search toolbar (curated-first; winget on demand) -->
                                                 <Border Grid.Row="0"
-                                                        Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                        Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                         Padding="10,0" Margin="24,16,24,16">
                                                     <Grid>
@@ -928,11 +929,11 @@
                                                 <Button x:Name="BtnExport" Content="Export&#x2026;"
                                                         ToolTip="Export the list as JSON or CSV"
                                                         Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"
-                                                        IsEnabled="False" Opacity="0.4"/>
+                                                        IsEnabled="False"/>
                                                 <Button x:Name="BtnExportCopy" Content="Copy"
                                                         ToolTip="Copy the list to the clipboard"
                                                         Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"
-                                                        IsEnabled="False" Opacity="0.4"/>
+                                                        IsEnabled="False"/>
                                                 <Button x:Name="BtnUninstallSelected"
                                                         Content="Uninstall"
                                                         ToolTip="Uninstall the checked apps"
@@ -958,7 +959,7 @@
                                                     </StackPanel>
                                                 </Grid>
                                                 <!-- Single filter for the merged list -->
-                                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                         Padding="8,0" Margin="0,0,0,8">
                                                     <Grid>
@@ -997,7 +998,7 @@
                                         </Border>
 
                                         <Border x:Name="UninstallResultsCard"
-                                                Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="24,14" Visibility="Collapsed">
                                             <StackPanel>
@@ -1050,7 +1051,7 @@
                                             </DockPanel>
                                             <Button x:Name="BtnCheckUpdates" Grid.Column="1"
                                                     Content="Check for updates"
-                                                    Style="{StaticResource ActionButton}" Margin="0,0,6,0"/>
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
                                             <Button x:Name="BtnUpdateAll" Grid.Column="2"
                                                     Content="Update all"
                                                     Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
@@ -1060,7 +1061,7 @@
                                         </Grid>
 
                                         <Border x:Name="UpdateStatusBadge"
-                                                Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="14,10" Margin="0,0,0,8" Cursor="Hand">
                                             <Grid>
@@ -1084,7 +1085,7 @@
                                         </Border>
 
                                         <Border x:Name="UpdatePkgListBorder"
-                                                Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="12" Margin="0,0,0,8" Visibility="Collapsed">
                                             <StackPanel>
@@ -1125,7 +1126,7 @@
                                         </Border>
 
                                         <Border x:Name="OutBorderUpdates"
-                                                Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="4" Visibility="Collapsed">
                                             <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -1308,7 +1309,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                     Padding="10,0">
                                 <Grid>
@@ -1331,9 +1332,9 @@
                             </Border>
 
                             <Button x:Name="BtnToggleTweakCreator" Grid.Column="1"
-                                    Content="&#x2B;" FontSize="16" Width="34" Height="34"
+                                    Content="+ Add" Height="34"
                                     ToolTip="Add tweak" Margin="8,0,0,0"
-                                    Style="{StaticResource ActionButton}" Padding="0"/>
+                                    Style="{StaticResource SecondaryButton}" Padding="14,0"/>
                         </Grid>
 
                         <!-- Creator form (collapsed by default) -->
@@ -1350,7 +1351,7 @@
                                 </DockPanel>
 
                                 <!-- Name -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="10,0" Margin="0,0,0,8">
                                     <Grid>
@@ -1365,7 +1366,7 @@
                                 </Border>
 
                                 <!-- Group -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="10,0" Margin="0,0,0,8">
                                     <Grid>
@@ -1380,7 +1381,7 @@
                                 </Border>
 
                                 <!-- Description -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="10,4" Margin="0,0,0,8">
                                     <Grid>
@@ -1400,7 +1401,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="10,0" Margin="0,0,8,0">
                                         <Grid>
@@ -1422,7 +1423,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="10,0" Margin="0,0,8,0">
                                         <Grid>
@@ -1473,7 +1474,7 @@
                             <StackPanel x:Name="TweaksGroupPanel"/>
                         </ScrollViewer>
 
-                        <!-- Footer: selection count left, actions right -->
+                        <!-- Footer: pending changes left, actions right -->
                         <Border Grid.Row="3"
                                 BorderBrush="{DynamicResource BorderBrush}"
                                 BorderThickness="0,1,0,0" Padding="24,12,24,12">
@@ -1482,9 +1483,9 @@
                                            FontSize="12" Foreground="{DynamicResource MutedText}"
                                            VerticalAlignment="Center" HorizontalAlignment="Left"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                    <Button x:Name="BtnRevertTweaks" Content="Revert selected"
+                                    <Button x:Name="BtnRevertTweaks" Content="Discard"
                                             Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
-                                    <Button x:Name="BtnApplyTweaks"  Content="Apply selected"
+                                    <Button x:Name="BtnApplyTweaks"  Content="Apply changes"
                                             Style="{StaticResource ActionButton}"/>
                                 </StackPanel>
                             </Grid>
@@ -2043,7 +2044,7 @@
 
                         <!-- Status + actions. The buttons used to float outside any block
                              (so they ignored the 24px inset); they live in the header now.
-                             Only "Run Both" is accented - one primary action per cy. -->
+                             Only "Run both" is accented - one primary action per cy. -->
                         <Border
                                 CornerRadius="0" BorderBrush="{DynamicResource BorderBrush}"
                                 BorderThickness="0,1,0,0" Padding="24,14" Margin="0,0,0,12">
@@ -2054,7 +2055,7 @@
                                                    FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}"
                                                    VerticalAlignment="Center"/>
-                                        <Border BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="7"
+                                        <Border BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="4"
                                                 Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center"
                                                 ToolTip="SFC and DISM need Scy to be started with 'Run as administrator'">
                                             <TextBlock Text="Admin" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource WarningBrush}"/>
@@ -2066,7 +2067,7 @@
                                                 Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
                                         <Button x:Name="BtnDismRun" Content="Run DISM"
                                                 Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
-                                        <Button x:Name="BtnSfcDismBoth" Content="Run Both"
+                                        <Button x:Name="BtnSfcDismBoth" Content="Run both"
                                                 Style="{StaticResource ActionButton}" Margin="0,0,6,0"/>
                                         <Button x:Name="BtnSfcDismStop" Content="Stop"
                                                 Style="{StaticResource DangerButton}" IsEnabled="False"/>
@@ -2171,7 +2172,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                     Padding="10,0">
                                 <Grid>
@@ -2197,9 +2198,9 @@
                             </Border>
 
                             <Button x:Name="BtnAddShortcut" Grid.Column="1"
-                                    Content="&#x2B;" FontSize="16" Width="34" Height="34" Padding="0"
+                                    Content="+ Add" Height="34" Padding="14,0"
                                     ToolTip="Add shortcut" Margin="8,0,0,0"
-                                    Style="{StaticResource ActionButton}"/>
+                                    Style="{StaticResource SecondaryButton}"/>
                             <!-- Destructive actions stay labelled, not icons -->
                             <Button x:Name="BtnRestoreDefaults" Grid.Column="2" Content="Restore defaults"
                                     Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"/>
@@ -2220,7 +2221,7 @@
                                 </DockPanel>
 
                                 <!-- Name -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="10,0" Margin="0,0,0,8">
                                     <Grid>
@@ -2240,7 +2241,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="10,0" Margin="0,0,8,0">
                                         <Grid>
@@ -2267,7 +2268,7 @@
                                 </StackPanel>
 
                                 <!-- Arguments -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="10,0" Margin="0,0,0,14">
                                     <Grid>
@@ -2329,7 +2330,7 @@
                                            Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                             </DockPanel>
                             <Button x:Name="BtnAddRegBookmark" Grid.Column="1" Content="+ Add bookmark"
-                                    Style="{StaticResource ActionButton}" Margin="0,0,6,0"/>
+                                    Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
                             <Button x:Name="BtnResetRegBookmarks" Grid.Column="2" Content="Clear all bookmarks"
                                     Style="{StaticResource DangerButton}"/>
                         </Grid>
@@ -2346,7 +2347,7 @@
                                 </DockPanel>
 
                                 <!-- Name -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="10,0" Margin="0,0,0,8">
                                     <Grid>
@@ -2361,7 +2362,7 @@
                                 </Border>
 
                                 <!-- Registry Path -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="10,0" Margin="0,0,0,8">
                                     <Grid>
@@ -2395,7 +2396,7 @@
                         </Border>
 
                         <!-- Search box and bookmarks list -->
-                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="10,0" Margin="0,0,0,12">
                                     <Grid>
@@ -2470,7 +2471,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <DockPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Ping/traceroute"
+                                                <TextBlock Text="Ping &amp; traceroute"
                                                            FontSize="14" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                             </DockPanel>
@@ -2478,7 +2479,7 @@
                                                 <Button x:Name="BtnNetPing"  Content="Ping"
                                                         Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
                                                 <Button x:Name="BtnNetTrace" Content="Traceroute"
-                                                        Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                                        Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                                                 <Button x:Name="BtnNetStop"  Content="Stop"
                                                         Style="{StaticResource SecondaryButton}"
                                                         IsEnabled="False"/>
@@ -2486,7 +2487,7 @@
                                         </Grid>
 
                                         <!-- Host input -->
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="10,0" Margin="0,0,0,10" Height="34">
                                             <Grid>
@@ -2503,15 +2504,28 @@
                                             </Grid>
                                         </Border>
 
-                                        <!-- Live output -->
-                                        <TextBox x:Name="NetPingOutput"
-                                                 IsReadOnly="True" AcceptsReturn="True"
-                                                 TextWrapping="Wrap" Background="{DynamicResource InputBgBrush}"
-                                                 Foreground="{DynamicResource FgBrush}" BorderThickness="0"
-                                                 FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                                 MinHeight="130" MaxHeight="280"
-                                                 VerticalScrollBarVisibility="Auto" Padding="8"
-                                                 Text="Enter a host above and click Ping or Traceroute."/>
+                                        <!-- Results: rows, stats and header are built by Tab-Network.ps1 -->
+                                        <Border x:Name="NetProbeCard" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="12,10">
+                                            <StackPanel>
+                                                <Grid>
+                                                    <TextBlock x:Name="NetProbeTitle" Text="Enter a host above and click Ping or Traceroute."
+                                                               FontSize="12" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"
+                                                               VerticalAlignment="Center" Margin="0,0,28,0"/>
+                                                    <Button x:Name="BtnNetProbeCopy" Style="{StaticResource CopyButton}" HorizontalAlignment="Right"
+                                                            Content="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                            ToolTip="Copy results as text" Visibility="Collapsed"/>
+                                                </Grid>
+                                                <WrapPanel x:Name="NetProbeStats" Margin="0,10,0,0" Visibility="Collapsed"/>
+                                                <Border x:Name="NetProbeHeader" Margin="0,10,0,2" Visibility="Collapsed"
+                                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,4"/>
+                                                <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
+                                                    <StackPanel x:Name="NetProbeRows"/>
+                                                </ScrollViewer>
+                                                <TextBlock x:Name="NetProbeFooter" FontSize="12" Foreground="{DynamicResource MutedText}"
+                                                           Margin="0,8,0,0" Visibility="Collapsed"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
 
@@ -2526,101 +2540,56 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <DockPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Speed test"
-                                                           FontSize="14" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
-                                            </DockPanel>
+                                            <TextBlock Grid.Column="0" Text="Speed test"
+                                                       FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Button x:Name="BtnNetSpeed" Content="Speed test"
+                                                <ComboBox x:Name="NetSpeedServerBox" Width="240" Height="34" Margin="0,0,8,0"
+                                                          ToolTip="Server to test against"/>
+                                                <Button x:Name="BtnNetSpeed" Content="Start" MinWidth="80"
                                                         Style="{StaticResource ActionButton}"/>
                                             </StackPanel>
                                         </Grid>
-                                        <TextBlock Text="8 parallel streams, 1.5s warmup + 3s measurement. ~5s total."
-                                                   FontSize="11" Foreground="{DynamicResource MutedText}"
-                                                   Margin="0,0,0,10" TextWrapping="Wrap"/>
-                                        <!-- Server selector -->
-                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                            <TextBlock Text="Server:"
-                                                       FontSize="12" Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <ComboBox x:Name="NetSpeedServerBox" MinWidth="250"/>
-                                        </StackPanel>
-                                        <!-- Status text -->
-                                        <TextBlock x:Name="NetSpeedStatus"
-                                                   Text="Click 'Speed test' to measure your download speed."
-                                                   FontSize="11" Foreground="{DynamicResource MutedText}"
-                                                   Margin="0,0,0,10"/>
 
-                                        <!-- Big speed display (hidden until result) -->
-                                        <Border x:Name="NetSpeedResultPanel" Visibility="Collapsed"
-                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
-                                                Padding="20,16" Margin="0,0,0,0">
-                                            <StackPanel HorizontalAlignment="Center">
-                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                                    <TextBlock x:Name="NetSpeedValue" Text="0"
-                                                               FontSize="42" FontWeight="Bold"
-                                                               Foreground="{DynamicResource FgBrush}"
-                                                               VerticalAlignment="Bottom"/>
-                                                    <TextBlock Text=" Mbps" FontSize="16"
-                                                               Foreground="{DynamicResource MutedText}"
-                                                               VerticalAlignment="Bottom" Margin="0,0,0,8"/>
-                                                </StackPanel>
-                                                <TextBlock x:Name="NetSpeedLabel" Text="Download"
-                                                           FontSize="12" Foreground="{DynamicResource MutedText}"
-                                                           HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                        <!-- Results: filled by the speed test in Tab-Network.ps1 -->
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16,12">
+                                            <StackPanel>
+                                                <TextBlock x:Name="NetSpeedStatus" Text="Pick a server and click Start."
+                                                           FontSize="12" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/>
+                                                <UniformGrid x:Name="NetSpeedMetrics" Columns="3" Margin="0,12,0,0" Visibility="Collapsed">
+                                                    <StackPanel>
+                                                        <TextBlock Text="Download" FontSize="12" Foreground="{DynamicResource MutedText}"/>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock x:Name="NetSpeedDown" Text="-" FontSize="28" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource FgBrush}"/>
+                                                            <TextBlock Text=" Mbps" FontSize="13" Foreground="{DynamicResource MutedText}"
+                                                                       VerticalAlignment="Bottom" Margin="0,0,0,6"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Text="Upload" FontSize="12" Foreground="{DynamicResource MutedText}"/>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock x:Name="NetSpeedUp" Text="-" FontSize="28" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource FgBrush}"/>
+                                                            <TextBlock x:Name="NetSpeedUpUnit" Text=" Mbps" FontSize="13" Foreground="{DynamicResource MutedText}"
+                                                                       VerticalAlignment="Bottom" Margin="0,0,0,6"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Text="Latency" FontSize="12" Foreground="{DynamicResource MutedText}"/>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock x:Name="NetSpeedPing" Text="-" FontSize="28" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource FgBrush}"/>
+                                                            <TextBlock Text=" ms" FontSize="13" Foreground="{DynamicResource MutedText}"
+                                                                       VerticalAlignment="Bottom" Margin="0,0,0,6"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </UniformGrid>
+                                                <TextBlock x:Name="NetSpeedDetails" FontSize="11" Foreground="{DynamicResource MutedText}"
+                                                           Margin="0,10,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
                                             </StackPanel>
                                         </Border>
-
-                                        <!-- Detail stats row (hidden until result) -->
-                                        <Grid x:Name="NetSpeedDetailsGrid" Visibility="Collapsed">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="0"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="0"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-
-                                            <!-- Streams -->
-                                            <Border Grid.Column="0" Padding="12,10">
-                                                <StackPanel HorizontalAlignment="Center">
-                                                    <TextBlock x:Name="NetSpeedStreams" Text="8"
-                                                               FontSize="18" FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource FgBrush}"
-                                                               HorizontalAlignment="Center"/>
-                                                    <TextBlock Text="Streams" FontSize="11"
-                                                               Foreground="{DynamicResource MutedText}"
-                                                               HorizontalAlignment="Center"/>
-                                                </StackPanel>
-                                            </Border>
-
-                                            <!-- Data sampled -->
-                                            <Border Grid.Column="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0" Padding="12,10">
-                                                <StackPanel HorizontalAlignment="Center">
-                                                    <TextBlock x:Name="NetSpeedSampled" Text="0 MB"
-                                                               FontSize="18" FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource FgBrush}"
-                                                               HorizontalAlignment="Center"/>
-                                                    <TextBlock Text="Sampled" FontSize="11"
-                                                               Foreground="{DynamicResource MutedText}"
-                                                               HorizontalAlignment="Center"/>
-                                                </StackPanel>
-                                            </Border>
-
-                                            <!-- Duration -->
-                                            <Border Grid.Column="4" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1,0,0,0" Padding="12,10">
-                                                <StackPanel HorizontalAlignment="Center">
-                                                    <TextBlock x:Name="NetSpeedDuration" Text="0s"
-                                                               FontSize="18" FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource FgBrush}"
-                                                               HorizontalAlignment="Center"/>
-                                                    <TextBlock Text="Duration" FontSize="11"
-                                                               Foreground="{DynamicResource MutedText}"
-                                                               HorizontalAlignment="Center"/>
-                                                </StackPanel>
-                                            </Border>
-                                        </Grid>
                                     </StackPanel>
                                 </Border>
 
@@ -2642,20 +2611,19 @@
                                             </DockPanel>
                                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button x:Name="BtnNetNSLookup" Content="Lookup"
-                                                        Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                                                <Button x:Name="BtnNetNSCopy" Content="Copy"
-                                                        Style="{StaticResource SecondaryButton}"
-                                                        IsEnabled="False"/>
+                                                        Style="{StaticResource ActionButton}"/>
                                             </StackPanel>
                                         </Grid>
-                                        <TextBlock Text="Resolve DNS records for a domain. Shows A, AAAA, MX, NS, CNAME, and TXT records."
-                                                   FontSize="11" Foreground="{DynamicResource MutedText}"
-                                                   Margin="0,0,0,10" TextWrapping="Wrap"/>
 
-                                        <!-- Domain input -->
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <!-- Domain + record type -->
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                Padding="10,0" Margin="0,0,0,4" Height="34">
+                                                Padding="10,0" Height="34">
                                             <Grid>
                                                 <TextBlock x:Name="NetNSPlaceholder"
                                                            Text="Domain name (e.g. example.com)"
@@ -2669,21 +2637,29 @@
                                                          CaretBrush="{DynamicResource FgBrush}"/>
                                             </Grid>
                                         </Border>
+                                            <ComboBox x:Name="NetNSTypeBox" Grid.Column="1" Width="110" Height="34"
+                                                      Margin="8,0,0,0" ToolTip="Record type"/>
+                                        </Grid>
 
-                                        <!-- Record type selector -->
-                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,10">
-                                            <TextBlock Text="Record type:"
-                                                       FontSize="12" Foreground="{DynamicResource MutedText}"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <ComboBox x:Name="NetNSTypeBox" MinWidth="120"/>
-                                        </StackPanel>
-
-                                        <!-- Output -->
-                                        <TextBlock x:Name="NetNSStatus"
-                                                   Text="Enter a domain above and click Lookup."
-                                                   FontSize="11" Foreground="{DynamicResource MutedText}"
-                                                   Margin="0,0,0,8"/>
-                                        <StackPanel x:Name="NetNSResultsPanel"/>
+                                        <!-- Results: header and rows are built by Tab-Network.ps1 -->
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
+                                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="12,10">
+                                            <StackPanel>
+                                                <Grid>
+                                                    <TextBlock x:Name="NetNSStatus" Text="Enter a domain above and click Lookup."
+                                                               FontSize="12" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"
+                                                               VerticalAlignment="Center" Margin="0,0,28,0"/>
+                                                    <Button x:Name="BtnNetNSCopy" Style="{StaticResource CopyButton}" HorizontalAlignment="Right"
+                                                            Content="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                            ToolTip="Copy results as text" Visibility="Collapsed"/>
+                                                </Grid>
+                                                <Border x:Name="NetNSHeader" Margin="0,10,0,2" Visibility="Collapsed"
+                                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,4"/>
+                                                <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto">
+                                                    <StackPanel x:Name="NetNSResultsPanel"/>
+                                                </ScrollViewer>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
                                 </Border>
                                 </StackPanel>
@@ -2741,7 +2717,7 @@
                                                            Foreground="{DynamicResource FgBrush}"
                                                            VerticalAlignment="Center"/>
                                                 <!-- Static hint, not a check: saving fails without admin and says so -->
-                                                <Border BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="7"
+                                                <Border BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="4"
                                                         Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left"
                                                         ToolTip="Saving needs Scy to be started with 'Run as administrator'">
                                                     <TextBlock Text="Admin" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource WarningBrush}"/>
@@ -2777,7 +2753,7 @@
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
 
-                                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                             Padding="10,0" Margin="0,0,8,0">
                                                         <Grid>
@@ -2791,7 +2767,7 @@
                                                         </Grid>
                                                     </Border>
 
-                                                    <Border Grid.Column="1" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                    <Border Grid.Column="1" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                             Padding="10,0" Margin="0,0,8,0">
                                                         <Grid>
@@ -2805,7 +2781,7 @@
                                                         </Grid>
                                                     </Border>
 
-                                                    <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                    <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                             Padding="10,0" Margin="0,0,8,0">
                                                         <Grid>
@@ -2882,7 +2858,7 @@
                                                            FontSize="14" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource FgBrush}"
                                                            VerticalAlignment="Center"/>
-                                                <Border BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="7"
+                                                <Border BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="4"
                                                         Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left"
                                                         ToolTip="Changing DNS needs Scy to be started with 'Run as administrator'">
                                                     <TextBlock Text="Admin" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource WarningBrush}"/>
@@ -2992,7 +2968,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0">
                                                 <Grid>
                                                     <TextBlock x:Name="DnsPrimaryPlaceholder" Text="Primary DNS"
@@ -3004,7 +2980,7 @@
                                                              SelectionBrush="{DynamicResource AccentBrush}"/>
                                                 </Grid>
                                             </Border>
-                                            <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0">
                                                 <Grid>
                                                     <TextBlock x:Name="DnsSecondaryPlaceholder" Text="Secondary DNS (optional)"
@@ -3150,7 +3126,7 @@
                                            VerticalAlignment="Center" TextWrapping="Wrap"/>
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                     <Button x:Name="BtnAdInstallRsat" Content="Install RSAT"
-                                            Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                            Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                                     <Button x:Name="BtnAdRecheck" Content="Recheck"
                                             Style="{StaticResource SecondaryButton}"/>
                                 </StackPanel>
@@ -3198,7 +3174,7 @@
                                             </StackPanel>
                                         </Grid>
 
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="10,0" Margin="0,0,0,10" Height="34">
                                             <Grid>
@@ -3215,11 +3191,13 @@
                                             </Grid>
                                         </Border>
 
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                Padding="8" MinHeight="180">
+                                                Padding="10,8">
                                             <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="360">
-                                                <StackPanel x:Name="AdUserPanel"/>
+                                                <StackPanel x:Name="AdUserPanel">
+                                                    <TextBlock Text="Results appear here." FontSize="12" Foreground="{DynamicResource MutedText}"/>
+                                                </StackPanel>
                                             </ScrollViewer>
                                         </Border>
                                     </StackPanel>
@@ -3252,7 +3230,7 @@
                                             </StackPanel>
                                         </Grid>
 
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="10,0" Margin="0,0,0,10" Height="34">
                                             <Grid>
@@ -3269,11 +3247,13 @@
                                             </Grid>
                                         </Border>
 
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                Padding="8" MinHeight="180">
+                                                Padding="10,8">
                                             <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="360">
-                                                <StackPanel x:Name="AdGroupPanel"/>
+                                                <StackPanel x:Name="AdGroupPanel">
+                                                    <TextBlock Text="Results appear here." FontSize="12" Foreground="{DynamicResource MutedText}"/>
+                                                </StackPanel>
                                             </ScrollViewer>
                                         </Border>
                                     </StackPanel>
@@ -3304,7 +3284,7 @@
                                             </StackPanel>
                                         </Grid>
 
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="10,0" Margin="0,0,0,10" Height="34">
                                             <Grid>
@@ -3321,11 +3301,13 @@
                                             </Grid>
                                         </Border>
 
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                Padding="8" MinHeight="180">
+                                                Padding="10,8">
                                             <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="360">
-                                                <StackPanel x:Name="AdComputerPanel"/>
+                                                <StackPanel x:Name="AdComputerPanel">
+                                                    <TextBlock Text="Results appear here." FontSize="12" Foreground="{DynamicResource MutedText}"/>
+                                                </StackPanel>
                                             </ScrollViewer>
                                         </Border>
                                     </StackPanel>
@@ -3360,7 +3342,7 @@
                                                    FontSize="11" Foreground="{DynamicResource MutedText}"
                                                    Margin="0,0,0,10" TextWrapping="Wrap"/>
 
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="0">
                                             <TextBox x:Name="AdOuOutput"
@@ -3368,7 +3350,7 @@
                                                      TextWrapping="NoWrap" Background="Transparent"
                                                      Foreground="{DynamicResource FgBrush}" BorderThickness="0"
                                                      FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                                     MinHeight="240" MaxHeight="480"
+                                                     MaxHeight="480"
                                                      HorizontalScrollBarVisibility="Auto"
                                                      VerticalScrollBarVisibility="Auto" Padding="8"
                                                      Text="Click Refresh to list organizational units."/>
@@ -3410,11 +3392,13 @@
                                                     Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"/>
                                         </WrapPanel>
 
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                                                Padding="8" MinHeight="220">
+                                                Padding="10,8">
                                             <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="440">
-                                                <StackPanel x:Name="AdDomainPanel"/>
+                                                <StackPanel x:Name="AdDomainPanel">
+                                                    <TextBlock Text="Pick one of the buttons above to show its details here." FontSize="12" Foreground="{DynamicResource MutedText}" TextWrapping="Wrap"/>
+                                                </StackPanel>
                                             </ScrollViewer>
                                         </Border>
 
@@ -3424,7 +3408,7 @@
                                                  Foreground="{DynamicResource FgBrush}" BorderThickness="1"
                                                  BorderBrush="{DynamicResource BorderBrush}"
                                                  FontFamily="{DynamicResource MonoFont}" FontSize="11"
-                                                 MinHeight="220" MaxHeight="440"
+                                                 MaxHeight="440"
                                                  VerticalScrollBarVisibility="Auto" Padding="8"
                                                  Visibility="Collapsed"/>
                                     </StackPanel>
@@ -3485,23 +3469,17 @@
                                                     Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
                                             <Button x:Name="BtnQRCopy" Content="Copy"
                                                     Style="{StaticResource SecondaryButton}"
-                                                    IsEnabled="False" Opacity="0.4" Margin="0,0,8,0"/>
+                                                    IsEnabled="False" Margin="0,0,8,0"/>
                                             <Button x:Name="BtnQRSave" Content="Save…"
                                                     Style="{StaticResource SecondaryButton}"
-                                                    IsEnabled="False" Opacity="0.4"/>
+                                                    IsEnabled="False"/>
                                         </StackPanel>
                                     </Grid>
 
                                     <!-- Data type selector -->
-                                    <Grid Margin="0,0,0,10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Type" FontSize="11"
-                                                   Foreground="{DynamicResource MutedText}"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <ComboBox x:Name="QRTemplateBox" Grid.Column="1" SelectedIndex="0">
+                                    <StackPanel Margin="0,0,0,10">
+                                        <TextBlock Text="Type" FontSize="12" Foreground="{DynamicResource SubTextBrush}" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="QRTemplateBox" SelectedIndex="0">
                                             <ComboBoxItem Content="Text / URL"/>
                                             <ComboBoxItem Content="Wi-Fi network"/>
                                             <ComboBoxItem Content="Contact (vCard)"/>
@@ -3510,11 +3488,11 @@
                                             <ComboBoxItem Content="Phone"/>
                                             <ComboBoxItem Content="Geo location"/>
                                         </ComboBox>
-                                    </Grid>
+                                    </StackPanel>
 
                                     <!-- ── Text / URL panel ── -->
                                     <StackPanel x:Name="QRPanel_Text">
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                 Padding="8,0" Margin="0,0,0,4">
                                             <Grid>
@@ -3535,11 +3513,11 @@
                                     <!-- ── Wi-Fi panel ── -->
                                     <StackPanel x:Name="QRPanel_Wifi" Visibility="Collapsed">
                                         <TextBlock Text="Network name (SSID)" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
                                             <TextBox x:Name="QRWifiSsid" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                         <TextBlock Text="Password" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
                                             <TextBox x:Name="QRWifiPassword" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                         <TextBlock Text="Security" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
@@ -3557,23 +3535,23 @@
                                     <!-- ── Contact (vCard) panel ── -->
                                     <StackPanel x:Name="QRPanel_Vcard" Visibility="Collapsed">
                                         <TextBlock Text="Full name" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
                                             <TextBox x:Name="QRVcardName" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                         <TextBlock Text="Organization" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
                                             <TextBox x:Name="QRVcardOrg" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                         <TextBlock Text="Phone" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
                                             <TextBox x:Name="QRVcardPhone" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                         <TextBlock Text="Email" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
                                             <TextBox x:Name="QRVcardEmail" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                         <TextBlock Text="Website" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
                                             <TextBox x:Name="QRVcardUrl" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                     </StackPanel>
@@ -3581,15 +3559,15 @@
                                     <!-- ── Email panel ── -->
                                     <StackPanel x:Name="QRPanel_Email" Visibility="Collapsed">
                                         <TextBlock Text="To address" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
                                             <TextBox x:Name="QREmailTo" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                         <TextBlock Text="Subject" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
                                             <TextBox x:Name="QREmailSubject" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                         <TextBlock Text="Body" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
                                             <TextBox x:Name="QREmailBody" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="50" MaxHeight="100" VerticalScrollBarVisibility="Auto"/>
                                         </Border>
                                     </StackPanel>
@@ -3597,11 +3575,11 @@
                                     <!-- ── SMS panel ── -->
                                     <StackPanel x:Name="QRPanel_Sms" Visibility="Collapsed">
                                         <TextBlock Text="Phone number" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,8">
                                             <TextBox x:Name="QRSmsNumber" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                         <TextBlock Text="Message" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
                                             <TextBox x:Name="QRSmsMessage" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="50" MaxHeight="100" VerticalScrollBarVisibility="Auto"/>
                                         </Border>
                                     </StackPanel>
@@ -3609,7 +3587,7 @@
                                     <!-- ── Phone panel ── -->
                                     <StackPanel x:Name="QRPanel_Phone" Visibility="Collapsed">
                                         <TextBlock Text="Phone number" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
+                                        <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
                                             <TextBox x:Name="QRPhoneNumber" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                         </Border>
                                     </StackPanel>
@@ -3624,13 +3602,13 @@
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0">
                                                 <TextBlock Text="Latitude" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
+                                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
                                                     <TextBox x:Name="QRGeoLat" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                                 </Border>
                                             </StackPanel>
                                             <StackPanel Grid.Column="2">
                                                 <TextBlock Text="Longitude" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,3"/>
-                                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
+                                                <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8,0" Margin="0,0,0,4">
                                                     <TextBox x:Name="QRGeoLon" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource FgBrush}" FontSize="12" CaretBrush="{DynamicResource FgBrush}" Padding="0,7" SelectionBrush="{DynamicResource AccentBrush}"/>
                                                 </Border>
                                             </StackPanel>
@@ -3639,7 +3617,7 @@
 
                                     <!-- ── Advanced options (collapsed by default) ── -->
                                     <Border x:Name="QRAdvancedHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="12,8" Margin="0,10,0,0" Cursor="Hand">
                                         <Grid>
@@ -3696,7 +3674,7 @@
                                             <Border Grid.Column="0" Width="118" Padding="0,0,12,0">
                                                 <StackPanel>
                                                     <TextBlock Text="Foreground" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,4"/>
-                                                    <Border x:Name="QRSwatch_Fg" Height="18" CornerRadius="7" Background="Black" Margin="0,0,0,4"/>
+                                                    <Border x:Name="QRSwatch_Fg" Height="18" CornerRadius="6" Background="Black" Margin="0,0,0,4"/>
                                                     <StackPanel Orientation="Horizontal">
                                                         <Button x:Name="QRPick_Fg" Content="Pick" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47" Margin="0,0,4,0"/>
                                                         <Button x:Name="QRReset_Fg" Content="↺" ToolTip="Reset to black" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47"/>
@@ -3707,7 +3685,7 @@
                                             <Border Grid.Column="1" Width="118" Padding="0,0,12,0">
                                                 <StackPanel>
                                                     <TextBlock Text="Background" FontSize="10" Foreground="{DynamicResource MutedText}" Margin="0,0,0,4"/>
-                                                    <Border x:Name="QRSwatch_Bg" Height="18" CornerRadius="7" Background="White" Margin="0,0,0,4"/>
+                                                    <Border x:Name="QRSwatch_Bg" Height="18" CornerRadius="6" Background="White" Margin="0,0,0,4"/>
                                                     <StackPanel Orientation="Horizontal">
                                                         <Button x:Name="QRPick_Bg" Content="Pick" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47" Margin="0,0,4,0"/>
                                                         <Button x:Name="QRReset_Bg" Content="↺" ToolTip="Reset to white" Style="{StaticResource SecondaryButton}" FontSize="11" Padding="4,2" Width="47"/>
@@ -3771,7 +3749,7 @@
                                 <WrapPanel x:Name="NotesTabsPanel" Grid.Row="1" Margin="0,0,0,8"/>
 
                                 <!-- Editor -->
-                                <Border Grid.Row="2" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                <Border Grid.Row="2" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                         Padding="4,4" MinHeight="350">
                                     <Grid>
@@ -3830,11 +3808,11 @@
                                                        Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                         </DockPanel>
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Button x:Name="BtnHashBrowse" Content="Browse File"
+                                            <Button x:Name="BtnHashBrowse" Content="Browse file"
                                                     Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                                            <Button x:Name="BtnHashCopy" Content="Copy Hashes"
+                                            <Button x:Name="BtnHashCopy" Content="Copy hashes"
                                                     Style="{StaticResource SecondaryButton}"
-                                                    IsEnabled="False" Opacity="0.4"/>
+                                                    IsEnabled="False"/>
                                         </StackPanel>
                                     </Grid>
                                     <TextBlock Text="Get MD5, SHA1, and SHA256 hashes for any file. Compare two files or verify downloads."
@@ -3842,7 +3820,7 @@
                                                Margin="0,0,0,10" TextWrapping="Wrap"/>
 
                                     <!-- File path input -->
-                                    <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                    <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="10,0" Margin="0,0,0,12">
                                         <Grid>
@@ -3864,7 +3842,7 @@
                                             <TextBlock Text="MD5" FontSize="11" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource MutedText}" Width="55"
                                                        VerticalAlignment="Center"/>
-                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                     Padding="8,6">
                                                 <TextBox x:Name="HashMD5" Background="Transparent" BorderThickness="0"
@@ -3879,7 +3857,7 @@
                                             <TextBlock Text="SHA1" FontSize="11" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource MutedText}" Width="55"
                                                        VerticalAlignment="Center"/>
-                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                     Padding="8,6">
                                                 <TextBox x:Name="HashSHA1" Background="Transparent" BorderThickness="0"
@@ -3894,7 +3872,7 @@
                                             <TextBlock Text="SHA256" FontSize="11" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource MutedText}" Width="55"
                                                        VerticalAlignment="Center"/>
-                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                     Padding="8,6">
                                                 <TextBox x:Name="HashSHA256" Background="Transparent" BorderThickness="0"
@@ -3926,9 +3904,9 @@
                                                    Foreground="{DynamicResource FgBrush}"
                                                    VerticalAlignment="Center"/>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                            <Button x:Name="BtnHashCompare" Content="Compare Files"
-                                                    Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
-                                            <Button x:Name="BtnHashVerify" Content="Verify Hash"
+                                            <Button x:Name="BtnHashCompare" Content="Compare files"
+                                                    Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                                            <Button x:Name="BtnHashVerify" Content="Verify hash"
                                                     Style="{StaticResource SecondaryButton}"/>
                                         </StackPanel>
                                     </DockPanel>
@@ -3940,7 +3918,7 @@
                                     <TextBlock Text="Expected hash (paste from download page)"
                                                FontSize="11" Foreground="{DynamicResource MutedText}"
                                                Margin="0,0,0,4"/>
-                                    <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                    <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="10,0" Margin="0,0,0,12">
                                         <Grid>
@@ -3957,13 +3935,13 @@
 
                                     <!-- Verification result -->
                                     <Border x:Name="HashVerifyResult" Visibility="Collapsed"
-                                            CornerRadius="7" Padding="10,8" Margin="0,0,0,8">
+                                            CornerRadius="6" Padding="10,8" Margin="0,0,0,8">
                                         <TextBlock x:Name="HashVerifyText" FontSize="12" FontWeight="SemiBold"/>
                                     </Border>
 
                                     <!-- Compare result -->
                                     <Border x:Name="HashCompareResult" Visibility="Collapsed"
-                                            CornerRadius="7" Padding="10,8">
+                                            CornerRadius="6" Padding="10,8">
                                         <TextBlock x:Name="HashCompareText" FontSize="12" FontWeight="SemiBold"/>
                                     </Border>
                                 </StackPanel>
@@ -3998,7 +3976,7 @@
                                                             Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
                                                     <Button x:Name="BtnPwdCopy" Content="Copy"
                                                             Style="{StaticResource SecondaryButton}"
-                                                            IsEnabled="False" Opacity="0.4"/>
+                                                            IsEnabled="False"/>
                                                 </StackPanel>
                                             </Grid>
 
@@ -4039,7 +4017,7 @@
                                                 <Button x:Name="BtnPwdLenMinus" Content="−" Grid.Column="1"
                                                         Style="{StaticResource SecondaryButton}"
                                                         Width="28" Height="28" FontSize="14" Padding="0"/>
-                                                <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                         Width="50" Margin="4,0" Padding="6,0">
                                                     <TextBox x:Name="PwdLengthBox" Text="16"
@@ -4068,7 +4046,7 @@
                                                 <TextBlock Text="Separator" Grid.Column="0"
                                                            FontSize="12" Foreground="{DynamicResource MutedText}"
                                                            VerticalAlignment="Center"/>
-                                                <Border Grid.Column="1" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                <Border Grid.Column="1" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                         Width="50" Margin="0,0,16,0" Padding="6,0">
                                                     <TextBox x:Name="PwdPhraseSeparator" Text="-" MaxLength="3"
@@ -4134,7 +4112,7 @@
                                                 <Button x:Name="BtnPwdCntMinus" Content="−" Grid.Column="1"
                                                         Style="{StaticResource SecondaryButton}"
                                                         Width="28" Height="28" FontSize="14" Padding="0"/>
-                                                <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                         Width="50" Margin="4,0" Padding="6,0">
                                                     <TextBox x:Name="PwdCountBox" Text="1"
@@ -4169,7 +4147,7 @@
                                                            Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                             </DockPanel>
 
-                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                     Padding="10,8">
                                                 <TextBox x:Name="PwdOutputBox"
@@ -4245,21 +4223,21 @@
                                     <TextBlock Text="Accent" FontSize="12" FontWeight="SemiBold"
                                                Foreground="{DynamicResource FgBrush}" Margin="0,12,0,8"/>
                                     <WrapPanel>
-                                        <Border x:Name="AccentSwatch_purple" Width="28" Height="28" CornerRadius="7"
+                                        <Border x:Name="AccentSwatch_purple" Width="28" Height="28" CornerRadius="6"
                                                 BorderThickness="2" Margin="0,0,8,8" Cursor="Hand" ToolTip="Purple"/>
-                                        <Border x:Name="AccentSwatch_blue"   Width="28" Height="28" CornerRadius="7"
+                                        <Border x:Name="AccentSwatch_blue"   Width="28" Height="28" CornerRadius="6"
                                                 BorderThickness="2" Margin="0,0,8,8" Cursor="Hand" ToolTip="Blue"/>
-                                        <Border x:Name="AccentSwatch_green"  Width="28" Height="28" CornerRadius="7"
+                                        <Border x:Name="AccentSwatch_green"  Width="28" Height="28" CornerRadius="6"
                                                 BorderThickness="2" Margin="0,0,8,8" Cursor="Hand" ToolTip="Green"/>
-                                        <Border x:Name="AccentSwatch_pink"   Width="28" Height="28" CornerRadius="7"
+                                        <Border x:Name="AccentSwatch_pink"   Width="28" Height="28" CornerRadius="6"
                                                 BorderThickness="2" Margin="0,0,8,8" Cursor="Hand" ToolTip="Pink"/>
-                                        <Border x:Name="AccentSwatch_orange" Width="28" Height="28" CornerRadius="7"
+                                        <Border x:Name="AccentSwatch_orange" Width="28" Height="28" CornerRadius="6"
                                                 BorderThickness="2" Margin="0,0,8,8" Cursor="Hand" ToolTip="Orange"/>
-                                        <Border x:Name="AccentSwatch_teal"   Width="28" Height="28" CornerRadius="7"
+                                        <Border x:Name="AccentSwatch_teal"   Width="28" Height="28" CornerRadius="6"
                                                 BorderThickness="2" Margin="0,0,8,8" Cursor="Hand" ToolTip="Teal"/>
-                                        <Border x:Name="AccentSwatch_windows" Width="28" Height="28" CornerRadius="7"
+                                        <Border x:Name="AccentSwatch_windows" Width="28" Height="28" CornerRadius="6"
                                                 BorderThickness="2" Margin="0,0,8,8" Cursor="Hand" ToolTip="Windows accent color"/>
-                                        <Border x:Name="AccentSwatch_custom" Width="28" Height="28" CornerRadius="7"
+                                        <Border x:Name="AccentSwatch_custom" Width="28" Height="28" CornerRadius="6"
                                                 BorderThickness="2" Margin="0,0,8,8" Cursor="Hand" ToolTip="Custom — click to pick a colour">
                                             <TextBlock Text="&#x270E;" FontSize="12" Foreground="{DynamicResource AccentContrastBrush}"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -4279,10 +4257,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_General" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_General" Text="&#x25BC;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_General">
                                         <TextBlock Text="General" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
@@ -4407,10 +4382,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_VisibleTabs" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_VisibleTabs" Text="&#x25BC;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_VisibleTabs">
                                         <TextBlock Text="Visible tabs" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
@@ -4427,10 +4399,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_Backup" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_Backup" Text="&#x25BC;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_Backup">
                                         <TextBlock Text="Backup &amp; restore" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
@@ -4459,10 +4428,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_Catalog" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_Catalog" Text="&#x25BC;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_Catalog">
                                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
                                             <Button x:Name="BtnImportBundles" Content="Import" Margin="0,0,6,0"
                                                     Style="{StaticResource SecondaryButton}"/>
@@ -4479,7 +4445,7 @@
 
                                     <!-- Curated apps (collapsible) -->
                                     <Border x:Name="CuratedAppsHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
                                         <Grid>
@@ -4508,7 +4474,7 @@
 
                                     <!-- Hidden curated apps (collapsible) -->
                                     <Border x:Name="HiddenAppsHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
                                         <Grid>
@@ -4537,7 +4503,7 @@
 
                                     <!-- Custom apps (collapsible) -->
                                     <Border x:Name="CustomAppsHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
                                         <Grid>
@@ -4574,7 +4540,7 @@
                                                         <ColumnDefinition Width="8"/>
                                                         <ColumnDefinition Width="*"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                    <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                             Padding="8,0" Height="28">
                                                         <Grid>
@@ -4588,7 +4554,7 @@
                                                                      CaretBrush="{DynamicResource FgBrush}"/>
                                                         </Grid>
                                                     </Border>
-                                                    <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                                    <Border Grid.Column="2" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                             Padding="8,0" Height="28">
                                                         <Grid>
@@ -4613,7 +4579,7 @@
                                                               VerticalContentAlignment="Center"
                                                               ToolTip="Pick an existing category or type a new one (leave blank for Other)"/>
                                                     <Button x:Name="BtnAddCustomApp" Grid.Column="1" Content="+ Add"
-                                                            Style="{StaticResource ActionButton}" Margin="8,0,0,0"
+                                                            Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
                                                             Padding="12,3" FontSize="11"/>
                                                 </Grid>
                                                 <TextBlock x:Name="AddCustomAppStatus" Text="" FontSize="11"
@@ -4642,10 +4608,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_AppBehavior" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_AppBehavior" Text="&#x25BC;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_AppBehavior">
                                         <TextBlock Text="App behavior" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
@@ -4690,10 +4653,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_AppUpdates" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_AppUpdates" Text="&#x25BC;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_AppUpdates">
                                         <TextBlock Text="App updates" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
@@ -4720,10 +4680,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_Groups" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_Groups" Text="&#x25BC;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_Groups">
                                         <TextBlock Text="Groups" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
@@ -4734,7 +4691,7 @@
 
                                     <!-- Shortcut groups (collapsible) -->
                                     <Border x:Name="ShortcutGroupsHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
                                         <Grid>
@@ -4760,7 +4717,7 @@
                                     <StackPanel x:Name="ShortcutGroupsContent" Visibility="Collapsed" Margin="0,4,0,12">
                                         <StackPanel x:Name="SettingsShortcutGroupsPanel"/>
                                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                     Padding="8,0" Margin="0,0,8,0">
                                                 <Grid>
@@ -4774,13 +4731,13 @@
                                                 </Grid>
                                             </Border>
                                             <Button x:Name="BtnAddShortcutGroup" Content="Add"
-                                                    Style="{StaticResource ActionButton}"/>
+                                                    Style="{StaticResource SecondaryButton}"/>
                                         </StackPanel>
                                     </StackPanel>
 
                                     <!-- Install categories (collapsible) -->
                                     <Border x:Name="InstallCategoriesHeader"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="12,8" Margin="0,0,0,4" Cursor="Hand">
                                         <Grid>
@@ -4806,7 +4763,7 @@
                                     <StackPanel x:Name="InstallCategoriesContent" Visibility="Collapsed" Margin="0,4,0,0">
                                         <StackPanel x:Name="SettingsInstallCategoriesPanel"/>
                                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            <Border Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                     Padding="8,0" Margin="0,0,8,0">
                                                 <Grid>
@@ -4820,7 +4777,7 @@
                                                 </Grid>
                                             </Border>
                                             <Button x:Name="BtnAddInstallCategory" Content="Add"
-                                                    Style="{StaticResource ActionButton}"/>
+                                                    Style="{StaticResource SecondaryButton}"/>
                                         </StackPanel>
                                     </StackPanel>
                                     </StackPanel> <!-- /SettingsBody_Groups -->
@@ -4831,10 +4788,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_LocalInstallers" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_LocalInstallers" Text="&#x25BC;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_LocalInstallers">
                                         <TextBlock Text="Local installers" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
@@ -4847,7 +4801,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                     Padding="10,0" Margin="0,0,8,0">
                                                 <TextBlock x:Name="SettingsLocalFolder"
@@ -4867,7 +4821,7 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            <Border Grid.Column="0" Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                                     BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                                     Padding="10,0" Margin="0,0,8,0">
                                                 <Grid>
@@ -4919,10 +4873,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_IconCache" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_IconCache" Text="&#x25BC;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_IconCache">
                                         <TextBlock Text="Icon cache" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
@@ -4948,13 +4899,13 @@
 
                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <Button x:Name="BtnFetchAllIcons" Content="Fetch all icons now"
-                                                Style="{StaticResource ActionButton}" Margin="0,0,8,0"/>
+                                                Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
                                         <Button x:Name="BtnClearIconCache" Content="Clear cache"
                                                 Style="{StaticResource SecondaryButton}"/>
                                     </StackPanel>
 
                                     <Border x:Name="IconFetchProgressBorder"
-                                            Background="{DynamicResource InputBgBrush}" CornerRadius="7"
+                                            Background="{DynamicResource InputBgBrush}" CornerRadius="6"
                                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                             Padding="12,10" Margin="0,12,0,0" Visibility="Collapsed">
                                         <StackPanel>
@@ -4982,10 +4933,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_Updates" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_Updates" Text="&#x25BC;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_Updates">
                                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
                                             <TextBlock x:Name="SelfUpdateStatusText" Text="" FontSize="12"
                                                        Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
@@ -5004,6 +4952,9 @@
                                         <TextBlock x:Name="SelfUpdateVersionLabel" Text="Version: ..."
                                                    FontSize="12" Foreground="{DynamicResource MutedText}"
                                                    Margin="0,10,0,0"/>
+                                        <TextBlock FontSize="12" Foreground="{DynamicResource MutedText}" Margin="0,2,0,0">
+                                            <Run Text="PowerShell "/><Run x:Name="PSVersion" Text="..."/>
+                                        </TextBlock>
                                         <Grid Margin="0,10,0,0">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
@@ -5054,14 +5005,11 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_Changelog" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_Changelog" Text="&#x25B6;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_Changelog">
                                         <TextBlock Text="Changelog" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
-                                    <StackPanel x:Name="SettingsBody_Changelog" Visibility="Collapsed">
+                                    <StackPanel x:Name="SettingsBody_Changelog">
                                         <StackPanel x:Name="ChangelogPanel" Margin="0,10,0,0"/>
                                     </StackPanel>
                                 </StackPanel>
@@ -5071,14 +5019,11 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0"
                                     Padding="24,14" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <DockPanel x:Name="SettingsHeader_Credits" Cursor="Hand">
-                                        <TextBlock x:Name="SettingsChevron_Credits" Text="&#x25B6;" FontSize="10"
-                                                   Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"
-                                                   Margin="0,0,6,0"/>
+                                    <DockPanel x:Name="SettingsHeader_Credits">
                                         <TextBlock Text="Credits" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource FgBrush}" VerticalAlignment="Center"/>
                                     </DockPanel>
-                                    <StackPanel x:Name="SettingsBody_Credits" Visibility="Collapsed">
+                                    <StackPanel x:Name="SettingsBody_Credits">
                                         <TextBlock FontSize="12" Foreground="{DynamicResource FgBrush}" Margin="0,10,0,6">
                                             <Run FontWeight="SemiBold">Scy</Run>
                                         </TextBlock>
@@ -5136,7 +5081,6 @@
                 <TextBlock HorizontalAlignment="Right" FontSize="11" Grid.Column="2"
                            Foreground="{DynamicResource MutedText}" VerticalAlignment="Center">
                     <Run x:Name="AppVersion" Text="Scy"/>
-                    <Run Text="  |  PowerShell "/><Run x:Name="PSVersion" Text="..."/>
                 </TextBlock>
             </Grid>
         </Border>

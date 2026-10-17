@@ -90,8 +90,6 @@ function Add-UpdatesOutput([string]$Text) {
 }
 
 function Set-UpdatesStatus([string]$Text) {
-    $statusIndicator.Text       = $Text
-    $statusIndicator.Foreground = $window.Resources["WarningBrush"]
     $footerStatus.Text          = "Scy - " + $Text
 }
 

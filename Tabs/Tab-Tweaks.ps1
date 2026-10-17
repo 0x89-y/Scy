@@ -137,30 +137,27 @@ function Restore-TweakBackup {
     }
 }
 
+# Tweaks without a "check" can't be read from the registry, so Scy notes when it
+# applied one (a marker next to the backups) and treats that as its state.
+function Get-TweakMarkerPath {
+    param([string]$FolderName)
+    Join-Path $script:tweakBackupDir ($FolderName + ".applied")
+}
+
+# Read every tweak's real state and reset its toggle to match (pending changes
+# are dropped - used on load, after Apply changes, and by Discard).
 function Update-TweakStates {
     foreach ($key in $tweakCheckboxes.Keys) {
         $row = $tweakCheckboxes[$key]
-        if (-not $row.StatePill) { continue }
         $state = Get-TweakState $row.Checks
-        $row.State = $state
-        switch ($state) {
-            "Applied" {
-                $row.StatePillText.Text = "Applied"
-                $row.StatePill.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "SuccessBrush")
-                $row.StatePillText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "SuccessBrush")
-                $row.StatePill.ToolTip = "This tweak's settings are currently in place"
-                $row.StatePill.Visibility = "Visible"
-            }
-            "Partial" {
-                $row.StatePillText.Text = "Partly applied"
-                $row.StatePill.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "MutedText")
-                $row.StatePillText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
-                $row.StatePill.ToolTip = "Some of this tweak's settings are in place, others aren't"
-                $row.StatePill.Visibility = "Visible"
-            }
-            default { $row.StatePill.Visibility = "Collapsed" }
+        if ($null -eq $state) {
+            $state = if (Test-Path -LiteralPath (Get-TweakMarkerPath $row.FolderName)) { "Applied" } else { "NotApplied" }
         }
+        $row.State   = $state
+        $row.Applied = ($state -eq "Applied")
+        $row.CheckBox.IsChecked = $row.Applied
     }
+    Update-TweakFooterCounts
 }
 
 function Build-TweakRow {
@@ -213,7 +210,7 @@ function Build-TweakRow {
     if ($requiresAdmin) {
         $adminBadge                   = New-Object System.Windows.Controls.Border
         $adminBadge.BorderThickness   = [System.Windows.Thickness]::new(1)
-        $adminBadge.CornerRadius      = [System.Windows.CornerRadius]::new(7)
+        $adminBadge.CornerRadius      = [System.Windows.CornerRadius]::new(4)
         $adminBadge.Padding           = [System.Windows.Thickness]::new(6, 1, 6, 1)
         $adminBadge.Margin            = [System.Windows.Thickness]::new(8, 0, 0, 0)
         $adminBadge.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
@@ -231,7 +228,7 @@ function Build-TweakRow {
     if ($caution) {
         $cautionBadge                   = New-Object System.Windows.Controls.Border
         $cautionBadge.BorderThickness   = [System.Windows.Thickness]::new(1)
-        $cautionBadge.CornerRadius      = [System.Windows.CornerRadius]::new(7)
+        $cautionBadge.CornerRadius      = [System.Windows.CornerRadius]::new(4)
         $cautionBadge.Padding           = [System.Windows.Thickness]::new(6, 1, 6, 1)
         $cautionBadge.Margin            = [System.Windows.Thickness]::new(8, 0, 0, 0)
         $cautionBadge.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
@@ -245,19 +242,14 @@ function Build-TweakRow {
         $nameRow.Children.Add($cautionBadge) | Out-Null
     }
 
-    # State pill (Applied / Partly applied) - filled in by Update-TweakStates
-    $statePill                   = New-Object System.Windows.Controls.Border
-    $statePill.BorderThickness   = [System.Windows.Thickness]::new(1)
-    $statePill.CornerRadius      = [System.Windows.CornerRadius]::new(7)
-    $statePill.Padding           = [System.Windows.Thickness]::new(6, 1, 6, 1)
-    $statePill.Margin            = [System.Windows.Thickness]::new(8, 0, 0, 0)
-    $statePill.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
-    $statePill.Visibility        = "Collapsed"
-    $statePillText               = New-Object System.Windows.Controls.TextBlock
-    $statePillText.FontSize      = 10
-    $statePillText.FontWeight    = [System.Windows.FontWeights]::SemiBold
-    $statePill.Child             = $statePillText
-    $nameRow.Children.Add($statePill) | Out-Null
+    # Status note ("Partly applied", "Will be applied", ...) - set by Update-TweakFooterCounts.
+    # The toggle itself shows whether the tweak is applied.
+    $stateText                   = New-Object System.Windows.Controls.TextBlock
+    $stateText.FontSize          = 11
+    $stateText.Margin            = [System.Windows.Thickness]::new(8, 0, 0, 0)
+    $stateText.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    $stateText.Visibility        = "Collapsed"
+    $nameRow.Children.Add($stateText) | Out-Null
 
     $stack.Children.Add($nameRow) | Out-Null
 
@@ -330,9 +322,9 @@ function Build-TweakRow {
         Checks          = @(if ($tweakMeta -and $tweakMeta.check) { $tweakMeta.check })
         Snapshot        = -not ($tweakMeta -and $tweakMeta.PSObject.Properties['snapshot'] -and -not $tweakMeta.snapshot)
         RestartExplorer = [bool]($tweakMeta -and $tweakMeta.restartExplorer)
-        StatePill       = $statePill
-        StatePillText   = $statePillText
+        StateText       = $stateText
         State           = $null
+        Applied         = $false   # what the system has now; the toggle shows the wanted state
     }
 }
 
@@ -497,25 +489,36 @@ function Set-TweaksSubNav {
                -ActiveIndex $Index -OnSelect { param($i) Set-TweaksSubNav $i }
 }
 
-# ── Footer button counts ─────────────────────────────────────────
+# ── Pending changes: row notes + footer ──────────────────────────
+# A row is pending when its toggle differs from what is applied. Each row gets a
+# short note, and the footer counts what "Apply changes" will do.
 function Update-TweakFooterCounts {
-    $count = 0
+    $toApply = 0; $toRevert = 0
     foreach ($key in $tweakCheckboxes.Keys) {
-        if ($tweakCheckboxes[$key].CheckBox.IsChecked) { $count++ }
-    }
-    # The count lives in the footer label now, so the buttons keep clean labels.
-    $btnApply  = Find "BtnApplyTweaks"
-    $btnRevert = Find "BtnRevertTweaks"
-    $countText = Find "TweakFooterCount"
-    if ($countText) {
-        $countText.Text = switch ($count) {
-            0       { "" }
-            1       { "1 tweak selected" }
-            default { "$count tweaks selected" }
+        $row  = $tweakCheckboxes[$key]
+        $want = [bool]$row.CheckBox.IsChecked
+        $note = $null; $brush = "MutedText"
+        if ($want -and -not $row.Applied)     { $toApply++;  $note = "Will be applied";  $brush = "AccentBrush" }
+        elseif (-not $want -and $row.Applied) { $toRevert++; $note = "Will be reverted"; $brush = "AccentBrush" }
+        elseif ($row.State -eq "Partial")     { $note = "Partly applied" }
+        if ($note) {
+            $row.StateText.Text = $note
+            $row.StateText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, $brush)
+            $row.StateText.ToolTip = if ($row.State -eq "Partial" -and -not $want) { "Some of this tweak's settings are in place, others aren't. Turn it on to apply the rest." } else { $null }
+            $row.StateText.Visibility = "Visible"
+        } else {
+            $row.StateText.Visibility = "Collapsed"
         }
     }
-    $btnApply.IsEnabled  = ($count -gt 0)
-    $btnRevert.IsEnabled = ($count -gt 0)
+
+    $parts = @()
+    if ($toApply)  { $parts += "$toApply to apply" }
+    if ($toRevert) { $parts += "$toRevert to revert" }
+    $countText = Find "TweakFooterCount"
+    if ($countText) { $countText.Text = $parts -join ", " }
+    $pending = ($toApply + $toRevert) -gt 0
+    (Find "BtnApplyTweaks").IsEnabled  = $pending -and -not $script:tweaksBusy
+    (Find "BtnRevertTweaks").IsEnabled = $pending -and -not $script:tweaksBusy
 }
 
 # ── Initial load ──────────────────────────────────────────────────
@@ -676,19 +679,23 @@ function Update-TweakFooterCounts {
 # the user knows to restart Scy with "Run as administrator".
 $script:tweaksBusy = $false
 
-function Invoke-SelectedTweaks {
-    param([ValidateSet("Apply", "Revert")][string]$Mode)
+# Applies the tweaks toggled on and reverts the ones toggled off (compared with
+# what is applied now), in one background job.
+function Invoke-TweakChanges {
     if ($script:tweaksBusy) { return }
 
     $work     = @()
     $noRevert = @()
     foreach ($key in $tweakCheckboxes.Keys) {
-        $row = $tweakCheckboxes[$key]
-        if (-not $row.CheckBox.IsChecked) { continue }
-        $item = @{ Key = $key; Name = $row.DisplayName; Script = $null; Restore = $null
-                   BackupFile = (Get-TweakBackupPath $row.FolderName); NewBackup = $false; RestartExplorer = $row.RestartExplorer }
+        $row  = $tweakCheckboxes[$key]
+        $want = [bool]$row.CheckBox.IsChecked
+        if ($want -eq $row.Applied) { continue }
+        $mode = if ($want) { "Apply" } else { "Revert" }
+        $item = @{ Key = $key; Name = $row.DisplayName; Mode = $mode; Script = $null; Restore = $null
+                   BackupFile = (Get-TweakBackupPath $row.FolderName); Marker = (Get-TweakMarkerPath $row.FolderName)
+                   NewBackup = $false; RestartExplorer = $row.RestartExplorer }
 
-        if ($Mode -eq "Apply") {
+        if ($mode -eq "Apply") {
             if (-not (Test-Path $row.ApplyScript)) { continue }
             # Remember what was there before, so Revert can put exactly that back
             try { $item.NewBackup = [bool](Save-TweakBackup $row) } catch { Write-ScyLog "Tweak backup failed for $($row.FolderName): $($_.Exception.Message)" "ERROR" }
@@ -707,26 +714,23 @@ function Invoke-SelectedTweaks {
         $work += $item
     }
 
-    if ($work.Count -eq 0 -and $noRevert.Count -eq 0) {
-        Show-ThemedDialog "No tweaks selected." "Info" "OK" "Information" | Out-Null
-        return
-    }
+    if ($work.Count -eq 0 -and $noRevert.Count -eq 0) { return }
 
     $script:tweaksBusy = $true
     (Find "BtnApplyTweaks").IsEnabled  = $false
     (Find "BtnRevertTweaks").IsEnabled = $false
-    $verbIng = if ($Mode -eq "Apply") { "Applying" } else { "Reverting" }
-    Set-BusyStatus "$verbIng tweaks..."
+    (Find "TweaksGroupPanel").IsEnabled = $false
+    Set-BusyStatus "Applying tweak changes..."
 
     Start-ScyJob `
         -Variables @{ items = $work; restoreFn = "function Restore-TweakBackup {${function:Restore-TweakBackup}}" } `
-        -Context   @{ Mode = $Mode; NoRevert = $noRevert; VerbIng = $verbIng } `
+        -Context   @{ NoRevert = $noRevert } `
         -Work {
             param($emit)
             . ([scriptblock]::Create($restoreFn))
             $restartExplorer = $false
             $results = foreach ($it in $items) {
-                & $emit $it.Name
+                & $emit (@{ Apply = "Applying"; Revert = "Reverting" }[$it.Mode] + " " + $it.Name)
                 $err = $null
                 try {
                     if ($it.Restore) {
@@ -740,33 +744,40 @@ function Invoke-SelectedTweaks {
                         }
                     }
                 } catch { $err = $_ }
-                @{ Key = $it.Key; Name = $it.Name; Error = $err; BackupFile = $it.BackupFile; NewBackup = $it.NewBackup; Restored = [bool]$it.Restore }
+                @{ Key = $it.Key; Name = $it.Name; Mode = $it.Mode; Error = $err; BackupFile = $it.BackupFile; Marker = $it.Marker
+                   NewBackup = $it.NewBackup; Restored = [bool]$it.Restore }
             }
             # Restored Explorer settings only take effect after a restart (Windows relaunches it)
             if ($restartExplorer) { Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue }
             return ,@($results)
         } `
         -OnLine {
-            param($name, $ctx)
-            $statusIndicator.Text = "$($ctx.VerbIng) $name..."
-            $footerStatus.Text    = "Scy - $($ctx.VerbIng) $name..."
+            param($text, $ctx)
+            $footerStatus.Text = "Scy - $text..."
         } `
         -OnComplete {
             param($results, $err, $ctx)
             $script:tweaksBusy = $false
+            (Find "TweaksGroupPanel").IsEnabled = $true
             Set-ReadyStatus
             if ($err) {
-                Update-TweakFooterCounts
+                Update-TweakStates
                 Show-ThemedDialog "Running the tweaks failed:`n$($err.Exception.Message)" "Tweak errors" "OK" "Error" | Out-Null
                 return
             }
-            $done = 0; $failed = @(); $needAdmin = @()
+            $applied = 0; $reverted = 0; $failed = @(); $needAdmin = @()
             foreach ($r in @($results)) {
                 if (-not $r.Error) {
-                    $done++
-                    if ($ctx.Mode -eq "Revert" -and $tweakCheckboxes.Contains($r.Key)) { $tweakCheckboxes[$r.Key].CheckBox.IsChecked = $false }
-                    # Backup used up: the next apply records fresh "before" values
-                    if ($r.Restored) { Remove-Item -LiteralPath $r.BackupFile -Force -ErrorAction SilentlyContinue }
+                    if ($r.Mode -eq "Apply") {
+                        $applied++
+                        # Marks "applied by Scy" for tweaks whose state can't be read
+                        Set-TweakMarker $r.Marker $true
+                    } else {
+                        $reverted++
+                        Set-TweakMarker $r.Marker $false
+                        # Backup used up: the next apply records fresh "before" values
+                        if ($r.Restored) { Remove-Item -LiteralPath $r.BackupFile -Force -ErrorAction SilentlyContinue }
+                    }
                 } else {
                     # A failed apply most likely changed nothing - don't keep a backup of it
                     if ($r.NewBackup) { Remove-Item -LiteralPath $r.BackupFile -Force -ErrorAction SilentlyContinue }
@@ -774,30 +785,51 @@ function Invoke-SelectedTweaks {
                     else { $failed += "$($r.Name): $($r.Error)" }
                 }
             }
-            Update-TweakFooterCounts
+            # Re-read the real state: toggles of anything that failed flip back
             Update-TweakStates
-            Show-TweakSummary -Mode $ctx.Mode -Done $done -Failed $failed -NeedAdmin $needAdmin -NoRevert $ctx.NoRevert
+            Show-TweakSummary -Applied $applied -Reverted $reverted -Failed $failed -NeedAdmin $needAdmin -NoRevert $ctx.NoRevert
         } | Out-Null
 }
 
+function Set-TweakMarker {
+    param([string]$Path, [bool]$On)
+    if ($On) {
+        if (-not (Test-Path -LiteralPath $script:tweakBackupDir)) { New-Item -ItemType Directory -Path $script:tweakBackupDir -Force | Out-Null }
+        [System.IO.File]::WriteAllText($Path, (Get-Date).ToString("o"))
+    } else {
+        Remove-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Show-TweakSummary {
-    param([string]$Mode, [int]$Done, [string[]]$Failed = @(), [string[]]$NeedAdmin = @(), [string[]]$NoRevert = @())
-    $failed = @($Failed); $needAdmin = @($NeedAdmin); $noRevert = @($NoRevert); $done = $Done
-    $verb = if ($Mode -eq "Apply") { "Applied" } else { "Reverted" }
+    param([int]$Applied, [int]$Reverted, [string[]]$Failed = @(), [string[]]$NeedAdmin = @(), [string[]]$NoRevert = @())
+    $failed = @($Failed); $needAdmin = @($NeedAdmin); $noRevert = @($NoRevert)
 
     $parts = @()
-    if ($done -gt 0)           { $parts += "$verb $done tweak(s)." }
+    $doneParts = @()
+    if ($Applied -gt 0)  { $doneParts += "applied $Applied" }
+    if ($Reverted -gt 0) { $doneParts += "reverted $Reverted" }
+    if ($doneParts.Count -gt 0) {
+        $s = ($doneParts -join ", ") + " tweak(s)."
+        $parts += $s.Substring(0, 1).ToUpper() + $s.Substring(1)
+    }
     if ($needAdmin.Count -gt 0) {
         $parts += "Needs administrator rights ($($needAdmin.Count)):`n" + (($needAdmin | ForEach-Object { "  - $_" }) -join "`n") +
                   "`nClose Scy and start it again with 'Run as administrator', then try these again."
     }
     if ($failed.Count -gt 0)   { $parts += "Failed ($($failed.Count)):`n" + ($failed -join "`n") }
-    if ($noRevert.Count -gt 0) { $parts += "No Revert.ps1, skipped ($($noRevert.Count)):`n" + (($noRevert | ForEach-Object { "  - $_" }) -join "`n") }
+    if ($noRevert.Count -gt 0) { $parts += "Can't be reverted - no Revert.ps1 and no saved values ($($noRevert.Count)):`n" + (($noRevert | ForEach-Object { "  - $_" }) -join "`n") }
 
     $ok = ($needAdmin.Count -eq 0 -and $failed.Count -eq 0 -and $noRevert.Count -eq 0)
-    $title = if ($ok) { "Done" } elseif ($needAdmin.Count -gt 0 -and $failed.Count -eq 0) { "Administrator rights required" } else { "Tweak errors" }
-    Show-ThemedDialog ($parts -join "`n`n") $title "OK" $(if ($ok) { "Information" } else { "Warning" }) | Out-Null
+    # Success needs no dialog: the toggles already show the result
+    if ($ok) {
+        if ($parts.Count -gt 0) { $footerStatus.Text = $parts[0] }
+        return
+    }
+    $title = if ($needAdmin.Count -gt 0 -and $failed.Count -eq 0) { "Administrator rights required" } else { "Tweak errors" }
+    Show-ThemedDialog ($parts -join "`n`n") $title "OK" "Warning" | Out-Null
 }
 
-(Find "BtnApplyTweaks").Add_Click({  Invoke-SelectedTweaks -Mode Apply })
-(Find "BtnRevertTweaks").Add_Click({ Invoke-SelectedTweaks -Mode Revert })
+(Find "BtnApplyTweaks").Add_Click({  Invoke-TweakChanges })
+# Discard: put every toggle back to what is applied now
+(Find "BtnRevertTweaks").Add_Click({ Update-TweakStates })

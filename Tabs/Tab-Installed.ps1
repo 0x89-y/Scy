@@ -73,8 +73,8 @@ $btnExportScan.Add_Click({
     (Find "BtnUninstallSelected").IsEnabled = $false
 
     # Disable buttons during scan
-    $btnExport.IsEnabled = $false; $btnExport.Opacity = 0.4
-    $btnExportCopy.IsEnabled = $false; $btnExportCopy.Opacity = 0.4
+    $btnExport.IsEnabled = $false
+    $btnExportCopy.IsEnabled = $false
 
     Start-ScyJob `
         -Work {
@@ -362,8 +362,8 @@ function Invoke-ExportRenderBatch {
     $exportSummary.Text = "$($script:exportSorted.Count) programs found  ($($script:exportCounts.Winget) Winget, $($script:exportCounts.Reg) Registry-only)"
     $exportStatus.Text  = "Done"
 
-    $btnExport.IsEnabled = $true; $btnExport.Opacity = 1
-    $btnExportCopy.IsEnabled = $true; $btnExportCopy.Opacity = 1
+    $btnExport.IsEnabled = $true
+    $btnExportCopy.IsEnabled = $true
 
     Set-ReadyStatus
 }

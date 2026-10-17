@@ -1,7 +1,7 @@
 ﻿# ── Settings Tab ─────────────────────────────────────────────────
 
 # ── Settings sub-navigation ──────────────────────────────────────
-$script:settingsNavLabels = @("General", "Appearance", "Apps & Groups", "About")
+$script:settingsNavLabels = @("General", "Appearance", "Apps & groups", "About")
 
 $settingsSectionAppearance = Find "SettingsSection_Appearance"
 $settingsSectionGeneral    = Find "SettingsSection_General"
@@ -22,24 +22,6 @@ function Set-SettingsSubNav {
 }
 
 Set-SettingsSubNav 0
-
-# ── Collapsible settings cards ──────────────────────────────────
-foreach ($section in @("Updates", "Changelog", "General", "VisibleTabs", "Backup", "Credits", "Catalog", "Groups", "LocalInstallers", "AppUpdates", "AppBehavior", "IconCache")) {
-    $header  = Find "SettingsHeader_$section"
-    $header.Tag = $section
-    $header.Add_MouseLeftButtonUp({
-        $name    = $this.Tag
-        $body    = Find "SettingsBody_$name"
-        $chevron = Find "SettingsChevron_$name"
-        if ($body.Visibility -eq "Visible") {
-            $body.Visibility = "Collapsed"
-            $chevron.Text = [char]0x25B6
-        } else {
-            $body.Visibility = "Visible"
-            $chevron.Text = [char]0x25BC
-        }
-    })
-}
 
 $script:settingsFile = Join-Path $script:dataDir "settings.json"   # see "User data folder" in Scy.ps1
 $script:settings = @{}
@@ -296,7 +278,7 @@ $script:localInstallerExtensions.Add('.exe')
 $script:localInstallerExtensions.Add('.msi')
 $script:cleanTargetSelection   = @{}
 $script:windowGeometry     = $null
-$script:speedTestServer    = "Hetzner FSN1 (DE)"
+$script:speedTestServer    = "Automatic (Cloudflare, nearest)"
 
 # Maps a parsed settings object onto script state. Shared by the startup load
 # and Settings > Backup > Import, so both always restore the same set of fields.
@@ -516,12 +498,10 @@ function Build-TabVisibilityList {
         $header = [string]$item.Header
         if ($header -eq "Settings") { continue }
 
-        # cy-design divided-list row: flush, hairline bottom divider, toggle switch
+        # Settings row: flush, no divider (spacing separates rows), toggle switch
         $row = New-Object System.Windows.Controls.Border
         $row.Background      = [System.Windows.Media.Brushes]::Transparent
-        $row.SetResourceReference([System.Windows.Controls.Border]::BorderBrushProperty, "BorderBrush")
-        $row.BorderThickness = [System.Windows.Thickness]::new(0, 0, 0, 1)
-        $row.Padding         = [System.Windows.Thickness]::new(0, 9, 0, 9)
+        $row.Padding         = [System.Windows.Thickness]::new(0, 5, 0, 5)
         $row.Cursor          = [System.Windows.Input.Cursors]::Hand
         $row.Add_MouseEnter({ $this.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "HoverSurfaceBrush") })
         $row.Add_MouseLeave({ $this.Background = [System.Windows.Media.Brushes]::Transparent })
@@ -1365,7 +1345,7 @@ function Render-GroupSettings {
         }.GetNewClosure()))
 
         $badge = New-Object System.Windows.Controls.Border
-        $badge.CornerRadius = [System.Windows.CornerRadius]::new(7)
+        $badge.CornerRadius = [System.Windows.CornerRadius]::new(4)
         $badge.Padding = [System.Windows.Thickness]::new(8, 2, 8, 2)
         $badge.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
         $badgeText = New-Object System.Windows.Controls.TextBlock
@@ -1521,7 +1501,7 @@ function Render-GroupSettings {
         }.GetNewClosure()))
 
         $badge = New-Object System.Windows.Controls.Border
-        $badge.CornerRadius = [System.Windows.CornerRadius]::new(7)
+        $badge.CornerRadius = [System.Windows.CornerRadius]::new(4)
         $badge.Padding = [System.Windows.Thickness]::new(8, 2, 8, 2)
         $badge.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "Surface2Brush")
         $badgeText = New-Object System.Windows.Controls.TextBlock

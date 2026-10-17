@@ -67,16 +67,16 @@ function Build-GlobalSearchIndex {
     $items.Add(@{ Name = "Domain";           Description = "Domain, forest, DCs, FSMO, whoami";             Category = "Active Directory"; Tab = "Active Directory"; SubNavIndex = 4 })
 
     $items.Add(@{ Name = "Tools";     Description = "QR code, notes, hashing & password generator";   Category = "Tabs"; Tab = "Tools"; SubNavIndex = $null })
-    $items.Add(@{ Name = "QR Code";         Description = "Generate QR codes";                                Category = "Tools"; Tab = "Tools"; SubNavIndex = 0 })
+    $items.Add(@{ Name = "QR code";         Description = "Generate QR codes";                                Category = "Tools"; Tab = "Tools"; SubNavIndex = 0 })
     $items.Add(@{ Name = "Notes";           Description = "Quick notes and scratchpad";                       Category = "Tools"; Tab = "Tools"; SubNavIndex = 1 })
-    $items.Add(@{ Name = "File Hashing";    Description = "MD5/SHA1/SHA256 hashes, compare & verify";         Category = "Tools"; Tab = "Tools"; SubNavIndex = 2 })
+    $items.Add(@{ Name = "File hashing";    Description = "MD5/SHA1/SHA256 hashes, compare & verify";         Category = "Tools"; Tab = "Tools"; SubNavIndex = 2 })
     $items.Add(@{ Name = "Passwords";       Description = "Generate secure passwords with custom rules";      Category = "Tools"; Tab = "Tools"; SubNavIndex = 3 })
     $items.Add(@{ Name = "Export installed apps"; Description = "Scan winget + registry, export as JSON/CSV";   Category = "Apps"; Tab = "Apps"; SubNavIndex = 1 })
 
     $items.Add(@{ Name = "Settings";  Description = "App settings, themes & backup";                  Category = "Tabs"; Tab = "Settings"; SubNavIndex = $null })
     $items.Add(@{ Name = "General";             Description = "General app preferences";              Category = "Settings"; Tab = "Settings"; SubNavIndex = 0 })
     $items.Add(@{ Name = "Appearance";          Description = "Theme and color settings";             Category = "Settings"; Tab = "Settings"; SubNavIndex = 1 })
-    $items.Add(@{ Name = "Apps & Groups";       Description = "Groups, app catalog, and icon cache";  Category = "Settings"; Tab = "Settings"; SubNavIndex = 2 })
+    $items.Add(@{ Name = "Apps & groups";       Description = "Groups, app catalog, and icon cache";  Category = "Settings"; Tab = "Settings"; SubNavIndex = 2 })
     $items.Add(@{ Name = "Backup";              Description = "Backup and restore settings";          Category = "Settings"; Tab = "Settings"; SubNavIndex = 3 })
     $items.Add(@{ Name = "Sidebar Tabs";        Description = "Show tabs as a vertical left rail"; Category = "Settings"; Tab = "Settings"; SubNavIndex = 0 })
 
