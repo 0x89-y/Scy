@@ -524,9 +524,17 @@
                                 <Setter Property="Foreground" Value="{DynamicResource FgBrush}"/>
                                 <Setter TargetName="tabBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                             </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
+                            <!-- Hover lightens unselected headers only. SourceName limits it to the
+                                 header: the TabItem's own IsMouseOver is also true over its page
+                                 content, which turned the selected tab grey whenever the mouse
+                                 was anywhere in the window. -->
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition SourceName="tabBorder" Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                </MultiTrigger.Conditions>
                                 <Setter Property="Foreground" Value="{DynamicResource SubTextBrush}"/>
-                            </Trigger>
+                            </MultiTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
