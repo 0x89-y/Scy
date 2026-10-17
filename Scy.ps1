@@ -32,6 +32,24 @@ foreach ($__f in @("settings.json", "notes.txt")) {
     }
 }
 
+# ── Desktop shortcut ─────────────────────────────────────────────
+# Older installers pointed the shortcut straight at Scy.vbs, and Explorer only
+# offers "Run as administrator" for shortcuts to programs. Repoint it once at
+# wscript.exe with Scy.vbs as the argument - same hidden launch, menu entry back.
+try {
+    $__vbs = Join-Path $PSScriptRoot "Scy.vbs"
+    $__lnk = Join-Path ([Environment]::GetFolderPath("Desktop")) "Scy.lnk"
+    if (Test-Path -LiteralPath $__lnk) {
+        $__sc = (New-Object -ComObject WScript.Shell).CreateShortcut($__lnk)
+        if ($__sc.TargetPath -eq $__vbs) {
+            $__sc.TargetPath = Join-Path $env:SystemRoot "System32\wscript.exe"
+            $__sc.Arguments  = "`"$__vbs`""
+            $__sc.WorkingDirectory = $PSScriptRoot
+            $__sc.Save()
+        }
+    }
+} catch {}
+
 # Read theme from settings early so the splash matches the user's theme.
 # cy-design model: mode (System/Light/Dark) picks the base; accent is separate
 # and doesn't affect the splash's neutral colours.

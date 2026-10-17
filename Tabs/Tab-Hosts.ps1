@@ -85,7 +85,7 @@ function New-HostsRow {
     $border.Margin          = [System.Windows.Thickness]::new(0)
 
     $grid = New-Object System.Windows.Controls.Grid
-    foreach ($spec in @(50, 150, "star", "star")) {
+    foreach ($spec in @(50, 150, "star", "star", 40)) {
         $cd = New-Object System.Windows.Controls.ColumnDefinition
         $cd.Width = switch ($spec) {
             "star" { New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star) }
@@ -128,20 +128,29 @@ function New-HostsRow {
     $commentText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "MutedText")
     [System.Windows.Controls.Grid]::SetColumn($commentText, 3)
 
+    $rowRef = [PSCustomObject]@{ Entry = $Entry; Border = $border }
+
+    # Col 4 - remove button (the right-click menu below does the same)
+    $removeBtn          = New-Object System.Windows.Controls.Button
+    $removeBtn.Content  = [char]0x2715
+    $removeBtn.Style    = $window.Resources["SecondaryButton"]
+    $removeBtn.FontSize = 11
+    $removeBtn.Padding  = [System.Windows.Thickness]::new(0)
+    $removeBtn.Width    = 26
+    $removeBtn.Height   = 24
+    $removeBtn.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
+    $removeBtn.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+    $removeBtn.ToolTip  = "Remove entry (takes effect when you save)"
+    $removeBtn.Tag      = $rowRef
+    $removeBtn.Add_Click({ param($s, $e); Remove-HostsEntry $s.Tag })
+    [System.Windows.Controls.Grid]::SetColumn($removeBtn, 4)
+
     # Right-click context menu for Remove
     $ctxMenu        = New-Object System.Windows.Controls.ContextMenu
     $miRemove       = New-Object System.Windows.Controls.MenuItem
     $miRemove.Header = "Remove entry"
-    $miRemove.Tag    = [PSCustomObject]@{ Entry = $Entry; Border = $border }
-    $miRemove.Add_Click({
-        param($mi, $e)
-        $t = $mi.Tag
-        $script:hostsEntries.Remove($t.Entry) | Out-Null
-        $script:hostsLines.Remove($t.Entry)   | Out-Null
-        $hostsEntriesPanel.Children.Remove($t.Border)
-        $hostsStatusText.Text = "$($script:hostsEntries.Count) entries  (unsaved)"
-        $hostsStatusText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
-    })
+    $miRemove.Tag    = $rowRef
+    $miRemove.Add_Click({ param($mi, $e); Remove-HostsEntry $mi.Tag })
     $ctxMenu.Items.Add($miRemove) | Out-Null
     $border.ContextMenu = $ctxMenu
 
@@ -149,8 +158,19 @@ function New-HostsRow {
     $grid.Children.Add($ipText)      | Out-Null
     $grid.Children.Add($hostText)    | Out-Null
     $grid.Children.Add($commentText) | Out-Null
+    $grid.Children.Add($removeBtn)   | Out-Null
     $border.Child = $grid
     return $border
+}
+
+# -- Remove an entry (from the list; the file changes on Save) ----
+function Remove-HostsEntry {
+    param($Row)
+    $script:hostsEntries.Remove($Row.Entry) | Out-Null
+    $script:hostsLines.Remove($Row.Entry)   | Out-Null
+    $hostsEntriesPanel.Children.Remove($Row.Border)
+    $hostsStatusText.Text = "$($script:hostsEntries.Count) entries  (unsaved)"
+    $hostsStatusText.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "WarningBrush")
 }
 
 # -- Rebuild the entries panel ------------------------------------

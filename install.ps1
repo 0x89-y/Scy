@@ -190,9 +190,12 @@ try {
 Write-Host "  Creating desktop shortcut..." -ForegroundColor Yellow
 try {
     $wsh = New-Object -ComObject WScript.Shell
-    $lnkPath = Join-Path $env:USERPROFILE "Desktop\Scy.lnk"
+    $lnkPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "Scy.lnk"
     $shortcut = $wsh.CreateShortcut($lnkPath)
-    $shortcut.TargetPath = Join-Path $installDir "Scy.vbs"
+    # Target wscript.exe rather than Scy.vbs itself: Explorer only offers
+    # "Run as administrator" on shortcuts to programs
+    $shortcut.TargetPath = Join-Path $env:SystemRoot "System32\wscript.exe"
+    $shortcut.Arguments = "`"$(Join-Path $installDir 'Scy.vbs')`""
     $shortcut.WorkingDirectory = $installDir
     if (Test-Path $icoPath) {
         $shortcut.IconLocation = "$icoPath,0"

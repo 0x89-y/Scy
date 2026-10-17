@@ -2847,6 +2847,7 @@
                                                             <ColumnDefinition Width="150"/>
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="40"/>
                                                         </Grid.ColumnDefinitions>
                                                         <TextBlock Grid.Column="0" Text="Enabled"    FontSize="11" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
                                                         <TextBlock Grid.Column="1" Text="IP address" FontSize="11" Foreground="{DynamicResource MutedText}" VerticalAlignment="Center"/>
